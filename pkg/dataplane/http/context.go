@@ -50,7 +50,7 @@ func NewContext(parentLogger logger.Logger, clusterEndpoints []string, numWorker
 			Addr: strings.Join(hosts, ","),
 		},
 		clusterEndpoints: clusterEndpoints,
-		requestChan: make(chan *v3io.Request, 1024),
+		requestChan:      make(chan *v3io.Request, 1024),
 		numWorkers:       numWorkers,
 	}
 

@@ -2,13 +2,13 @@ package test
 
 import (
 	"context"
-	"github.com/v3io/v3io-go/pkg/errors"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/v3io/v3io-go/pkg/controlplane"
 	"github.com/v3io/v3io-go/pkg/controlplane/http"
+	"github.com/v3io/v3io-go/pkg/errors"
 
 	"github.com/nuclio/logger"
 	"github.com/nuclio/zap"

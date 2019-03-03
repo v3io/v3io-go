@@ -2,9 +2,11 @@ package test
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/suite"
-	"github.com/v3io/v3io-go/pkg/dataplane"
 	"testing"
+
+	"github.com/v3io/v3io-go/pkg/dataplane"
+
+	"github.com/stretchr/testify/suite"
 )
 
 type asyncTestSuite struct {
