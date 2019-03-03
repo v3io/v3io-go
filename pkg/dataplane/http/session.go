@@ -1,0 +1,45 @@
+package v3iohttp
+
+import (
+	"encoding/base64"
+	"fmt"
+
+	"github.com/v3io/v3io-go/pkg/dataplane"
+
+	"github.com/nuclio/logger"
+)
+
+type session struct {
+	logger              logger.Logger
+	context             *context
+	authenticationToken string
+	accessKey           string
+}
+
+func newSession(parentLogger logger.Logger,
+	context *context,
+	username string,
+	password string,
+	accessKey string) (v3io.Session, error) {
+
+	return &session{
+		logger:              parentLogger.GetChild("session"),
+		context:             context,
+		authenticationToken: GenerateAuthenticationToken(username, password),
+		accessKey:           accessKey,
+	}, nil
+}
+
+// NewContainer creates a container
+func (s *session) NewContainer(newContainerInput *v3io.NewContainerInput) (v3io.Container, error) {
+	return newContainer(s.logger, s, newContainerInput.ContainerName)
+}
+
+func GenerateAuthenticationToken(username string, password string) string {
+
+	// generate token for basic authentication
+	usernameAndPassword := fmt.Sprintf("%s:%s", username, password)
+	encodedUsernameAndPassword := base64.StdEncoding.EncodeToString([]byte(usernameAndPassword))
+
+	return "Basic " + encodedUsernameAndPassword
+}
