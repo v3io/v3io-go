@@ -65,7 +65,7 @@ type Content struct {
 	XMLName        xml.Name `xml:"Contents"`
 	Key            string   `xml:"Key"`
 	Size           int      `xml:"Size"`
-	LastSequenceId int      `xml:"LastSequenceId"`
+	LastSequenceID int      `xml:"LastSequenceId"`
 	ETag           string   `xml:"ETag"`
 	LastModified   string   `xml:"LastModified"`
 }
@@ -90,9 +90,9 @@ type GetContainersInput struct {
 
 type GetContainersOutput struct {
 	DataPlaneOutput
-	XMLName    xml.Name    `xml:"ListAllMyBucketsResult"`
-	Owner      interface{} `xml:"Owner"`
-	Results    Containers  `xml:"Buckets"`
+	XMLName xml.Name    `xml:"ListAllMyBucketsResult"`
+	Owner   interface{} `xml:"Owner"`
+	Results Containers  `xml:"Buckets"`
 }
 
 type Containers struct {

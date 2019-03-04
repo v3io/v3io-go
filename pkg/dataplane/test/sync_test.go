@@ -2,10 +2,12 @@ package test
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/suite"
+	"testing"
+
 	"github.com/v3io/v3io-go/pkg/dataplane"
 	"github.com/v3io/v3io-go/pkg/errors"
-	"testing"
+
+	"github.com/stretchr/testify/suite"
 )
 
 type syncTestSuite struct {
@@ -21,7 +23,7 @@ type syncContainerTestSuite struct {
 }
 
 func (suite *syncContainerTestSuite) TestGetContainers() {
-	suite.T().Skip(	)
+	suite.T().Skip()
 	suite.containerName = ""
 
 	getContainersInput := v3io.GetContainersInput{}

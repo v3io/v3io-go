@@ -2,7 +2,6 @@ package v3iohttp
 
 // function names
 const (
-	setObjectFunctionName    = "ObjectSet"
 	putItemFunctionName      = "PutItem"
 	updateItemFunctionName   = "UpdateItem"
 	getItemFunctionName      = "GetItem"
@@ -12,12 +11,6 @@ const (
 	getRecordsFunctionName   = "GetRecords"
 	seekShardsFunctionName   = "SeekShard"
 )
-
-// headers for set object
-var setObjectHeaders = map[string]string{
-	"Content-Type":    "application/json",
-	"X-v3io-function": setObjectFunctionName,
-}
 
 // headers for put item
 var putItemHeaders = map[string]string{

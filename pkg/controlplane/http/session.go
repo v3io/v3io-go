@@ -176,17 +176,14 @@ func (s *session) createResource(ctx context.Context,
 	controlPlaneOutput *v3ioc.ControlPlaneOutput,
 	responseAttributes interface{}) error {
 
-	if err := s.createOrUpdateResource(ctx,
+	return s.createOrUpdateResource(ctx,
 		path,
 		http.MethodPost,
 		kind,
 		controlPlaneInput,
 		requestAttributes,
 		controlPlaneOutput,
-		responseAttributes); err != nil {
-		return err
-	}
-	return nil
+		responseAttributes)
 }
 
 func (s *session) updateResource(ctx context.Context,
@@ -197,18 +194,14 @@ func (s *session) updateResource(ctx context.Context,
 	responseID *v3ioc.ControlPlaneOutput,
 	responseAttributes interface{}) error {
 
-	if err := s.createOrUpdateResource(ctx,
+	return s.createOrUpdateResource(ctx,
 		path,
 		http.MethodPut,
 		kind,
 		controlPlaneInput,
 		requestAttributes,
 		responseID,
-		responseAttributes); err != nil {
-		return err
-	}
-	return nil
-
+		responseAttributes)
 }
 
 func (s *session) createOrUpdateResource(ctx context.Context,

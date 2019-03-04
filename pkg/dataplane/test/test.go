@@ -1,15 +1,17 @@
 package test
 
 import (
+	"os"
+
+	"github.com/v3io/v3io-go/pkg/dataplane"
+	"github.com/v3io/v3io-go/pkg/dataplane/http"
+
 	"github.com/nuclio/logger"
 	"github.com/nuclio/zap"
 	"github.com/stretchr/testify/suite"
-	"github.com/v3io/v3io-go/pkg/dataplane"
-	"github.com/v3io/v3io-go/pkg/dataplane/http"
-	"os"
 )
 
-type testSuite struct {
+type testSuite struct { // nolint: deadcode
 	suite.Suite
 	logger              logger.Logger
 	container           v3io.Container

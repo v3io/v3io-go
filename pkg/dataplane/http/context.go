@@ -24,7 +24,7 @@ import (
 )
 
 // TODO: Request should have a global pool
-var requestID uint64 = 0
+var requestID uint64
 
 type context struct {
 	logger           logger.Logger
@@ -210,7 +210,7 @@ func (c *context) GetItemsSync(getItemsInput *v3io.GetItemsInput) (*v3io.Respons
 		"PUT",
 		getItemsInput.Path,
 		getItemsHeaders,
-		[]byte(marshalledBody),
+		marshalledBody,
 		false)
 
 	if err != nil {
@@ -393,11 +393,7 @@ func (c *context) PutObjectSync(putObjectInput *v3io.PutObjectInput) error {
 		putObjectInput.Body,
 		true)
 
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 // DeleteObject
@@ -416,11 +412,7 @@ func (c *context) DeleteObjectSync(deleteObjectInput *v3io.DeleteObjectInput) er
 		nil,
 		true)
 
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 // CreateStream
@@ -443,11 +435,7 @@ func (c *context) CreateStreamSync(createStreamInput *v3io.CreateStreamInput) er
 		[]byte(body),
 		true)
 
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 // DeleteStream
@@ -463,7 +451,7 @@ func (c *context) DeleteStreamSync(deleteStreamInput *v3io.DeleteStreamInput) er
 	// get all shards in the stream
 	response, err := c.GetContainerContentsSync(&v3io.GetContainerContentsInput{
 		DataPlaneInput: deleteStreamInput.DataPlaneInput,
-		Path: deleteStreamInput.Path,
+		Path:           deleteStreamInput.Path,
 	})
 
 	if err != nil {
@@ -477,16 +465,16 @@ func (c *context) DeleteStreamSync(deleteStreamInput *v3io.DeleteStreamInput) er
 	for _, content := range response.Output.(*v3io.GetContainerContentsOutput).Contents {
 
 		// TODO: handle error - stop deleting? return multiple errors?
-		c.DeleteObjectSync(&v3io.DeleteObjectInput{
+		c.DeleteObjectSync(&v3io.DeleteObjectInput{ // nolint: errcheck
 			DataPlaneInput: deleteStreamInput.DataPlaneInput,
-			Path: content.Key,
+			Path:           content.Key,
 		})
 	}
 
 	// delete the actual stream
 	return c.DeleteObjectSync(&v3io.DeleteObjectInput{
 		DataPlaneInput: deleteStreamInput.DataPlaneInput,
-		Path: path.Dir(deleteStreamInput.Path) + "/",
+		Path:           path.Dir(deleteStreamInput.Path) + "/",
 	})
 }
 
@@ -586,7 +574,7 @@ func (c *context) PutRecordsSync(putRecordsInput *v3io.PutRecordsInput) (*v3io.R
 	}
 
 	buffer.WriteString(`]}`)
-	str := string(buffer.Bytes())
+	str := buffer.String()
 	fmt.Println(str)
 
 	response, err := c.sendRequest(&putRecordsInput.DataPlaneInput,
@@ -773,10 +761,8 @@ func (c *context) sendRequest(dataPlaneInput *v3io.DataPlaneInput,
 		request.Header.Set("Authorization", dataPlaneInput.AuthenticationToken)
 	}
 
-	if headers != nil {
-		for headerName, headerValue := range headers {
-			request.Header.Add(headerName, headerValue)
-		}
+	for headerName, headerValue := range headers {
+		request.Header.Add(headerName, headerValue)
 	}
 
 	c.logger.DebugWithCtx(dataPlaneInput.Ctx,
