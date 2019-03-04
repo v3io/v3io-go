@@ -19,6 +19,26 @@ package v3io
 // A container interface allows perform actions against a container
 type Container interface {
 
+	//
+	// Container
+	//
+
+	// GetContainers
+	GetContainers(*GetContainersInput, interface{}, chan *Response) (*Request, error)
+
+	// GetContainersSync
+	GetContainersSync(*GetContainersInput) (*Response, error)
+
+	// GetContainers
+	GetContainerContents(*GetContainerContentsInput, interface{}, chan *Response) (*Request, error)
+
+	// GetContainerContentsSync
+	GetContainerContentsSync(*GetContainerContentsInput) (*Response, error)
+
+	//
+	// Object
+	//
+
 	// GetObject
 	GetObject(*GetObjectInput, interface{}, chan *Response) (*Request, error)
 
@@ -36,6 +56,10 @@ type Container interface {
 
 	// DeleteObjectSync
 	DeleteObjectSync(*DeleteObjectInput) error
+
+	//
+	// KV
+	//
 
 	// GetItem
 	GetItem(*GetItemInput, interface{}, chan *Response) (*Request, error)
@@ -66,4 +90,38 @@ type Container interface {
 
 	// UpdateItemSync
 	UpdateItemSync(*UpdateItemInput) error
+
+	//
+	// Stream
+	//
+
+	// CreateStream
+	CreateStream(*CreateStreamInput, interface{}, chan *Response) (*Request, error)
+
+	// CreateStreamSync
+	CreateStreamSync(*CreateStreamInput) error
+
+	// DeleteStream
+	DeleteStream(*DeleteStreamInput, interface{}, chan *Response) (*Request, error)
+
+	// DeleteStreamSync
+	DeleteStreamSync(*DeleteStreamInput) error
+
+	// SeekShard
+	SeekShard(*SeekShardInput, interface{}, chan *Response) (*Request, error)
+
+	// SeekShardSync
+	SeekShardSync(*SeekShardInput) (*Response, error)
+
+	// PutRecords
+	PutRecords(*PutRecordsInput, interface{}, chan *Response) (*Request, error)
+
+	// PutRecordsSync
+	PutRecordsSync(*PutRecordsInput) (*Response, error)
+
+	// GetRecords
+	GetRecords(*GetRecordsInput, interface{}, chan *Response) (*Request, error)
+
+	// GetRecordsSync
+	GetRecordsSync(*GetRecordsInput) (*Response, error)
 }

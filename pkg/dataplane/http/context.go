@@ -1,12 +1,15 @@
 package v3iohttp
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
+	"path"
 	"reflect"
 	"strconv"
 	"strings"
@@ -68,6 +71,49 @@ func (c *context) NewSessionSync(newSessionInput *v3io.NewSessionInput) (v3io.Se
 		newSessionInput.Username,
 		newSessionInput.Password,
 		newSessionInput.AccessKey)
+}
+
+// GetContainers
+func (c *context) GetContainers(getContainersInput *v3io.GetContainersInput,
+	context interface{},
+	responseChan chan *v3io.Response) (*v3io.Request, error) {
+	return c.sendRequestToWorker(getContainersInput, context, responseChan)
+}
+
+// GetContainersSync
+func (c *context) GetContainersSync(getContainersInput *v3io.GetContainersInput) (*v3io.Response, error) {
+	return c.sendRequestAndXMLUnmarshal(
+		&getContainersInput.DataPlaneInput,
+		http.MethodGet,
+		"",
+		nil,
+		nil,
+		&v3io.GetContainersOutput{})
+}
+
+// GetContainers
+func (c *context) GetContainerContents(getContainerContentsInput *v3io.GetContainerContentsInput,
+	context interface{},
+	responseChan chan *v3io.Response) (*v3io.Request, error) {
+	return c.sendRequestToWorker(getContainerContentsInput, context, responseChan)
+}
+
+// GetContainerContentsSync
+func (c *context) GetContainerContentsSync(getContainerContentsInput *v3io.GetContainerContentsInput) (*v3io.Response, error) {
+	getContainerContentOutput := v3io.GetContainerContentsOutput{}
+
+	// prepare the query path
+	path := ""
+	if getContainerContentsInput.Path != "" {
+		path += "?prefix=" + getContainerContentsInput.Path
+	}
+
+	return c.sendRequestAndXMLUnmarshal(&getContainerContentsInput.DataPlaneInput,
+		http.MethodGet,
+		path,
+		nil,
+		nil,
+		&getContainerContentOutput)
 }
 
 // GetItem
@@ -377,6 +423,233 @@ func (c *context) DeleteObjectSync(deleteObjectInput *v3io.DeleteObjectInput) er
 	return nil
 }
 
+// CreateStream
+func (c *context) CreateStream(createStreamInput *v3io.CreateStreamInput,
+	context interface{},
+	responseChan chan *v3io.Response) (*v3io.Request, error) {
+	return c.sendRequestToWorker(createStreamInput, context, responseChan)
+}
+
+// CreateStreamSync
+func (c *context) CreateStreamSync(createStreamInput *v3io.CreateStreamInput) error {
+	body := fmt.Sprintf(`{"ShardCount": %d, "RetentionPeriodHours": %d}`,
+		createStreamInput.ShardCount,
+		createStreamInput.RetentionPeriodHours)
+
+	_, err := c.sendRequest(&createStreamInput.DataPlaneInput,
+		http.MethodPost,
+		createStreamInput.Path,
+		createStreamHeaders,
+		[]byte(body),
+		true)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// DeleteStream
+func (c *context) DeleteStream(deleteStreamInput *v3io.DeleteStreamInput,
+	context interface{},
+	responseChan chan *v3io.Response) (*v3io.Request, error) {
+	return c.sendRequestToWorker(deleteStreamInput, context, responseChan)
+}
+
+// DeleteStreamSync
+func (c *context) DeleteStreamSync(deleteStreamInput *v3io.DeleteStreamInput) error {
+
+	// get all shards in the stream
+	response, err := c.GetContainerContentsSync(&v3io.GetContainerContentsInput{
+		DataPlaneInput: deleteStreamInput.DataPlaneInput,
+		Path: deleteStreamInput.Path,
+	})
+
+	if err != nil {
+		return err
+	}
+
+	defer response.Release()
+
+	// delete the shards one by one
+	// TODO: paralellize
+	for _, content := range response.Output.(*v3io.GetContainerContentsOutput).Contents {
+
+		// TODO: handle error - stop deleting? return multiple errors?
+		c.DeleteObjectSync(&v3io.DeleteObjectInput{
+			DataPlaneInput: deleteStreamInput.DataPlaneInput,
+			Path: content.Key,
+		})
+	}
+
+	// delete the actual stream
+	return c.DeleteObjectSync(&v3io.DeleteObjectInput{
+		DataPlaneInput: deleteStreamInput.DataPlaneInput,
+		Path: path.Dir(deleteStreamInput.Path) + "/",
+	})
+}
+
+// SeekShard
+func (c *context) SeekShard(seekShardInput *v3io.SeekShardInput,
+	context interface{},
+	responseChan chan *v3io.Response) (*v3io.Request, error) {
+	return c.sendRequestToWorker(seekShardInput, context, responseChan)
+}
+
+// SeekShardSync
+func (c *context) SeekShardSync(seekShardInput *v3io.SeekShardInput) (*v3io.Response, error) {
+	var buffer bytes.Buffer
+
+	buffer.WriteString(`{"Type": "`)
+	buffer.WriteString(seekShardsInputTypeToString[seekShardInput.Type])
+	buffer.WriteString(`"`)
+
+	if seekShardInput.Type == v3io.SeekShardInputTypeSequence {
+		buffer.WriteString(`, "StartingSequenceNumber": `)
+		buffer.WriteString(strconv.Itoa(seekShardInput.StartingSequenceNumber))
+	} else if seekShardInput.Type == v3io.SeekShardInputTypeTime {
+		buffer.WriteString(`, "TimestampSec": `)
+		buffer.WriteString(strconv.Itoa(seekShardInput.Timestamp))
+		buffer.WriteString(`, "TimestampNSec": 0`)
+	}
+
+	buffer.WriteString(`}`)
+
+	response, err := c.sendRequest(&seekShardInput.DataPlaneInput,
+		http.MethodPost,
+		seekShardInput.Path,
+		seekShardsHeaders,
+		buffer.Bytes(),
+		false)
+	if err != nil {
+		return nil, err
+	}
+
+	seekShardOutput := v3io.SeekShardOutput{}
+
+	// unmarshal the body into an ad hoc structure
+	err = json.Unmarshal(response.Body(), &seekShardOutput)
+	if err != nil {
+		return nil, err
+	}
+
+	// set the output in the response
+	response.Output = &seekShardOutput
+
+	return response, nil
+}
+
+// PutRecords
+func (c *context) PutRecords(putRecordsInput *v3io.PutRecordsInput,
+	context interface{},
+	responseChan chan *v3io.Response) (*v3io.Request, error) {
+	return c.sendRequestToWorker(putRecordsInput, context, responseChan)
+}
+
+// PutRecordsSync
+func (c *context) PutRecordsSync(putRecordsInput *v3io.PutRecordsInput) (*v3io.Response, error) {
+
+	// TODO: set this to an initial size through heuristics?
+	// This function encodes manually
+	var buffer bytes.Buffer
+
+	buffer.WriteString(`{"Records": [`)
+
+	for recordIdx, record := range putRecordsInput.Records {
+		buffer.WriteString(`{"Data": "`)
+		buffer.WriteString(base64.StdEncoding.EncodeToString(record.Data))
+		buffer.WriteString(`"`)
+
+		if record.ClientInfo != nil {
+			buffer.WriteString(`,"ClientInfo": "`)
+			buffer.WriteString(base64.StdEncoding.EncodeToString(record.ClientInfo))
+			buffer.WriteString(`"`)
+		}
+
+		if record.ShardID != nil {
+			buffer.WriteString(`, "ShardId": `)
+			buffer.WriteString(strconv.Itoa(*record.ShardID))
+		}
+
+		if record.PartitionKey != "" {
+			buffer.WriteString(`, "PartitionKey": `)
+			buffer.WriteString(`"` + record.PartitionKey + `"`)
+		}
+
+		// add comma if not last
+		if recordIdx != len(putRecordsInput.Records)-1 {
+			buffer.WriteString(`}, `)
+		} else {
+			buffer.WriteString(`}`)
+		}
+	}
+
+	buffer.WriteString(`]}`)
+	str := string(buffer.Bytes())
+	fmt.Println(str)
+
+	response, err := c.sendRequest(&putRecordsInput.DataPlaneInput,
+		http.MethodPost,
+		putRecordsInput.Path,
+		putRecordsHeaders,
+		buffer.Bytes(),
+		false)
+	if err != nil {
+		return nil, err
+	}
+
+	putRecordsOutput := v3io.PutRecordsOutput{}
+
+	// unmarshal the body into an ad hoc structure
+	err = json.Unmarshal(response.Body(), &putRecordsOutput)
+	if err != nil {
+		return nil, err
+	}
+
+	// set the output in the response
+	response.Output = &putRecordsOutput
+
+	return response, nil
+}
+
+// GetRecords
+func (c *context) GetRecords(getRecordsInput *v3io.GetRecordsInput,
+	context interface{},
+	responseChan chan *v3io.Response) (*v3io.Request, error) {
+	return c.sendRequestToWorker(getRecordsInput, context, responseChan)
+}
+
+// GetRecordsSync
+func (c *context) GetRecordsSync(getRecordsInput *v3io.GetRecordsInput) (*v3io.Response, error) {
+	body := fmt.Sprintf(`{"Location": "%s", "Limit": %d}`,
+		getRecordsInput.Location,
+		getRecordsInput.Limit)
+
+	response, err := c.sendRequest(&getRecordsInput.DataPlaneInput,
+		http.MethodPost,
+		getRecordsInput.Path,
+		getRecordsHeaders,
+		[]byte(body),
+		false)
+	if err != nil {
+		return nil, err
+	}
+
+	getRecordsOutput := v3io.GetRecordsOutput{}
+
+	// unmarshal the body into an ad hoc structure
+	err = json.Unmarshal(response.Body(), &getRecordsOutput)
+	if err != nil {
+		return nil, err
+	}
+
+	// set the output in the response
+	response.Output = &getRecordsOutput
+
+	return response, nil
+}
+
 func (c *context) putItem(dataPlaneInput *v3io.DataPlaneInput,
 	path string,
 	functionName string,
@@ -435,6 +708,32 @@ func (c *context) updateItemWithExpression(dataPlaneInput *v3io.DataPlaneInput,
 		false)
 }
 
+func (c *context) sendRequestAndXMLUnmarshal(dataPlaneInput *v3io.DataPlaneInput,
+	method string,
+	path string,
+	headers map[string]string,
+	body []byte,
+	output interface{}) (*v3io.Response, error) {
+
+	response, err := c.sendRequest(dataPlaneInput, method, path, headers, body, false)
+	if err != nil {
+		return nil, err
+	}
+
+	// unmarshal the body into the output
+	err = xml.Unmarshal(response.Body(), output)
+	if err != nil {
+		response.Release()
+
+		return nil, err
+	}
+
+	// set output in response
+	response.Output = output
+
+	return response, nil
+}
+
 func (c *context) sendRequest(dataPlaneInput *v3io.DataPlaneInput,
 	method string,
 	path string,
@@ -449,8 +748,18 @@ func (c *context) sendRequest(dataPlaneInput *v3io.DataPlaneInput,
 	request := fasthttp.AcquireRequest()
 	response := c.allocateResponse()
 
-	// ggenerate URI
-	uri := fmt.Sprintf("%s/%s/%s", c.clusterEndpoints[0], dataPlaneInput.ContainerName, path)
+	var uri string
+
+	// generate URI
+	if dataPlaneInput.ContainerName != "" {
+		uri = fmt.Sprintf("%s/%s/%s", c.clusterEndpoints[0], dataPlaneInput.ContainerName, path)
+	} else {
+		uri = c.clusterEndpoints[0]
+
+		if path != "" {
+			uri = uri + "/" + path
+		}
+	}
 
 	// init request
 	request.SetRequestURI(uri)
@@ -640,6 +949,10 @@ func (c *context) workerEntry(workerIndex int) {
 			response, err = c.PutItemsSync(typedInput)
 		case *v3io.UpdateItemInput:
 			err = c.UpdateItemSync(typedInput)
+		case *v3io.CreateStreamInput:
+			err = c.CreateStreamSync(typedInput)
+		case *v3io.DeleteStreamInput:
+			err = c.DeleteStreamSync(typedInput)
 		default:
 			c.logger.ErrorWith("Got unexpected request type", "request", request)
 		}

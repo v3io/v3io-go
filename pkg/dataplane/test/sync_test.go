@@ -1,16 +1,78 @@
 package test
 
 import (
-	"testing"
-
+	"fmt"
+	"github.com/stretchr/testify/suite"
 	"github.com/v3io/v3io-go/pkg/dataplane"
 	"github.com/v3io/v3io-go/pkg/errors"
-
-	"github.com/stretchr/testify/suite"
+	"testing"
 )
 
 type syncTestSuite struct {
 	testSuite
+}
+
+//
+// Container tests
+//
+
+type syncContainerTestSuite struct {
+	syncTestSuite
+}
+
+func (suite *syncContainerTestSuite) TestGetContainers() {
+	suite.T().Skip(	)
+	suite.containerName = ""
+
+	getContainersInput := v3io.GetContainersInput{}
+
+	// when run against a context
+	suite.populateDataPlaneInput(&getContainersInput.DataPlaneInput)
+
+	// get containers
+	response, err := suite.container.GetContainersSync(&getContainersInput)
+	suite.Require().NoError(err, "Failed to get containers")
+
+	getContainersOutput := response.Output.(*v3io.GetContainersOutput)
+	fmt.Println(getContainersOutput)
+
+	response.Release()
+}
+
+func (suite *syncContainerTestSuite) TestGetContainerContents() {
+	getContainerContentsInput := v3io.GetContainerContentsInput{}
+
+	// when run against a context
+	suite.populateDataPlaneInput(&getContainerContentsInput.DataPlaneInput)
+
+	// get container contents
+	response, err := suite.container.GetContainerContentsSync(&getContainerContentsInput)
+	suite.Require().NoError(err, "Failed to get container contents")
+
+	getContainerContentsOutput := response.Output.(*v3io.GetContainerContentsOutput)
+	fmt.Println(getContainerContentsOutput)
+
+	response.Release()
+}
+
+type syncContextContainerTestSuite struct {
+	syncContainerTestSuite
+}
+
+func (suite *syncContextContainerTestSuite) SetupSuite() {
+	suite.syncContainerTestSuite.SetupSuite()
+
+	suite.createContext()
+}
+
+type syncContainerContainerTestSuite struct {
+	syncContainerTestSuite
+}
+
+func (suite *syncContainerContainerTestSuite) SetupSuite() {
+	suite.syncContainerTestSuite.SetupSuite()
+
+	suite.createContainer()
 }
 
 //
@@ -420,11 +482,203 @@ func (suite *syncContainerKVTestSuite) SetupSuite() {
 	suite.createContainer()
 }
 
+//
+// Stream tests
+//
+
+type syncStreamTestSuite struct {
+	syncTestSuite
+	testPath string
+}
+
+func (suite *syncStreamTestSuite) SetupTest() {
+	suite.testPath = "stream-test"
+	suite.deleteAllStreamsInPath(suite.testPath)
+}
+
+func (suite *syncStreamTestSuite) TearDownTest() {
+	suite.deleteAllStreamsInPath(suite.testPath)
+}
+
+func (suite *syncStreamTestSuite) TestStream() {
+	streamPath := fmt.Sprintf("%s/mystream/", suite.testPath)
+
+	//
+	// Create the stream
+	//
+
+	createStreamInput := v3io.CreateStreamInput{
+		Path:                 streamPath,
+		ShardCount:           4,
+		RetentionPeriodHours: 1,
+	}
+
+	suite.populateDataPlaneInput(&createStreamInput.DataPlaneInput)
+
+	err := suite.container.CreateStreamSync(&createStreamInput)
+
+	suite.Require().NoError(err, "Failed to create stream")
+
+	//
+	// Put some records
+	//
+
+	firstShardID := 1
+	secondShardID := 2
+	invalidShardID := 10
+
+	records := []*v3io.StreamRecord{
+		{ShardID: &firstShardID, Data: []byte("first shard record #1")},
+		{ShardID: &firstShardID, Data: []byte("first shard record #2")},
+		{ShardID: &invalidShardID, Data: []byte("invalid shard record #1")},
+		{ShardID: &secondShardID, Data: []byte("second shard record #1")},
+		{Data: []byte("some shard record #1")},
+	}
+
+	putRecordsInput := v3io.PutRecordsInput{
+		Path:    streamPath,
+		Records: records,
+	}
+
+	suite.populateDataPlaneInput(&putRecordsInput.DataPlaneInput)
+
+	response, err := suite.container.PutRecordsSync(&putRecordsInput)
+	suite.Require().NoError(err, "Failed to put records")
+
+	putRecordsResponse := response.Output.(*v3io.PutRecordsOutput)
+
+	// should have one failure
+	suite.Require().Equal(1, putRecordsResponse.FailedRecordCount)
+
+	// verify record results
+	for recordIdx, record := range putRecordsResponse.Records {
+
+		// third record should've failed
+		if recordIdx == 2 {
+			suite.Require().NotEqual(0, record.ErrorCode)
+		} else {
+			suite.Require().Equal(0, record.ErrorCode)
+		}
+	}
+
+	response.Release()
+
+	//
+	// Seek
+	//
+
+	seekShardInput := v3io.SeekShardInput{
+		Path: streamPath + "1",
+		Type: v3io.SeekShardInputTypeEarliest,
+	}
+
+	suite.populateDataPlaneInput(&seekShardInput.DataPlaneInput)
+
+	response, err = suite.container.SeekShardSync(&seekShardInput)
+
+	suite.Require().NoError(err, "Failed to seek shard")
+	location := response.Output.(*v3io.SeekShardOutput).Location
+
+	suite.Require().NotEqual("", location)
+
+	response.Release()
+
+	//
+	// Get records
+	//
+
+	getRecordsInput := v3io.GetRecordsInput{
+		Path:     streamPath + "1",
+		Location: location,
+		Limit:    100,
+	}
+
+	suite.populateDataPlaneInput(&getRecordsInput.DataPlaneInput)
+
+	response, err = suite.container.GetRecordsSync(&getRecordsInput)
+
+	suite.Require().NoError(err, "Failed to get records")
+
+	getRecordsOutput := response.Output.(*v3io.GetRecordsOutput)
+
+	suite.Require().Equal("first shard record #1", string(getRecordsOutput.Records[0].Data))
+	suite.Require().Equal("first shard record #2", string(getRecordsOutput.Records[1].Data))
+
+	response.Release()
+
+	//
+	// Delete stream
+	//
+
+	deleteStreamInput := v3io.DeleteStreamInput{
+		Path: streamPath,
+	}
+
+	suite.populateDataPlaneInput(&deleteStreamInput.DataPlaneInput)
+
+	err = suite.container.DeleteStreamSync(&deleteStreamInput)
+	suite.Require().NoError(err, "Failed to delete stream")
+}
+
+func (suite *syncStreamTestSuite) deleteAllStreamsInPath(path string) error {
+
+	getContainerContentsInput := v3io.GetContainerContentsInput{
+		Path: path,
+	}
+
+	suite.populateDataPlaneInput(&getContainerContentsInput.DataPlaneInput)
+
+	// get all streams in the test path
+	response, err := suite.container.GetContainerContentsSync(&getContainerContentsInput)
+
+	if err != nil {
+		return err
+	}
+
+	defer response.Release()
+
+	// iterate over streams (prefixes) and delete them
+	for _, commonPrefix := range response.Output.(*v3io.GetContainerContentsOutput).CommonPrefixes {
+		deleteStreamInput := v3io.DeleteStreamInput{
+			Path: commonPrefix.Prefix,
+		}
+
+		suite.populateDataPlaneInput(&deleteStreamInput.DataPlaneInput)
+
+		suite.container.DeleteStreamSync(&deleteStreamInput)
+	}
+
+	return nil
+}
+
+type syncContextStreamTestSuite struct {
+	syncStreamTestSuite
+}
+
+func (suite *syncContextStreamTestSuite) SetupSuite() {
+	suite.syncStreamTestSuite.SetupSuite()
+
+	suite.createContext()
+}
+
+type syncContainerStreamTestSuite struct {
+	syncStreamTestSuite
+}
+
+func (suite *syncContainerStreamTestSuite) SetupSuite() {
+	suite.syncStreamTestSuite.SetupSuite()
+
+	suite.createContainer()
+}
+
 // In order for 'go test' to run this suite, we need to create
 // a normal test function and pass our suite to suite.Run
 func TestSyncSuite(t *testing.T) {
+	suite.Run(t, new(syncContextContainerTestSuite))
 	suite.Run(t, new(syncContextObjectTestSuite))
 	suite.Run(t, new(syncContainerObjectTestSuite))
 	suite.Run(t, new(syncContextKVTestSuite))
 	suite.Run(t, new(syncContainerKVTestSuite))
+	suite.Run(t, new(syncContextStreamTestSuite))
+	suite.Run(t, new(syncContainerStreamTestSuite))
 }

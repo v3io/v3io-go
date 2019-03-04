@@ -140,3 +140,87 @@ func (c *container) DeleteObjectSync(deleteObjectInput *v3io.DeleteObjectInput) 
 	c.populateInputFields(&deleteObjectInput.DataPlaneInput)
 	return c.session.context.DeleteObjectSync(deleteObjectInput)
 }
+
+// GetContainers
+func (c *container) GetContainers(getContainersInput *v3io.GetContainersInput, context interface{}, responseChan chan *v3io.Response) (*v3io.Request, error) {
+	c.populateInputFields(&getContainersInput.DataPlaneInput)
+	return c.session.context.GetContainers(getContainersInput, context, responseChan)
+}
+
+// GetContainersSync
+func (c *container) GetContainersSync(getContainersInput *v3io.GetContainersInput) (*v3io.Response, error) {
+	c.populateInputFields(&getContainersInput.DataPlaneInput)
+	return c.session.context.GetContainersSync(getContainersInput)
+}
+
+// GetContainers
+func (c *container) GetContainerContents(getContainerContentsInput *v3io.GetContainerContentsInput, context interface{}, responseChan chan *v3io.Response) (*v3io.Request, error) {
+	c.populateInputFields(&getContainerContentsInput.DataPlaneInput)
+	return c.session.context.GetContainerContents(getContainerContentsInput, context, responseChan)
+}
+
+// GetContainerContentsSync
+func (c *container) GetContainerContentsSync(getContainerContentsInput *v3io.GetContainerContentsInput) (*v3io.Response, error) {
+	c.populateInputFields(&getContainerContentsInput.DataPlaneInput)
+	return c.session.context.GetContainerContentsSync(getContainerContentsInput)
+}
+
+// CreateStream
+func (c *container) CreateStream(createStreamInput *v3io.CreateStreamInput, context interface{}, responseChan chan *v3io.Response) (*v3io.Request, error) {
+	c.populateInputFields(&createStreamInput.DataPlaneInput)
+	return c.session.context.CreateStream(createStreamInput, context, responseChan)
+}
+
+// CreateStreamSync
+func (c *container) CreateStreamSync(createStreamInput *v3io.CreateStreamInput) error {
+	c.populateInputFields(&createStreamInput.DataPlaneInput)
+	return c.session.context.CreateStreamSync(createStreamInput)
+}
+
+// DeleteStream
+func (c *container) DeleteStream(deleteStreamInput *v3io.DeleteStreamInput, context interface{}, responseChan chan *v3io.Response) (*v3io.Request, error) {
+	c.populateInputFields(&deleteStreamInput.DataPlaneInput)
+	return c.session.context.DeleteStream(deleteStreamInput, context, responseChan)
+}
+
+// DeleteStreamSync
+func (c *container) DeleteStreamSync(deleteStreamInput *v3io.DeleteStreamInput) error {
+	c.populateInputFields(&deleteStreamInput.DataPlaneInput)
+	return c.session.context.DeleteStreamSync(deleteStreamInput)
+}
+
+// SeekShard
+func (c *container) SeekShard(seekShardInput *v3io.SeekShardInput, context interface{}, responseChan chan *v3io.Response) (*v3io.Request, error) {
+	c.populateInputFields(&seekShardInput.DataPlaneInput)
+	return c.session.context.SeekShard(seekShardInput, context, responseChan)
+}
+
+// SeekShardSync
+func (c *container) SeekShardSync(seekShardInput *v3io.SeekShardInput) (*v3io.Response, error) {
+	c.populateInputFields(&seekShardInput.DataPlaneInput)
+	return c.session.context.SeekShardSync(seekShardInput)
+}
+
+// PutRecords
+func (c *container) PutRecords(putRecordsInput *v3io.PutRecordsInput, context interface{}, responseChan chan *v3io.Response) (*v3io.Request, error) {
+	c.populateInputFields(&putRecordsInput.DataPlaneInput)
+	return c.session.context.PutRecords(putRecordsInput, context, responseChan)
+}
+
+// PutRecordsSync
+func (c *container) PutRecordsSync(putRecordsInput *v3io.PutRecordsInput) (*v3io.Response, error) {
+	c.populateInputFields(&putRecordsInput.DataPlaneInput)
+	return c.session.context.PutRecordsSync(putRecordsInput)
+}
+
+// GetRecords
+func (c *container) GetRecords(getRecordsInput *v3io.GetRecordsInput, context interface{}, responseChan chan *v3io.Response) (*v3io.Request, error) {
+	c.populateInputFields(&getRecordsInput.DataPlaneInput)
+	return c.session.context.GetRecords(getRecordsInput, context, responseChan)
+}
+
+// GetRecordsSync
+func (c *container) GetRecordsSync(getRecordsInput *v3io.GetRecordsInput) (*v3io.Response, error) {
+	c.populateInputFields(&getRecordsInput.DataPlaneInput)
+	return c.session.context.GetRecordsSync(getRecordsInput)
+}
