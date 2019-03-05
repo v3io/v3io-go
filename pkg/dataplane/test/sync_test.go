@@ -86,7 +86,7 @@ type syncObjectTestSuite struct {
 }
 
 func (suite *syncObjectTestSuite) TestObject() {
-	path := "object.txt"
+	path := "/object.txt"
 	contents := "vegans are better than everyone"
 
 	getObjectInput := &v3io.GetObjectInput{
@@ -216,7 +216,7 @@ func (suite *syncKVTestSuite) TestEMD() {
 	// create the items
 	for itemToCreateKey, itemToCreateAttributes := range itemsToCreate {
 		input := v3io.PutItemInput{
-			Path:       "emd0/" + itemToCreateKey,
+			Path:       "/emd0/" + itemToCreateKey,
 			Attributes: itemToCreateAttributes,
 		}
 
@@ -236,7 +236,7 @@ func (suite *syncKVTestSuite) TestEMD() {
 
 	// update louise item
 	updateItemInput := v3io.UpdateItemInput{
-		Path: "emd0/louise",
+		Path: "/emd0/louise",
 		Attributes: map[string]interface{}{
 			"height": 130,
 			"quip":   "i can smell fear on you",
@@ -251,7 +251,7 @@ func (suite *syncKVTestSuite) TestEMD() {
 
 	// get louise
 	getItemInput := v3io.GetItemInput{
-		Path:           "emd0/louise",
+		Path:           "/emd0/louise",
 		AttributeNames: []string{"__size", "age", "quip", "height"},
 	}
 
@@ -274,7 +274,7 @@ func (suite *syncKVTestSuite) TestEMD() {
 
 	// get all items whose age is over 15
 	getItemsInput := v3io.GetItemsInput{
-		Path:           "emd0/",
+		Path:           "/emd0/",
 		AttributeNames: []string{"age", "feature"},
 		Filter:         "age > 15",
 	}
@@ -307,7 +307,7 @@ func (suite *syncKVTestSuite) TestEMD() {
 
 	// update louise's age
 	updateItemInput = v3io.UpdateItemInput{
-		Path:       "emd0/louise",
+		Path:       "/emd0/louise",
 		Expression: &incrementAgeExpression,
 	}
 
@@ -319,7 +319,7 @@ func (suite *syncKVTestSuite) TestEMD() {
 
 	// get tina
 	getItemInput = v3io.GetItemInput{
-		Path:           "emd0/louise",
+		Path:           "/emd0/louise",
 		AttributeNames: []string{"age"},
 	}
 
@@ -351,7 +351,7 @@ func (suite *syncKVTestSuite) TestPutItems() {
 	}
 
 	putItemsInput := &v3io.PutItemsInput{
-		Path:  "emd0",
+		Path:  "/emd0",
 		Items: items,
 	}
 
@@ -383,7 +383,7 @@ func (suite *syncKVTestSuite) TestPutItemsWithError() {
 	}
 
 	putItemsInput := &v3io.PutItemsInput{
-		Path:  "emd0",
+		Path:  "/emd0",
 		Items: items,
 	}
 
@@ -415,7 +415,7 @@ func (suite *syncKVTestSuite) verifyItems(items map[string]map[string]interface{
 
 	// get all items
 	getItemsInput := v3io.GetItemsInput{
-		Path:           "emd0/",
+		Path:           "/emd0/",
 		AttributeNames: []string{"*"},
 	}
 
@@ -440,7 +440,7 @@ func (suite *syncKVTestSuite) deleteItems(items map[string]map[string]interface{
 	// delete the items
 	for itemKey, _ := range items {
 		input := v3io.DeleteObjectInput{
-			Path: "emd0/" + itemKey,
+			Path: "/emd0/" + itemKey,
 		}
 
 		// when run against a context, will populate fields like container name
@@ -452,7 +452,7 @@ func (suite *syncKVTestSuite) deleteItems(items map[string]map[string]interface{
 	}
 
 	input := &v3io.DeleteObjectInput{
-		Path: "emd0/",
+		Path: "/emd0/",
 	}
 
 	// when run against a context, will populate fields like container name
@@ -494,7 +494,7 @@ type syncStreamTestSuite struct {
 }
 
 func (suite *syncStreamTestSuite) SetupTest() {
-	suite.testPath = "stream-test"
+	suite.testPath = "/stream-test"
 	suite.deleteAllStreamsInPath(suite.testPath)
 }
 
@@ -642,7 +642,7 @@ func (suite *syncStreamTestSuite) deleteAllStreamsInPath(path string) error {
 	// iterate over streams (prefixes) and delete them
 	for _, commonPrefix := range response.Output.(*v3io.GetContainerContentsOutput).CommonPrefixes {
 		deleteStreamInput := v3io.DeleteStreamInput{
-			Path: commonPrefix.Prefix,
+			Path: "/" + commonPrefix.Prefix,
 		}
 
 		suite.populateDataPlaneInput(&deleteStreamInput.DataPlaneInput)

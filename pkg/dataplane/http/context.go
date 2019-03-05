@@ -467,14 +467,14 @@ func (c *context) DeleteStreamSync(deleteStreamInput *v3io.DeleteStreamInput) er
 		// TODO: handle error - stop deleting? return multiple errors?
 		c.DeleteObjectSync(&v3io.DeleteObjectInput{ // nolint: errcheck
 			DataPlaneInput: deleteStreamInput.DataPlaneInput,
-			Path:           content.Key,
+			Path:           "/" + content.Key,
 		})
 	}
 
 	// delete the actual stream
 	return c.DeleteObjectSync(&v3io.DeleteObjectInput{
 		DataPlaneInput: deleteStreamInput.DataPlaneInput,
-		Path:           path.Dir(deleteStreamInput.Path) + "/",
+		Path:           "/" + path.Dir(deleteStreamInput.Path) + "/",
 	})
 }
 
@@ -736,18 +736,7 @@ func (c *context) sendRequest(dataPlaneInput *v3io.DataPlaneInput,
 	request := fasthttp.AcquireRequest()
 	response := c.allocateResponse()
 
-	var uri string
-
-	// generate URI
-	if dataPlaneInput.ContainerName != "" {
-		uri = fmt.Sprintf("%s/%s/%s", c.clusterEndpoints[0], dataPlaneInput.ContainerName, path)
-	} else {
-		uri = c.clusterEndpoints[0]
-
-		if path != "" {
-			uri = uri + "/" + path
-		}
-	}
+	uri := c.getPathURI(dataPlaneInput, path)
 
 	// init request
 	request.SetRequestURI(uri)
@@ -815,6 +804,16 @@ cleanup:
 	}
 
 	return response, nil
+}
+
+func (c *context) getPathURI(dataPlaneInput *v3io.DataPlaneInput, path string) string {
+
+	// generate URI
+	if dataPlaneInput.ContainerName != "" {
+		return c.clusterEndpoints[0] + "/" + dataPlaneInput.ContainerName + path
+	}
+
+	return c.clusterEndpoints[0] + path
 }
 
 func (c *context) allocateResponse() *v3io.Response {
