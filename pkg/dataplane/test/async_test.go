@@ -44,7 +44,7 @@ type asyncObjectTestSuite struct {
 
 func (suite *asyncObjectTestSuite) TestObject() {
 	numRequests := 10
-	pathFormat := "object-%d.txt"
+	pathFormat := "/object-%d.txt"
 	contentsFormat := "contents: %d"
 	someContext := 30
 

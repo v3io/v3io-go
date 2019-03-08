@@ -39,8 +39,15 @@ func (suite *testSuite) createContext() {
 
 	// populate fields that would have been populated by session/container
 	suite.containerName = "bigdata"
-	suite.authenticationToken = v3iohttp.GenerateAuthenticationToken(os.Getenv("V3IO_DATAPLANE_USERNAME"),
-		os.Getenv("V3IO_DATAPLANE_PASSWORD"))
+
+	username := os.Getenv("V3IO_DATAPLANE_USERNAME")
+	password := os.Getenv("V3IO_DATAPLANE_PASSWORD")
+
+	if username != "" && password != "" {
+		suite.authenticationToken = v3iohttp.GenerateAuthenticationToken(username, password)
+	}
+
+	suite.accessKey = os.Getenv("V3IO_DATAPLANE_ACCESS_KEY")
 }
 
 func (suite *testSuite) createContainer() {
@@ -50,8 +57,9 @@ func (suite *testSuite) createContainer() {
 	suite.Require().NoError(err)
 
 	session, err := context.NewSessionSync(&v3io.NewSessionInput{
-		Username: os.Getenv("V3IO_DATAPLANE_USERNAME"),
-		Password: os.Getenv("V3IO_DATAPLANE_PASSWORD"),
+		Username:  os.Getenv("V3IO_DATAPLANE_USERNAME"),
+		Password:  os.Getenv("V3IO_DATAPLANE_PASSWORD"),
+		AccessKey: os.Getenv("V3IO_DATAPLANE_ACCESS_KEY"),
 	})
 	suite.Require().NoError(err)
 
