@@ -20,5 +20,5 @@ type Context interface {
 	Container
 
 	// create a new session
-	NewSessionSync(*NewSessionInput) (Session, error)
+	NewSession(*NewSessionInput) (Session, error)
 }

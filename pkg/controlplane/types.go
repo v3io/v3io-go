@@ -28,16 +28,16 @@ type Session interface {
 	CreateUserSync(*CreateUserInput) (*CreateUserOutput, error)
 
 	// DeleteUserSync deletes a user (blocking)
-	DeleteUserSync(deleteUserInput *DeleteUserInput) error
+	DeleteUserSync(*DeleteUserInput) error
 
 	// CreateContainer creates a container (blocking)
 	CreateContainerSync(*CreateContainerInput) (*CreateContainerOutput, error)
 
 	// DeleteUserSync deletes a user (blocking)
-	DeleteContainerSync(deleteContainerInput *DeleteContainerInput) error
+	DeleteContainerSync(*DeleteContainerInput) error
 
 	// UpdateClusterInfo updates a cluster info record (blocking)
-	UpdateClusterInfoSync(input *UpdateClusterInfoInput) (*UpdateCluserInfoOutput, error)
+	UpdateClusterInfoSync(*UpdateClusterInfoInput) (*UpdateCluserInfoOutput, error)
 }
 
 type ControlPlaneInput struct {
@@ -53,17 +53,11 @@ type ControlPlaneOutput struct {
 	Ctx       context.Context
 }
 
-// CreateSessionInput specifies how to create a session
-type CreateSessionInput struct {
+// NewSessionInput specifies how to create a session
+type NewSessionInput struct {
 	ControlPlaneInput
 	Endpoints []string
 	SessionAttributes
-}
-
-// CreateSessionOutput holds the response from creating a session
-type CreateSessionOutput struct {
-	ControlPlaneOutput
-	Session *Session
 }
 
 // CreateUserInput specifies how to create a user

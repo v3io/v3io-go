@@ -19,5 +19,5 @@ package v3io
 type Session interface {
 
 	// NewContainer creates a container
-	NewContainerSync(*NewContainerInput) (Container, error)
+	NewContainer(*NewContainerInput) (Container, error)
 }
