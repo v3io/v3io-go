@@ -22,10 +22,15 @@ func newSession(parentLogger logger.Logger,
 	password string,
 	accessKey string) (v3io.Session, error) {
 
+	authenticationToken := ""
+	if username != "" && password != "" {
+		authenticationToken = GenerateAuthenticationToken(username, password)
+	}
+
 	return &session{
 		logger:              parentLogger.GetChild("session"),
 		context:             context,
-		authenticationToken: GenerateAuthenticationToken(username, password),
+		authenticationToken: authenticationToken,
 		accessKey:           accessKey,
 	}, nil
 }

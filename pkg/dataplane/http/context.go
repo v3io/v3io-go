@@ -745,9 +745,11 @@ func (c *context) sendRequest(dataPlaneInput *v3io.DataPlaneInput,
 
 	// check if we need to an an authorization header
 	if len(dataPlaneInput.AuthenticationToken) > 0 {
-
-		// add authorization token
 		request.Header.Set("Authorization", dataPlaneInput.AuthenticationToken)
+	}
+
+	if len(dataPlaneInput.AccessKey) > 0 {
+		request.Header.Set("X-v3io-session-key", dataPlaneInput.AccessKey)
 	}
 
 	for headerName, headerValue := range headers {
