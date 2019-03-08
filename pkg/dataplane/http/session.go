@@ -31,7 +31,7 @@ func newSession(parentLogger logger.Logger,
 }
 
 // NewContainer creates a container
-func (s *session) NewContainer(newContainerInput *v3io.NewContainerInput) (v3io.Container, error) {
+func (s *session) NewContainerSync(newContainerInput *v3io.NewContainerInput) (v3io.Container, error) {
 	return newContainer(s.logger, s, newContainerInput.ContainerName)
 }
 

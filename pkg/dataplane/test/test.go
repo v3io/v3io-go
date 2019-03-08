@@ -55,7 +55,7 @@ func (suite *testSuite) createContainer() {
 	})
 	suite.Require().NoError(err)
 
-	suite.container, err = session.NewContainer(&v3io.NewContainerInput{
+	suite.container, err = session.NewContainerSync(&v3io.NewContainerInput{
 		ContainerName: "bigdata",
 	})
 	suite.Require().NoError(err)
