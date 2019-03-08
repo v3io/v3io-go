@@ -34,7 +34,9 @@ func (suite *testSuite) createContext() {
 	var err error
 
 	// create a context
-	suite.container, err = v3iohttp.NewContext(suite.logger, []string{os.Getenv("V3IO_DATAPLANE_URL")}, 8)
+	suite.container, err = v3iohttp.NewContext(suite.logger, &v3io.NewContextInput{
+		ClusterEndpoints: []string{os.Getenv("V3IO_DATAPLANE_URL")},
+	})
 	suite.Require().NoError(err)
 
 	// populate fields that would have been populated by session/container
@@ -53,17 +55,19 @@ func (suite *testSuite) createContext() {
 func (suite *testSuite) createContainer() {
 
 	// create a context
-	context, err := v3iohttp.NewContext(suite.logger, []string{os.Getenv("V3IO_DATAPLANE_URL")}, 8)
+	context, err := v3iohttp.NewContext(suite.logger, &v3io.NewContextInput{
+		ClusterEndpoints: []string{os.Getenv("V3IO_DATAPLANE_URL")},
+	})
 	suite.Require().NoError(err)
 
-	session, err := context.NewSessionSync(&v3io.NewSessionInput{
+	session, err := context.NewSession(&v3io.NewSessionInput{
 		Username:  os.Getenv("V3IO_DATAPLANE_USERNAME"),
 		Password:  os.Getenv("V3IO_DATAPLANE_PASSWORD"),
 		AccessKey: os.Getenv("V3IO_DATAPLANE_ACCESS_KEY"),
 	})
 	suite.Require().NoError(err)
 
-	suite.container, err = session.NewContainerSync(&v3io.NewContainerInput{
+	suite.container, err = session.NewContainer(&v3io.NewContainerInput{
 		ContainerName: "bigdata",
 	})
 	suite.Require().NoError(err)

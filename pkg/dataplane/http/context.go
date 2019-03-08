@@ -34,11 +34,11 @@ type context struct {
 	numWorkers       int
 }
 
-func NewContext(parentLogger logger.Logger, clusterEndpoints []string, numWorkers int) (v3io.Context, error) {
+func NewContext(parentLogger logger.Logger, newContextInput *v3io.NewContextInput) (v3io.Context, error) {
 	var hosts []string
 
 	// iterate over endpoints which contain scheme
-	for _, clusterEndpoint := range clusterEndpoints {
+	for _, clusterEndpoint := range newContextInput.ClusterEndpoints {
 		parsedClusterEndpoint, err := url.Parse(clusterEndpoint)
 		if err != nil {
 			return nil, err
@@ -47,13 +47,23 @@ func NewContext(parentLogger logger.Logger, clusterEndpoints []string, numWorker
 		hosts = append(hosts, parsedClusterEndpoint.Host)
 	}
 
+	requestChanLen := newContextInput.RequestChanLen
+	if requestChanLen == 0 {
+		requestChanLen = 1024
+	}
+
+	numWorkers := newContextInput.NumWorkers
+	if numWorkers == 0 {
+		numWorkers = 8
+	}
+
 	newContext := &context{
 		logger: parentLogger.GetChild("context.http"),
 		httpClient: &fasthttp.HostClient{
 			Addr: strings.Join(hosts, ","),
 		},
-		clusterEndpoints: clusterEndpoints,
-		requestChan:      make(chan *v3io.Request, 1024),
+		clusterEndpoints: newContextInput.ClusterEndpoints,
+		requestChan:      make(chan *v3io.Request, requestChanLen),
 		numWorkers:       numWorkers,
 	}
 
@@ -65,7 +75,7 @@ func NewContext(parentLogger logger.Logger, clusterEndpoints []string, numWorker
 }
 
 // create a new session
-func (c *context) NewSessionSync(newSessionInput *v3io.NewSessionInput) (v3io.Session, error) {
+func (c *context) NewSession(newSessionInput *v3io.NewSessionInput) (v3io.Session, error) {
 	return newSession(c.logger,
 		c,
 		newSessionInput.Username,

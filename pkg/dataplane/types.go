@@ -26,6 +26,12 @@ import (
 // Control plane
 //
 
+type NewContextInput struct {
+	ClusterEndpoints []string
+	NumWorkers       int
+	RequestChanLen   int
+}
+
 type NewSessionInput struct {
 	Username  string
 	Password  string
