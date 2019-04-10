@@ -515,7 +515,7 @@ func (c *context) SeekShardSync(seekShardInput *v3io.SeekShardInput) (*v3io.Resp
 	buffer.WriteString(`}`)
 
 	response, err := c.sendRequest(&seekShardInput.DataPlaneInput,
-		http.MethodPost,
+		http.MethodPut,
 		seekShardInput.Path,
 		seekShardsHeaders,
 		buffer.Bytes(),
@@ -625,7 +625,7 @@ func (c *context) GetRecordsSync(getRecordsInput *v3io.GetRecordsInput) (*v3io.R
 		getRecordsInput.Limit)
 
 	response, err := c.sendRequest(&getRecordsInput.DataPlaneInput,
-		http.MethodPost,
+		http.MethodPut,
 		getRecordsInput.Path,
 		getRecordsHeaders,
 		[]byte(body),
