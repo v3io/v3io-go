@@ -211,6 +211,14 @@ func (c *context) GetItemsSync(getItemsInput *v3io.GetItemsInput) (*v3io.Respons
 		body["Segment"] = getItemsInput.Segment
 	}
 
+	if getItemsInput.SortKeyRangeStart != "" {
+		body["SortKeyRangeStart"] = getItemsInput.SortKeyRangeStart
+	}
+
+	if getItemsInput.SortKeyRangeEnd != "" {
+		body["SortKeyRangeEnd"] = getItemsInput.SortKeyRangeEnd
+	}
+
 	marshalledBody, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
@@ -239,6 +247,13 @@ func (c *context) GetItemsSync(getItemsInput *v3io.GetItemsInput) (*v3io.Respons
 	err = json.Unmarshal(response.Body(), &getItemsResponse)
 	if err != nil {
 		return nil, err
+	}
+
+	//validate getItems response to avoid infinite loop
+	if getItemsResponse.LastItemIncluded != "TRUE" && (getItemsResponse.NextMarker == "" || getItemsResponse.NextMarker == getItemsInput.Marker) {
+		errMsg := fmt.Sprintf("Invalid getItems response: lastItemIncluded=false and nextMarker='%s', "+
+			"startMarker='%s', probably due to object size bigger than 2M. Query is: %+v", getItemsResponse.NextMarker, getItemsInput.Marker, getItemsInput)
+		c.logger.Warn(errMsg)
 	}
 
 	getItemsOutput := v3io.GetItemsOutput{
