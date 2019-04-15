@@ -45,10 +45,10 @@ func NewContext(parentLogger logger.Logger, newContextInput *v3io.NewContextInpu
 		if err != nil {
 			return nil, err
 		}
-		if parsedClusterEndpoint.Scheme == "http" {
+		switch parsedClusterEndpoint.Scheme {
+		case "http":
 			httpEndpointFound = true
-		}
-		if parsedClusterEndpoint.Scheme == "https" {
+		case "https":
 			httpsEndpointFound = true
 		}
 		hosts = append(hosts, parsedClusterEndpoint.Host)
@@ -72,6 +72,7 @@ func NewContext(parentLogger logger.Logger, newContextInput *v3io.NewContextInpu
 	if tlsConfig == nil {
 		tlsConfig = &tls.Config{InsecureSkipVerify: true}
 	}
+
 	newContext := &context{
 		logger: parentLogger.GetChild("context.http"),
 		httpClient: &fasthttp.HostClient{
