@@ -858,7 +858,7 @@ cleanup:
 func (c *context) buildRequestURI(containerName string, query string, pathStr string) (*url.URL, error) {
 	uri, err := url.Parse(c.clusterEndpoints[0])
 	if err != nil {
-		return nil, errors.Wrapf(err, "Failed to parse URL %s", c.clusterEndpoints[0])
+		return nil, errors.Wrapf(err, "Failed to parse cluster endpoint URL %s", c.clusterEndpoints[0])
 	}
 	uri.Path = path.Clean(path.Join("/", containerName, pathStr))
 	if strings.HasSuffix(pathStr, "/") {
