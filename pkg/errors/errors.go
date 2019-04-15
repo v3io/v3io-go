@@ -11,13 +11,13 @@ type ErrorWithStatusCode struct {
 	statusCode int
 }
 
-func NewErrorWithStatusCode(err error, statusCode int) *ErrorWithStatusCode {
-	return &ErrorWithStatusCode{
+func NewErrorWithStatusCode(err error, statusCode int) ErrorWithStatusCode {
+	return ErrorWithStatusCode{
 		error:      err,
 		statusCode: statusCode,
 	}
 }
 
-func (e *ErrorWithStatusCode) StatusCode() int {
+func (e ErrorWithStatusCode) StatusCode() int {
 	return e.statusCode
 }
