@@ -18,8 +18,8 @@ import (
 	"github.com/v3io/v3io-go/pkg/dataplane"
 	"github.com/v3io/v3io-go/pkg/errors"
 
+	"github.com/nuclio/errors"
 	"github.com/nuclio/logger"
-	"github.com/pkg/errors"
 	"github.com/valyala/fasthttp"
 )
 
