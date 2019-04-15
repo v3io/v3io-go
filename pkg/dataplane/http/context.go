@@ -990,6 +990,16 @@ func (c *context) workerEntry(workerIndex int) {
 			err = c.CreateStreamSync(typedInput)
 		case *v3io.DeleteStreamInput:
 			err = c.DeleteStreamSync(typedInput)
+		case *v3io.GetRecordsInput:
+			response, err = c.GetRecordsSync(typedInput)
+		case *v3io.PutRecordsInput:
+			response, err = c.PutRecordsSync(typedInput)
+		case *v3io.SeekShardInput:
+			response, err = c.SeekShardSync(typedInput)
+		case *v3io.GetContainersInput:
+			response, err = c.GetContainersSync(typedInput)
+		case *v3io.GetContainerContentsInput:
+			response, err = c.GetContainerContentsSync(typedInput)
 		default:
 			c.logger.ErrorWith("Got unexpected request type", "type", reflect.TypeOf(request.Input).String())
 		}
