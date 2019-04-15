@@ -991,7 +991,7 @@ func (c *context) workerEntry(workerIndex int) {
 		case *v3io.DeleteStreamInput:
 			err = c.DeleteStreamSync(typedInput)
 		default:
-			c.logger.ErrorWith("Got unexpected request type", "request", request)
+			c.logger.ErrorWith("Got unexpected request type", "type", reflect.TypeOf(request.Input).String())
 		}
 
 		// TODO: have the sync interfaces somehow use the pre-allocated response
