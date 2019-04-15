@@ -18,6 +18,7 @@ package v3io
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/xml"
 	"time"
 )
@@ -30,6 +31,7 @@ type NewContextInput struct {
 	ClusterEndpoints []string
 	NumWorkers       int
 	RequestChanLen   int
+	TlsConfig        *tls.Config
 }
 
 type NewSessionInput struct {
