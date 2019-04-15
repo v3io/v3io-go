@@ -99,7 +99,7 @@ func (suite *syncObjectTestSuite) TestObject() {
 	response, err := suite.container.GetObjectSync(getObjectInput)
 
 	// get the underlying root error
-	errWithStatusCode, errHasStatusCode := err.(*v3ioerrors.ErrorWithStatusCode)
+	errWithStatusCode, errHasStatusCode := err.(v3ioerrors.ErrorWithStatusCode)
 	suite.Require().True(errHasStatusCode)
 	suite.Require().Equal(404, errWithStatusCode.StatusCode())
 

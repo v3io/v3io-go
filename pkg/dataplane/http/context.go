@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"encoding/xml"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -19,6 +18,7 @@ import (
 	"github.com/v3io/v3io-go/pkg/dataplane"
 	"github.com/v3io/v3io-go/pkg/errors"
 
+	"github.com/nuclio/errors"
 	"github.com/nuclio/logger"
 	"github.com/valyala/fasthttp"
 )
@@ -96,6 +96,7 @@ func (c *context) GetContainersSync(getContainersInput *v3io.GetContainersInput)
 		&getContainersInput.DataPlaneInput,
 		http.MethodGet,
 		"",
+		"",
 		nil,
 		nil,
 		&v3io.GetContainersOutput{})
@@ -112,15 +113,15 @@ func (c *context) GetContainerContents(getContainerContentsInput *v3io.GetContai
 func (c *context) GetContainerContentsSync(getContainerContentsInput *v3io.GetContainerContentsInput) (*v3io.Response, error) {
 	getContainerContentOutput := v3io.GetContainerContentsOutput{}
 
-	// prepare the query path
-	path := ""
+	query := ""
 	if getContainerContentsInput.Path != "" {
-		path += "?prefix=" + getContainerContentsInput.Path
+		query += "prefix=" + getContainerContentsInput.Path
 	}
 
 	return c.sendRequestAndXMLUnmarshal(&getContainerContentsInput.DataPlaneInput,
 		http.MethodGet,
-		path,
+		"",
+		query,
 		nil,
 		nil,
 		&getContainerContentOutput)
@@ -142,6 +143,7 @@ func (c *context) GetItemSync(getItemInput *v3io.GetItemInput) (*v3io.Response, 
 	response, err := c.sendRequest(&getItemInput.DataPlaneInput,
 		http.MethodPut,
 		getItemInput.Path,
+		"",
 		getItemHeaders,
 		[]byte(body),
 		false)
@@ -227,6 +229,7 @@ func (c *context) GetItemsSync(getItemsInput *v3io.GetItemsInput) (*v3io.Respons
 	response, err := c.sendRequest(&getItemsInput.DataPlaneInput,
 		"PUT",
 		getItemsInput.Path,
+		"",
 		getItemsHeaders,
 		marshalledBody,
 		false)
@@ -397,6 +400,7 @@ func (c *context) GetObjectSync(getObjectInput *v3io.GetObjectInput) (*v3io.Resp
 	return c.sendRequest(&getObjectInput.DataPlaneInput,
 		http.MethodGet,
 		getObjectInput.Path,
+		"",
 		nil,
 		nil,
 		false)
@@ -414,6 +418,7 @@ func (c *context) PutObjectSync(putObjectInput *v3io.PutObjectInput) error {
 	_, err := c.sendRequest(&putObjectInput.DataPlaneInput,
 		http.MethodPut,
 		putObjectInput.Path,
+		"",
 		nil,
 		putObjectInput.Body,
 		true)
@@ -433,6 +438,7 @@ func (c *context) DeleteObjectSync(deleteObjectInput *v3io.DeleteObjectInput) er
 	_, err := c.sendRequest(&deleteObjectInput.DataPlaneInput,
 		http.MethodDelete,
 		deleteObjectInput.Path,
+		"",
 		nil,
 		nil,
 		true)
@@ -456,6 +462,7 @@ func (c *context) CreateStreamSync(createStreamInput *v3io.CreateStreamInput) er
 	_, err := c.sendRequest(&createStreamInput.DataPlaneInput,
 		http.MethodPost,
 		createStreamInput.Path,
+		"",
 		createStreamHeaders,
 		[]byte(body),
 		true)
@@ -532,6 +539,7 @@ func (c *context) SeekShardSync(seekShardInput *v3io.SeekShardInput) (*v3io.Resp
 	response, err := c.sendRequest(&seekShardInput.DataPlaneInput,
 		http.MethodPut,
 		seekShardInput.Path,
+		"",
 		seekShardsHeaders,
 		buffer.Bytes(),
 		false)
@@ -605,6 +613,7 @@ func (c *context) PutRecordsSync(putRecordsInput *v3io.PutRecordsInput) (*v3io.R
 	response, err := c.sendRequest(&putRecordsInput.DataPlaneInput,
 		http.MethodPost,
 		putRecordsInput.Path,
+		"",
 		putRecordsHeaders,
 		buffer.Bytes(),
 		false)
@@ -642,6 +651,7 @@ func (c *context) GetRecordsSync(getRecordsInput *v3io.GetRecordsInput) (*v3io.R
 	response, err := c.sendRequest(&getRecordsInput.DataPlaneInput,
 		http.MethodPut,
 		getRecordsInput.Path,
+		"",
 		getRecordsHeaders,
 		[]byte(body),
 		false)
@@ -692,6 +702,7 @@ func (c *context) putItem(dataPlaneInput *v3io.DataPlaneInput,
 	return c.sendRequest(dataPlaneInput,
 		http.MethodPut,
 		path,
+		"",
 		headers,
 		jsonEncodedBodyContents,
 		false)
@@ -716,6 +727,7 @@ func (c *context) updateItemWithExpression(dataPlaneInput *v3io.DataPlaneInput,
 	return c.sendRequest(dataPlaneInput,
 		http.MethodPost,
 		path,
+		"",
 		headers,
 		jsonEncodedBodyContents,
 		false)
@@ -724,11 +736,12 @@ func (c *context) updateItemWithExpression(dataPlaneInput *v3io.DataPlaneInput,
 func (c *context) sendRequestAndXMLUnmarshal(dataPlaneInput *v3io.DataPlaneInput,
 	method string,
 	path string,
+	query string,
 	headers map[string]string,
 	body []byte,
 	output interface{}) (*v3io.Response, error) {
 
-	response, err := c.sendRequest(dataPlaneInput, method, path, headers, body, false)
+	response, err := c.sendRequest(dataPlaneInput, method, path, query, headers, body, false)
 	if err != nil {
 		return nil, err
 	}
@@ -750,6 +763,7 @@ func (c *context) sendRequestAndXMLUnmarshal(dataPlaneInput *v3io.DataPlaneInput
 func (c *context) sendRequest(dataPlaneInput *v3io.DataPlaneInput,
 	method string,
 	path string,
+	query string,
 	headers map[string]string,
 	body []byte,
 	releaseResponse bool) (*v3io.Response, error) {
@@ -758,13 +772,21 @@ func (c *context) sendRequest(dataPlaneInput *v3io.DataPlaneInput,
 	var statusCode int
 	var err error
 
+	if dataPlaneInput.ContainerName == "" {
+		return nil, errors.New("ContainerName must not be empty")
+	}
+
 	request := fasthttp.AcquireRequest()
 	response := c.allocateResponse()
 
-	uri := c.getPathURI(dataPlaneInput, path)
+	uri, err := c.buildRequestURI(dataPlaneInput.ContainerName, query, path)
+	if err != nil {
+		return nil, err
+	}
+	uriStr := uri.String()
 
 	// init request
-	request.SetRequestURI(uri)
+	request.SetRequestURI(uriStr)
 	request.Header.SetMethod(method)
 	request.SetBody(body)
 
@@ -783,7 +805,7 @@ func (c *context) sendRequest(dataPlaneInput *v3io.DataPlaneInput,
 
 	c.logger.DebugWithCtx(dataPlaneInput.Ctx,
 		"Tx",
-		"uri", uri,
+		"uri", uriStr,
 		"method", method,
 		"body", string(request.Body()))
 
@@ -833,14 +855,17 @@ cleanup:
 	return response, nil
 }
 
-func (c *context) getPathURI(dataPlaneInput *v3io.DataPlaneInput, path string) string {
-
-	// generate URI
-	if dataPlaneInput.ContainerName != "" {
-		return c.clusterEndpoints[0] + "/" + dataPlaneInput.ContainerName + path
+func (c *context) buildRequestURI(containerName string, query string, pathStr string) (*url.URL, error) {
+	uri, err := url.Parse(c.clusterEndpoints[0])
+	if err != nil {
+		return nil, errors.Wrapf(err, "Failed to parse cluster endpoint URL %s", c.clusterEndpoints[0])
 	}
-
-	return c.clusterEndpoints[0] + path
+	uri.Path = path.Clean(path.Join("/", containerName, pathStr))
+	if strings.HasSuffix(pathStr, "/") {
+		uri.Path += "/" // retain trailing slash
+	}
+	uri.RawQuery = query
+	return uri, nil
 }
 
 func (c *context) allocateResponse() *v3io.Response {
@@ -965,8 +990,18 @@ func (c *context) workerEntry(workerIndex int) {
 			err = c.CreateStreamSync(typedInput)
 		case *v3io.DeleteStreamInput:
 			err = c.DeleteStreamSync(typedInput)
+		case *v3io.GetRecordsInput:
+			response, err = c.GetRecordsSync(typedInput)
+		case *v3io.PutRecordsInput:
+			response, err = c.PutRecordsSync(typedInput)
+		case *v3io.SeekShardInput:
+			response, err = c.SeekShardSync(typedInput)
+		case *v3io.GetContainersInput:
+			response, err = c.GetContainersSync(typedInput)
+		case *v3io.GetContainerContentsInput:
+			response, err = c.GetContainerContentsSync(typedInput)
 		default:
-			c.logger.ErrorWith("Got unexpected request type", "request", request)
+			c.logger.ErrorWith("Got unexpected request type", "type", reflect.TypeOf(request.Input).String())
 		}
 
 		// TODO: have the sync interfaces somehow use the pre-allocated response

@@ -12,6 +12,8 @@ github.com/mattn/go-isatty v0.0.5 h1:tHXDdz1cpzGaovsTB+TVB8q90WEokoVmfMqoVcrLUgw
 github.com/mattn/go-isatty v0.0.5/go.mod h1:Iq45c/XA43vh69/j3iqttzPXn0bhXyGjM0Hdxcsrc5s=
 github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b h1:j7+1HpAFS1zy5+Q4qx1fWh90gTKwiN4QCGoY9TWyyO4=
 github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b/go.mod h1:01TrycV0kFyexm33Z7vhZRXopbI8J3TDReVlkTgMUxE=
+github.com/nuclio/errors v0.0.1 h1:JoADBDnhRKjW05Npu5CLS27Peo7gx+QZcNrLwINV6UY=
+github.com/nuclio/errors v0.0.1/go.mod h1:it2rUqDarIL8PasLYZo0Q1Ebsx4NRPM+OyYYakgNyrQ=
 github.com/nuclio/logger v0.0.0-20190303161055-fc1e4b16d127 h1:Xbb9RIEkixjjPNQew893d6GEX12gldJK9EurcPeMURk=
 github.com/nuclio/logger v0.0.0-20190303161055-fc1e4b16d127/go.mod h1:ttazNAqTxKjQ7XrGDZxecumGa9KCIuJh88gzFY1mRXo=
 github.com/nuclio/zap v0.0.2 h1:rY5PkMOl8CTkqRqIPuxziBiKK6Mq/8oEurfgRnNtqf0=
