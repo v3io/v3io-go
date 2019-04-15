@@ -2,6 +2,7 @@ package v3iohttp
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
 	"encoding/xml"
@@ -36,6 +37,7 @@ type context struct {
 
 func NewContext(parentLogger logger.Logger, newContextInput *v3io.NewContextInput) (v3io.Context, error) {
 	var hosts []string
+	var httpEndpointFound, httpsEndpointFound bool
 
 	// iterate over endpoints which contain scheme
 	for _, clusterEndpoint := range newContextInput.ClusterEndpoints {
@@ -43,8 +45,17 @@ func NewContext(parentLogger logger.Logger, newContextInput *v3io.NewContextInpu
 		if err != nil {
 			return nil, err
 		}
-
+		switch parsedClusterEndpoint.Scheme {
+		case "http":
+			httpEndpointFound = true
+		case "https":
+			httpsEndpointFound = true
+		}
 		hosts = append(hosts, parsedClusterEndpoint.Host)
+	}
+
+	if httpEndpointFound && httpsEndpointFound {
+		return nil, errors.New("Cannot create a context with a mix of HTTP and HTTPS endpoints.")
 	}
 
 	requestChanLen := newContextInput.RequestChanLen
@@ -57,10 +68,17 @@ func NewContext(parentLogger logger.Logger, newContextInput *v3io.NewContextInpu
 		numWorkers = 8
 	}
 
+	tlsConfig := newContextInput.TlsConfig
+	if tlsConfig == nil {
+		tlsConfig = &tls.Config{InsecureSkipVerify: true}
+	}
+
 	newContext := &context{
 		logger: parentLogger.GetChild("context.http"),
 		httpClient: &fasthttp.HostClient{
-			Addr: strings.Join(hosts, ","),
+			Addr:      strings.Join(hosts, ","),
+			IsTLS:     httpsEndpointFound,
+			TLSConfig: tlsConfig,
 		},
 		clusterEndpoints: newContextInput.ClusterEndpoints,
 		requestChan:      make(chan *v3io.Request, requestChanLen),
