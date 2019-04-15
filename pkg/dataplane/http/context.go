@@ -762,7 +762,7 @@ func (c *context) sendRequestAndXMLUnmarshal(dataPlaneInput *v3io.DataPlaneInput
 
 func (c *context) sendRequest(dataPlaneInput *v3io.DataPlaneInput,
 	method string,
-	pathStr string,
+	path string,
 	query string,
 	headers map[string]string,
 	body []byte,
@@ -779,15 +779,10 @@ func (c *context) sendRequest(dataPlaneInput *v3io.DataPlaneInput,
 	request := fasthttp.AcquireRequest()
 	response := c.allocateResponse()
 
-	uri, err := url.Parse(c.clusterEndpoints[0])
+	uri, err := c.buildRequestURI(dataPlaneInput.ContainerName, query, path)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Failed to parse URL %s", c.clusterEndpoints[0])
+		return nil, err
 	}
-	uri.Path = path.Clean(path.Join("/", dataPlaneInput.ContainerName, pathStr))
-	if strings.HasSuffix(pathStr, "/") {
-		uri.Path += "/" // retain trailing slash
-	}
-	uri.RawQuery = query
 	uriStr := uri.String()
 
 	// init request
@@ -858,6 +853,19 @@ cleanup:
 	}
 
 	return response, nil
+}
+
+func (c *context) buildRequestURI(containerName string, query string, pathStr string) (*url.URL, error) {
+	uri, err := url.Parse(c.clusterEndpoints[0])
+	if err != nil {
+		return nil, errors.Wrapf(err, "Failed to parse URL %s", c.clusterEndpoints[0])
+	}
+	uri.Path = path.Clean(path.Join("/", containerName, pathStr))
+	if strings.HasSuffix(pathStr, "/") {
+		uri.Path += "/" // retain trailing slash
+	}
+	uri.RawQuery = query
+	return uri, nil
 }
 
 func (c *context) allocateResponse() *v3io.Response {
