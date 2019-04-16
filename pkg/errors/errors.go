@@ -1,6 +1,9 @@
 package v3ioerrors
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 var ErrInvalidTypeConversion = errors.New("Invalid type conversion")
 
@@ -20,4 +23,8 @@ func NewErrorWithStatusCode(err error, statusCode int) ErrorWithStatusCode {
 
 func (e ErrorWithStatusCode) StatusCode() int {
 	return e.statusCode
+}
+
+func (e ErrorWithStatusCode) Error() string {
+	return fmt.Sprintf("%s (%d response code)", e.error.Error(), e.statusCode)
 }
