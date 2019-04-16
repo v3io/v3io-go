@@ -32,6 +32,7 @@ type NewContextInput struct {
 	NumWorkers       int
 	RequestChanLen   int
 	TlsConfig        *tls.Config
+	DialTimeout      time.Duration
 }
 
 type NewSessionInput struct {
