@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"path"
@@ -73,12 +74,20 @@ func NewContext(parentLogger logger.Logger, newContextInput *v3io.NewContextInpu
 		tlsConfig = &tls.Config{InsecureSkipVerify: true}
 	}
 
+	dialTimeout := newContextInput.DialTimeout
+	if dialTimeout == 0 {
+		dialTimeout = fasthttp.DefaultDialTimeout
+	}
+	dialFunction := func(addr string) (net.Conn, error) {
+		return fasthttp.DialTimeout(addr, dialTimeout)
+	}
 	newContext := &context{
 		logger: parentLogger.GetChild("context.http"),
 		httpClient: &fasthttp.HostClient{
 			Addr:      strings.Join(hosts, ","),
 			IsTLS:     httpsEndpointFound,
 			TLSConfig: tlsConfig,
+			Dial:      dialFunction,
 		},
 		clusterEndpoints: newContextInput.ClusterEndpoints,
 		requestChan:      make(chan *v3io.Request, requestChanLen),
