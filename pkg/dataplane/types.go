@@ -145,13 +145,15 @@ type DeleteObjectInput struct {
 type PutItemInput struct {
 	DataPlaneInput
 	Path       string
+	Condition  string
 	Attributes map[string]interface{}
 }
 
 type PutItemsInput struct {
 	DataPlaneInput
-	Path  string
-	Items map[string]map[string]interface{}
+	Path      string
+	Condition string
+	Items     map[string]map[string]interface{}
 }
 
 type PutItemsOutput struct {
@@ -165,6 +167,7 @@ type UpdateItemInput struct {
 	Path       string
 	Attributes map[string]interface{}
 	Expression *string
+	Condition  string
 }
 
 type GetItemInput struct {

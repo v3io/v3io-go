@@ -314,6 +314,7 @@ func (c *context) PutItemSync(putItemInput *v3io.PutItemInput) error {
 		putItemInput.Path,
 		putItemFunctionName,
 		putItemInput.Attributes,
+		putItemInput.Condition,
 		putItemHeaders,
 		nil)
 
@@ -346,6 +347,7 @@ func (c *context) PutItemsSync(putItemsInput *v3io.PutItemsInput) (*v3io.Respons
 			putItemsInput.Path+"/"+itemKey,
 			putItemFunctionName,
 			itemAttributes,
+			putItemsInput.Condition,
 			putItemHeaders,
 			nil)
 
@@ -391,6 +393,7 @@ func (c *context) UpdateItemSync(updateItemInput *v3io.UpdateItemInput) error {
 			updateItemInput.Path,
 			putItemFunctionName,
 			updateItemInput.Attributes,
+			updateItemInput.Condition,
 			putItemHeaders,
 			body)
 
@@ -400,6 +403,7 @@ func (c *context) UpdateItemSync(updateItemInput *v3io.UpdateItemInput) error {
 			updateItemInput.Path,
 			updateItemFunctionName,
 			*updateItemInput.Expression,
+			updateItemInput.Condition,
 			updateItemHeaders)
 	}
 
@@ -695,6 +699,7 @@ func (c *context) putItem(dataPlaneInput *v3io.DataPlaneInput,
 	path string,
 	functionName string,
 	attributes map[string]interface{},
+	condition string,
 	headers map[string]string,
 	body map[string]interface{}) (*v3io.Response, error) {
 
@@ -711,6 +716,10 @@ func (c *context) putItem(dataPlaneInput *v3io.DataPlaneInput,
 
 	// set item in body (use what the user passed as a base)
 	body["Item"] = typedAttributes
+
+	if condition != "" {
+		body["ConditionExpression"] = condition
+	}
 
 	jsonEncodedBodyContents, err := json.Marshal(body)
 	if err != nil {
@@ -730,11 +739,16 @@ func (c *context) updateItemWithExpression(dataPlaneInput *v3io.DataPlaneInput,
 	path string,
 	functionName string,
 	expression string,
+	condition string,
 	headers map[string]string) (*v3io.Response, error) {
 
 	body := map[string]interface{}{
 		"UpdateExpression": expression,
 		"UpdateMode":       "CreateOrReplaceAttributes",
+	}
+
+	if condition != "" {
+		body["ConditionExpression"] = condition
 	}
 
 	jsonEncodedBodyContents, err := json.Marshal(body)
