@@ -40,8 +40,18 @@ func NewContext(parentLogger logger.Logger, newContextInput *v3io.NewContextInpu
 	var hosts []string
 	var httpEndpointFound, httpsEndpointFound bool
 
+	if len(newContextInput.ClusterEndpoints) == 0 {
+		return nil, errors.New("Zero cluster endpoints provided")
+	}
+
 	// iterate over endpoints which contain scheme
 	for _, clusterEndpoint := range newContextInput.ClusterEndpoints {
+
+		// Return a clearer error if an empty cluster endpoint is provided.
+		if clusterEndpoint == "" {
+			return nil, errors.New("Cluster endpoint may not be empty")
+		}
+
 		parsedClusterEndpoint, err := url.Parse(clusterEndpoint)
 		if err != nil {
 			return nil, err
@@ -51,6 +61,8 @@ func NewContext(parentLogger logger.Logger, newContextInput *v3io.NewContextInpu
 			httpEndpointFound = true
 		case "https":
 			httpsEndpointFound = true
+		default:
+			return nil, errors.Errorf("Unsupported endpoint scheme: %s", parsedClusterEndpoint.Scheme)
 		}
 		hosts = append(hosts, parsedClusterEndpoint.Host)
 	}
