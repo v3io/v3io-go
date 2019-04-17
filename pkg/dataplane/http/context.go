@@ -45,10 +45,12 @@ func NewContext(parentLogger logger.Logger, newContextInput *v3io.NewContextInpu
 
 	// iterate over endpoints which contain scheme
 	for _, clusterEndpoint := range newContextInput.ClusterEndpoints {
+
 		// Return a clearer error if an empty cluster endpoint is provided.
 		if clusterEndpoint == "" {
 			return nil, errors.New("Cluster endpoint may not be empty")
 		}
+
 		parsedClusterEndpoint, err := url.Parse(clusterEndpoint)
 		if err != nil {
 			return nil, err
