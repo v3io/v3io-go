@@ -207,7 +207,7 @@ func (c *context) GetItemSync(getItemInput *v3io.GetItemInput) (*v3io.Response, 
 
 	// ad hoc structure that contains response
 	item := struct {
-		Item map[string]map[string]string
+		Item map[string]map[string]interface{}
 	}{}
 
 	c.logger.DebugWithCtx(getItemInput.Ctx, "Body", "body", string(response.Body()))
@@ -294,7 +294,7 @@ func (c *context) GetItemsSync(getItemsInput *v3io.GetItemsInput) (*v3io.Respons
 	c.logger.DebugWithCtx(getItemsInput.Ctx, "Body", "body", string(response.Body()))
 
 	getItemsResponse := struct {
-		Items            []map[string]map[string]string
+		Items            []map[string]map[string]interface{}
 		NextMarker       string
 		LastItemIncluded string
 	}{}
@@ -942,11 +942,11 @@ func (c *context) allocateResponse() *v3io.Response {
 }
 
 // {"age": 30, "name": "foo"} -> {"age": {"N": 30}, "name": {"S": "foo"}}
-func (c *context) encodeTypedAttributes(attributes map[string]interface{}) (map[string]map[string]string, error) {
-	typedAttributes := make(map[string]map[string]string)
+func (c *context) encodeTypedAttributes(attributes map[string]interface{}) (map[string]map[string]interface{}, error) {
+	typedAttributes := make(map[string]map[string]interface{})
 
 	for attributeName, attributeValue := range attributes {
-		typedAttributes[attributeName] = make(map[string]string)
+		typedAttributes[attributeName] = make(map[string]interface{})
 		switch value := attributeValue.(type) {
 		default:
 			return nil, fmt.Errorf("Unexpected attribute type for %s: %T", attributeName, reflect.TypeOf(attributeValue))
@@ -959,6 +959,8 @@ func (c *context) encodeTypedAttributes(attributes map[string]interface{}) (map[
 			typedAttributes[attributeName]["S"] = value
 		case []byte:
 			typedAttributes[attributeName]["B"] = base64.StdEncoding.EncodeToString(value)
+		case bool:
+			typedAttributes[attributeName]["BOOL"] = value
 		}
 	}
 
@@ -966,14 +968,22 @@ func (c *context) encodeTypedAttributes(attributes map[string]interface{}) (map[
 }
 
 // {"age": {"N": 30}, "name": {"S": "foo"}} -> {"age": 30, "name": "foo"}
-func (c *context) decodeTypedAttributes(typedAttributes map[string]map[string]string) (map[string]interface{}, error) {
+func (c *context) decodeTypedAttributes(typedAttributes map[string]map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	attributes := map[string]interface{}{}
 
 	for attributeName, typedAttributeValue := range typedAttributes {
 
+		typeError := func(attributeName string, attributeType string, value interface{}) error {
+			return errors.Errorf("Stated attribute type '%s' for attribute '%s' did not match actual attribute type '%T'", attributeType, attributeName, value)
+		}
+
 		// try to parse as number
-		if numberValue, ok := typedAttributeValue["N"]; ok {
+		if value, ok := typedAttributeValue["N"]; ok {
+			numberValue, ok := value.(string)
+			if !ok {
+				return nil, typeError(attributeName, "N", value)
+			}
 
 			// try int
 			if intValue, err := strconv.Atoi(numberValue); err != nil {
@@ -989,13 +999,30 @@ func (c *context) decodeTypedAttributes(typedAttributes map[string]map[string]st
 			} else {
 				attributes[attributeName] = intValue
 			}
-		} else if stringValue, ok := typedAttributeValue["S"]; ok {
+		} else if value, ok := typedAttributeValue["S"]; ok {
+			stringValue, ok := value.(string)
+			if !ok {
+				return nil, typeError(attributeName, "S", value)
+			}
+
 			attributes[attributeName] = stringValue
-		} else if byteSliceValue, ok := typedAttributeValue["B"]; ok {
+		} else if value, ok := typedAttributeValue["B"]; ok {
+			byteSliceValue, ok := value.(string)
+			if !ok {
+				return nil, typeError(attributeName, "B", value)
+			}
+
 			attributes[attributeName], err = base64.StdEncoding.DecodeString(byteSliceValue)
 			if err != nil {
 				return nil, err
 			}
+		} else if value, ok := typedAttributeValue["BOOL"]; ok {
+			boolValue, ok := value.(bool)
+			if !ok {
+				return nil, typeError(attributeName, "BOOL", value)
+			}
+
+			attributes[attributeName] = boolValue
 		}
 	}
 
