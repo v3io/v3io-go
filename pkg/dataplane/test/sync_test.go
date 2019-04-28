@@ -346,8 +346,8 @@ func (suite *syncKVTestSuite) TestEMD() {
 
 func (suite *syncKVTestSuite) TestPutItems() {
 	items := map[string]map[string]interface{}{
-		"bob":   {"age": 42, "feature": "mustache", "married": false},
-		"linda": {"age": 41, "feature": "singing", "married": true},
+		"bob":   {"age": 42, "feature": "mustache", "married": false, "timestamp": int64(1556450700000)},
+		"linda": {"age": 41, "feature": "singing", "married": true, "timestamp": int64(1556450700000)},
 	}
 
 	putItemsInput := &v3io.PutItemsInput{

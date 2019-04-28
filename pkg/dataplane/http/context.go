@@ -952,6 +952,8 @@ func (c *context) encodeTypedAttributes(attributes map[string]interface{}) (map[
 			return nil, fmt.Errorf("Unexpected attribute type for %s: %T", attributeName, reflect.TypeOf(attributeValue))
 		case int:
 			typedAttributes[attributeName]["N"] = strconv.Itoa(value)
+		case int64:
+			typedAttributes[attributeName]["N"] = strconv.FormatInt(value, 10)
 			// this is a tmp bypass to the fact Go maps Json numbers to float64
 		case float64:
 			typedAttributes[attributeName]["N"] = strconv.FormatFloat(value, 'E', -1, 64)
@@ -987,15 +989,18 @@ func (c *context) decodeTypedAttributes(typedAttributes map[string]map[string]in
 
 			// try int
 			if intValue, err := strconv.Atoi(numberValue); err != nil {
+				if longValue, err := strconv.ParseInt(numberValue, 10, 64); err != nil {
+					// try float
+					floatValue, err := strconv.ParseFloat(numberValue, 64)
+					if err != nil {
+						return nil, fmt.Errorf("Value for %s is not int or float: %s", attributeName, numberValue)
+					}
 
-				// try float
-				floatValue, err := strconv.ParseFloat(numberValue, 64)
-				if err != nil {
-					return nil, fmt.Errorf("Value for %s is not int or float: %s", attributeName, numberValue)
+					// save as float
+					attributes[attributeName] = floatValue
+				} else {
+					attributes[attributeName] = longValue
 				}
-
-				// save as float
-				attributes[attributeName] = floatValue
 			} else {
 				attributes[attributeName] = intValue
 			}
