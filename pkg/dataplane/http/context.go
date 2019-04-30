@@ -989,18 +989,15 @@ func (c *context) decodeTypedAttributes(typedAttributes map[string]map[string]in
 
 			// try int
 			if intValue, err := strconv.Atoi(numberValue); err != nil {
-				if longValue, err := strconv.ParseInt(numberValue, 10, 64); err != nil {
-					// try float
-					floatValue, err := strconv.ParseFloat(numberValue, 64)
-					if err != nil {
-						return nil, fmt.Errorf("Value for %s is not int or float: %s", attributeName, numberValue)
-					}
 
-					// save as float
-					attributes[attributeName] = floatValue
-				} else {
-					attributes[attributeName] = longValue
+				// try float
+				floatValue, err := strconv.ParseFloat(numberValue, 64)
+				if err != nil {
+					return nil, fmt.Errorf("Value for %s is not int or float: %s", attributeName, numberValue)
 				}
+
+				// save as float
+				attributes[attributeName] = floatValue
 			} else {
 				attributes[attributeName] = intValue
 			}
