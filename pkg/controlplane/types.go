@@ -40,6 +40,12 @@ type Session interface {
 
 	// CreateEvent emits new event
 	CreateEventSync(*CreateEventInput) error
+
+	// CreateAccessKeySync creates an access key (blocking)
+	CreateAccessKeySync(input *CreateAccessKeyInput) (*CreateAccessKeyOutput, error)
+
+	// DeleteAccessKeySync deletes an access key (blocking)
+	DeleteAccessKeySync(deleteAccessKeyInput *DeleteAccessKeyInput) error
 }
 
 type ControlPlaneInput struct {
@@ -112,4 +118,21 @@ type UpdateClusterInfoOutput struct {
 type CreateEventInput struct {
 	ControlPlaneInput
 	EventAttributes
+}
+
+// CreateAccessKeyInput specifies how to create an access key
+type CreateAccessKeyInput struct {
+	ControlPlaneInput
+	AccessKeyAttributes
+}
+
+// CreateAccessKeyOutput holds the response from creating an access key
+type CreateAccessKeyOutput struct {
+	ControlPlaneOutput
+	AccessKeyAttributes
+}
+
+// DeleteAccessKeyInput specifies how to delete an access key
+type DeleteAccessKeyInput struct {
+	ControlPlaneInput
 }

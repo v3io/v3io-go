@@ -142,11 +142,21 @@ func (suite *githubClientSuite) TestCreateSessionWithBadPassword() {
 }
 
 func (suite *githubClientSuite) TestCreateEventUsingAccessKey() {
-	newSessionInput := v3ioc.NewSessionInput{}
-	newSessionInput.AccessKey = os.Getenv("V3IO_ACCESS_KEY")
-	newSessionInput.Endpoints = []string{os.Getenv("V3IO_CONTROLPLANE_URL")}
+
+	// Create new access key
+	createAccessKeyInput := v3ioc.CreateAccessKeyInput{}
+	createAccessKeyInput.Ctx = suite.ctx
+	createAccessKeyInput.Label = "test_access_key_label"
+	createAccessKeyInput.Plane = v3ioc.ControlPlane
+
+	createAccessKeyOutput, err := suite.session.CreateAccessKeySync(&createAccessKeyInput)
+	suite.Require().NoError(err)
+	suite.Require().Equal(createAccessKeyOutput.Label, createAccessKeyInput.Label)
 
 	// Create new session from access key
+	newSessionInput := v3ioc.NewSessionInput{}
+	newSessionInput.AccessKey = createAccessKeyOutput.ID
+	newSessionInput.Endpoints = []string{os.Getenv("V3IO_CONTROLPLANE_URL")}
 	accessKeySession, err := v3iochttp.NewSession(suite.logger, &newSessionInput)
 	suite.Require().NoError(err)
 
@@ -157,6 +167,13 @@ func (suite *githubClientSuite) TestCreateEventUsingAccessKey() {
 	createEventInput.Source = "DummyService"
 
 	err = accessKeySession.CreateEventSync(&createEventInput)
+	suite.Require().NoError(err)
+
+	// Delete access key
+	deleteAccessKeyInput := v3ioc.DeleteAccessKeyInput{}
+	deleteAccessKeyInput.ID = createAccessKeyOutput.ID
+	deleteAccessKeyInput.Ctx = suite.ctx
+	err = suite.session.DeleteAccessKeySync(&deleteAccessKeyInput)
 	suite.Require().NoError(err)
 }
 
