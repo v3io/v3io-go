@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"time"
 
@@ -59,7 +60,8 @@ func NewSession(parentLogger logger.Logger,
 		newSession.logger.DebugWithCtx(newSessionInput.Ctx, "Access key found. Will use it to create new session")
 
 		// Generate cookie from access key
-		newSession.cookies["session"] = fmt.Sprintf("session=j%%3A%%7B%%22sid%%22%%3A%%20%%22%s%%22%%7D", newSessionInput.AccessKey)
+		cookieValue := fmt.Sprintf("j:{\"sid\": \"%s\"}", newSessionInput.AccessKey)
+		newSession.cookies["session"] = fmt.Sprintf("session=%s;", url.PathEscape(cookieValue))
 
 	} else {
 
@@ -180,7 +182,6 @@ func (s *session) UpdateClusterInfoSync(
 
 // CreateEvent emits an event
 func (s *session) CreateEventSync(createEventInput *v3ioc.CreateEventInput) error {
-	createEventInput.ControlPlaneInput.Timeout = 30 * time.Second
 
 	// try to create the resource
 	err := s.createResource(createEventInput.Ctx,
