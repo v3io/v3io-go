@@ -60,7 +60,7 @@ func NewSession(parentLogger logger.Logger,
 		newSession.logger.DebugWithCtx(newSessionInput.Ctx, "Access key found. Will use it to create new session")
 
 		// Generate cookie from access key
-		cookieValue := fmt.Sprintf("j:{\"sid\": \"%s\"}", newSessionInput.AccessKey)
+		cookieValue := fmt.Sprintf(`j:{"sid": "%s"}`, newSessionInput.AccessKey)
 		newSession.cookies["session"] = fmt.Sprintf("session=%s;", url.PathEscape(cookieValue))
 
 	} else {
