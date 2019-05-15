@@ -23,7 +23,6 @@ import (
 
 // ControlplaneSession allows operations over a controlplane session
 type Session interface {
-
 	// CreateUser creates a user (blocking)
 	CreateUserSync(*CreateUserInput) (*CreateUserOutput, error)
 
@@ -37,7 +36,10 @@ type Session interface {
 	DeleteContainerSync(*DeleteContainerInput) error
 
 	// UpdateClusterInfo updates a cluster info record (blocking)
-	UpdateClusterInfoSync(*UpdateClusterInfoInput) (*UpdateCluserInfoOutput, error)
+	UpdateClusterInfoSync(*UpdateClusterInfoInput) (*UpdateClusterInfoOutput, error)
+
+	// CreateEvent emits new event
+	CreateEventSync(*CreateEventInput) error
 }
 
 type ControlPlaneInput struct {
@@ -100,8 +102,14 @@ type UpdateClusterInfoInput struct {
 	ClusterInfoAttributes
 }
 
-// UpdateCluserInfoOutput holds the response from updating a cluster info
-type UpdateCluserInfoOutput struct {
+// UpdateClusterInfoOutput holds the response from updating a cluster info
+type UpdateClusterInfoOutput struct {
 	ControlPlaneOutput
 	ClusterInfoAttributes
+}
+
+// CreateEventInput specifies how to create an event
+type CreateEventInput struct {
+	ControlPlaneInput
+	EventAttributes
 }

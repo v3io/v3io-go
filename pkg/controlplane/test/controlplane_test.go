@@ -137,8 +137,27 @@ func (suite *githubClientSuite) TestCreateSessionWithBadPassword() {
 	newSessionInput.Endpoints = []string{os.Getenv("V3IO_CONTROLPLANE_URL")}
 
 	session, err := v3iochttp.NewSession(suite.logger, &newSessionInput)
-	suite.Equal(401, err.(*v3ioerrors.ErrorWithStatusCode).StatusCode())
+	suite.Equal(401, err.(v3ioerrors.ErrorWithStatusCode).StatusCode())
 	suite.Require().Nil(session)
+}
+
+func (suite *githubClientSuite) TestCreateEventUsingAccessKey() {
+	newSessionInput := v3ioc.NewSessionInput{}
+	newSessionInput.AccessKey = os.Getenv("V3IO_ACCESS_KEY")
+	newSessionInput.Endpoints = []string{os.Getenv("V3IO_CONTROLPLANE_URL")}
+
+	// Create new session from access key
+	accessKeySession, err := v3iochttp.NewSession(suite.logger, &newSessionInput)
+	suite.Require().NoError(err)
+
+	// Emit event
+	createEventInput := v3ioc.CreateEventInput{}
+	createEventInput.Ctx = suite.ctx
+	createEventInput.Kind = "AppService.Test.Event"
+	createEventInput.Source = "DummyService"
+
+	err = accessKeySession.CreateEventSync(&createEventInput)
+	suite.Require().NoError(err)
 }
 
 func TestGithubClientTestSuite(t *testing.T) {

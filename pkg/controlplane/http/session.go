@@ -55,24 +55,34 @@ func NewSession(parentLogger logger.Logger,
 		},
 	}
 
-	var output v3ioc.ControlPlaneOutput
-	responseSessionAttributes := v3ioc.SessionAttributes{}
-	newSessionInput.Plane = "control"
+	if len(newSessionInput.AccessKey) > 0 {
+		newSession.logger.DebugWithCtx(newSessionInput.Ctx, "Access key found. Will use it to create new session")
 
-	// try to create the resource
-	err := newSession.createResource(newSessionInput.Ctx,
-		"sessions",
-		"session",
-		&newSessionInput.ControlPlaneInput,
-		&newSessionInput.SessionAttributes,
-		&output,
-		&responseSessionAttributes)
+		// Generate cookie from access key
+		newSession.cookies["session"] = fmt.Sprintf("session=j%%3A%%7B%%22sid%%22%%3A%%20%%22%s%%22%%7D", newSessionInput.AccessKey)
 
-	if err != nil {
-		return nil, err
+	} else {
+
+		// Create new session using username and password
+		var output v3ioc.ControlPlaneOutput
+		responseSessionAttributes := v3ioc.SessionAttributes{}
+		newSessionInput.Plane = "control"
+
+		// try to create the resource
+		err := newSession.createResource(newSessionInput.Ctx,
+			"sessions",
+			"session",
+			&newSessionInput.ControlPlaneInput,
+			&newSessionInput.SessionAttributes,
+			&output,
+			&responseSessionAttributes)
+
+		if err != nil {
+			return nil, err
+		}
+
+		newSession.logger.DebugWithCtx(newSessionInput.Ctx, "Session created", "ID", output.ID)
 	}
-
-	newSession.logger.DebugWithCtx(newSessionInput.Ctx, "Session created", "ID", output.ID)
 
 	return &newSession, nil
 }
@@ -144,10 +154,10 @@ func (s *session) DeleteContainerSync(deleteContainerInput *v3ioc.DeleteContaine
 
 // UpdateClusterInfoSync updates the cluster_info record of the cluster (blocking)
 func (s *session) UpdateClusterInfoSync(
-	updateClusterInfoInput *v3ioc.UpdateClusterInfoInput) (*v3ioc.UpdateCluserInfoOutput, error) {
+	updateClusterInfoInput *v3ioc.UpdateClusterInfoInput) (*v3ioc.UpdateClusterInfoOutput, error) {
 
 	// prepare session response resource
-	updateClusterInfoOutput := v3ioc.UpdateCluserInfoOutput{}
+	updateClusterInfoOutput := v3ioc.UpdateClusterInfoOutput{}
 
 	// prepare detail update path
 	detailPath := fmt.Sprintf("cluster_info/%s", updateClusterInfoInput.ID)
@@ -166,6 +176,22 @@ func (s *session) UpdateClusterInfoSync(
 	}
 
 	return &updateClusterInfoOutput, nil
+}
+
+// CreateEvent emits an event
+func (s *session) CreateEventSync(createEventInput *v3ioc.CreateEventInput) error {
+	createEventInput.ControlPlaneInput.Timeout = 30 * time.Second
+
+	// try to create the resource
+	err := s.createResource(createEventInput.Ctx,
+		"manual_events",
+		"event",
+		&createEventInput.ControlPlaneInput,
+		&createEventInput.EventAttributes,
+		nil,
+		nil)
+
+	return err
 }
 
 func (s *session) createResource(ctx context.Context,
@@ -254,23 +280,25 @@ func (s *session) createOrUpdateResource(ctx context.Context,
 	}
 
 	// unmarshal
-	responseBuffer := bytes.NewBuffer(responseInstance.body)
+	if responseInstance.body != nil && controlPlaneOutput != nil {
+		responseBuffer := bytes.NewBuffer(responseInstance.body)
 
-	jsonAPIResponse := jsonapiResource{
-		Data: jsonapiData{
-			Attributes: responseAttributes,
-		},
-	}
+		jsonAPIResponse := jsonapiResource{
+			Data: jsonapiData{
+				Attributes: responseAttributes,
+			},
+		}
 
-	if err := json.NewDecoder(responseBuffer).Decode(&jsonAPIResponse); err != nil {
-		return err
-	}
+		if err := json.NewDecoder(responseBuffer).Decode(&jsonAPIResponse); err != nil {
+			return err
+		}
 
-	switch typedResponseID := jsonAPIResponse.Data.ID.(type) {
-	case string:
-		controlPlaneOutput.ID = typedResponseID
-	case float64:
-		controlPlaneOutput.IDNumeric = int(typedResponseID)
+		switch typedResponseID := jsonAPIResponse.Data.ID.(type) {
+		case string:
+			controlPlaneOutput.ID = typedResponseID
+		case float64:
+			controlPlaneOutput.IDNumeric = int(typedResponseID)
+		}
 	}
 
 	return nil
