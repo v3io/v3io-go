@@ -19,6 +19,7 @@ package v3ioc
 type SessionAttributes struct {
 	Username      string `json:"username,omitempty"`
 	Password      string `json:"password,omitempty"`
+	AccessKey     string `json:"access_key,omitempty"`
 	Plane         string `json:"plane,omitempty"`
 	InterfaceType string `json:"interfaceType,omitempty"`
 }
@@ -64,3 +65,75 @@ type ClusterInfoEndpointAddress struct {
 	Urls        []string `json:"urls,omitempty"`
 	APIUrls     []string `json:"api_urls,omitempty"`
 }
+
+type EventAttributes struct {
+	SystemEvent    bool           `json:"system_event,omitempty"`
+	Source         string         `json:"source,omitempty"`
+	Kind           string         `json:"kind,omitempty"`
+	Description    string         `json:"description,omitempty"`
+	Severity       Severity       `json:"severity,omitempty"`
+	Tags           []string       `json:"tags,omitempty"`
+	Visibility     Visibility     `json:"visibility,omitempty"`
+	Classification Classification `json:"classification,omitempty"`
+
+	TimestampUint64  uint64 `json:"timestamp_uint64,omitempty"`
+	TimestampIso8601 string `json:"timestamp_iso8601,omitempty"`
+
+	ParametersUint64 []ParameterUint64 `json:"parameters_uint64,omitempty"`
+	ParametersText   []ParameterText   `json:"parameters_text,omitempty"`
+
+	InvokingUserID string `json:"invoking_user_id,omitempty"`
+	AuditTenant    string `json:"audit_tenant,omitempty"`
+}
+
+type AffectedResource struct {
+	ResourceType string `json:"resource_type,omitempty"`
+	IDStr        string `json:"id_str,omitempty"`
+	ID           uint64 `json:"id,omitempty"`
+	Name         string `json:"name,omitempty"`
+}
+
+type ParameterText struct {
+	Name  string `json:"name,omitempty"`
+	Value string `json:"value,omitempty"`
+}
+
+type ParameterUint64 struct {
+	Name  string `json:"name,omitempty"`
+	Value uint64 `json:"value,omitempty"`
+}
+
+type Severity string
+
+const (
+	UnknownSeverity  Severity = "unknown"
+	DebugSeverity    Severity = "debug"
+	InfoSeverity     Severity = "info"
+	WarningSeverity  Severity = "warning"
+	MajorSeverity    Severity = "major"
+	CriticalSeverity Severity = "critical"
+)
+
+type Visibility string
+
+const (
+	UnknownVisibility      Visibility = "unknown"
+	InternalVisibility     Severity   = "internal"
+	ExternalVisibility     Severity   = "external"
+	CustomerOnlyVisibility Severity   = "CustomerOnly"
+)
+
+type Classification string
+
+const (
+	UnknownClassification Classification = "unknown"
+	HwClassification      Classification = "hw"
+	UaClassification      Classification = "ua"
+	BgClassification      Classification = "bg"
+	SwClassification      Classification = "sw"
+	SLAClassification     Classification = "sla"
+	CapClassification     Classification = "cap"
+	SecClassification     Classification = "sec"
+	AuditClassification   Classification = "audit"
+	SystemClassification  Classification = "system"
+)
