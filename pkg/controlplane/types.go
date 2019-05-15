@@ -42,10 +42,10 @@ type Session interface {
 	CreateEventSync(*CreateEventInput) error
 
 	// CreateAccessKeySync creates an access key (blocking)
-	CreateAccessKeySync(input *CreateAccessKeyInput) (*CreateAccessKeyOutput, error)
+	CreateAccessKeySync(*CreateAccessKeyInput) (*CreateAccessKeyOutput, error)
 
 	// DeleteAccessKeySync deletes an access key (blocking)
-	DeleteAccessKeySync(deleteAccessKeyInput *DeleteAccessKeyInput) error
+	DeleteAccessKeySync(*DeleteAccessKeyInput) error
 }
 
 type ControlPlaneInput struct {
