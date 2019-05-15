@@ -137,3 +137,33 @@ const (
 	AuditClassification   Classification = "audit"
 	SystemClassification  Classification = "system"
 )
+
+// AccessKey holds info about a access key
+type AccessKeyAttributes struct {
+	TTL           int      `json:"ttl,omitempty"`
+	CreatedAt     string   `json:"created_at,omitempty"`
+	UpdatedAt     string   `json:"updated_at,omitempty"`
+	ExpiresAt     int      `json:"expires_at,omitempty"`
+	GroupIds      []string `json:"group_ids,omitempty"`
+	UID           int      `json:"uid,omitempty"`
+	GIDs          []int    `json:"gids,omitempty"`
+	TenantID      string   `json:"tenant_id,omitempty"`
+	Kind          string   `json:"kind,omitempty"`
+	Plane         Plane    `json:"plane,omitempty"`
+	InterfaceKind string   `json:"interface_kind,omitempty"`
+	Label         string   `json:"label,omitempty"`
+}
+
+type Plane string
+
+const (
+	ControlPlane Plane = "control"
+	DataPlane    Plane = "data"
+)
+
+type Kind string
+
+const (
+	SessionKind   Kind = "session"
+	AccessKeyKind Kind = "accessKey"
+)

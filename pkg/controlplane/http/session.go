@@ -195,6 +195,38 @@ func (s *session) CreateEventSync(createEventInput *v3ioc.CreateEventInput) erro
 	return err
 }
 
+// CreateAccessKeySync creates an access key (blocking)
+func (s *session) CreateAccessKeySync(createAccessKeyInput *v3ioc.CreateAccessKeyInput) (*v3ioc.CreateAccessKeyOutput, error) {
+
+	// prepare session response resource
+	createAccessKeyOutput := v3ioc.CreateAccessKeyOutput{}
+
+	// try to create the resource
+	err := s.createResource(createAccessKeyInput.Ctx,
+		"access_keys",
+		"access_key",
+		&createAccessKeyInput.ControlPlaneInput,
+		&createAccessKeyInput.AccessKeyAttributes,
+		&createAccessKeyOutput.ControlPlaneOutput,
+		&createAccessKeyOutput.AccessKeyAttributes)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &createAccessKeyOutput, nil
+}
+
+// DeleteAccessKeySync deletes an access key (blocking)
+func (s *session) DeleteAccessKeySync(deleteAccessKeyInput *v3ioc.DeleteAccessKeyInput) error {
+
+	// try to create the resource
+	return s.deleteResource(deleteAccessKeyInput.Ctx,
+		"access_keys",
+		"access_key",
+		&deleteAccessKeyInput.ControlPlaneInput)
+}
+
 func (s *session) createResource(ctx context.Context,
 	path string,
 	kind string,
