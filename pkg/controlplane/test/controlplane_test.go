@@ -28,7 +28,7 @@ func (suite *githubClientSuite) SetupSuite() {
 	suite.logger, _ = nucliozap.NewNuclioZapTest("test")
 
 	// create a security admin session
-	newSessionInput := v3ioc.NewSessionInput{}
+	newSessionInput := v3ioc.CreateSessionInput{}
 	newSessionInput.Username = os.Getenv("V3IO_CONTROLPLANE_USERNAME")
 	newSessionInput.Password = os.Getenv("V3IO_CONTROLPLANE_PASSWORD")
 	newSessionInput.Endpoints = []string{controlplaneURL}
@@ -117,7 +117,7 @@ func (suite *githubClientSuite) TestCreateContainerNumericID() {
 func (suite *githubClientSuite) TestCreateSessionWithTimeout() {
 
 	// create a security admin session
-	newSessionInput := v3ioc.NewSessionInput{}
+	newSessionInput := v3ioc.CreateSessionInput{}
 	newSessionInput.Username = os.Getenv("V3IO_CONTROLPLANE_USERNAME")
 	newSessionInput.Password = os.Getenv("V3IO_CONTROLPLANE_PASSWORD")
 	newSessionInput.Endpoints = []string{os.Getenv("V3IO_CONTROLPLANE_URL")}
@@ -131,7 +131,7 @@ func (suite *githubClientSuite) TestCreateSessionWithTimeout() {
 func (suite *githubClientSuite) TestCreateSessionWithBadPassword() {
 
 	// create a security admin session
-	newSessionInput := v3ioc.NewSessionInput{}
+	newSessionInput := v3ioc.CreateSessionInput{}
 	newSessionInput.Username = os.Getenv("V3IO_CONTROLPLANE_USERNAME")
 	newSessionInput.Password = "WRONG"
 	newSessionInput.Endpoints = []string{os.Getenv("V3IO_CONTROLPLANE_URL")}
@@ -154,7 +154,7 @@ func (suite *githubClientSuite) TestCreateEventUsingAccessKey() {
 	suite.Require().Equal(createAccessKeyOutput.Label, createAccessKeyInput.Label)
 
 	// Create new session from access key
-	newSessionInput := v3ioc.NewSessionInput{}
+	newSessionInput := v3ioc.CreateSessionInput{}
 	newSessionInput.AccessKey = createAccessKeyOutput.ID
 	newSessionInput.Endpoints = []string{os.Getenv("V3IO_CONTROLPLANE_URL")}
 	accessKeySession, err := v3iochttp.NewSession(suite.logger, &newSessionInput)

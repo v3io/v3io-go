@@ -23,22 +23,22 @@ import (
 
 // ControlplaneSession allows operations over a controlplane session
 type Session interface {
-	// CreateUser creates a user (blocking)
+	// CreateUserSync creates a user (blocking)
 	CreateUserSync(*CreateUserInput) (*CreateUserOutput, error)
 
 	// DeleteUserSync deletes a user (blocking)
 	DeleteUserSync(*DeleteUserInput) error
 
-	// CreateContainer creates a container (blocking)
+	// CreateContainerSync creates a container (blocking)
 	CreateContainerSync(*CreateContainerInput) (*CreateContainerOutput, error)
 
 	// DeleteUserSync deletes a user (blocking)
 	DeleteContainerSync(*DeleteContainerInput) error
 
-	// UpdateClusterInfo updates a cluster info record (blocking)
+	// UpdateClusterInfoSync updates a cluster info record (blocking)
 	UpdateClusterInfoSync(*UpdateClusterInfoInput) (*UpdateClusterInfoOutput, error)
 
-	// CreateEvent emits new event
+	// CreateEventSync emits new event (blocking)
 	CreateEventSync(*CreateEventInput) error
 
 	// CreateAccessKeySync creates an access key (blocking)
@@ -61,8 +61,8 @@ type ControlPlaneOutput struct {
 	Ctx       context.Context
 }
 
-// NewSessionInput specifies how to create a session
-type NewSessionInput struct {
+// CreateSessionInput specifies how to create a session
+type CreateSessionInput struct {
 	ControlPlaneInput
 	Endpoints []string
 	SessionAttributes

@@ -43,12 +43,12 @@ type session struct {
 }
 
 func NewSession(parentLogger logger.Logger,
-	newSessionInput *v3ioc.NewSessionInput) (v3ioc.Session, error) {
+	createSessionInput *v3ioc.CreateSessionInput) (v3ioc.Session, error) {
 
 	newSession := session{
 		logger:    parentLogger.GetChild("http"),
 		cookies:   map[string]string{},
-		endpoints: newSessionInput.Endpoints,
+		endpoints: createSessionInput.Endpoints,
 		httpClient: &fasthttp.Client{
 			TLSConfig: &tls.Config{
 				InsecureSkipVerify: true,
@@ -56,11 +56,11 @@ func NewSession(parentLogger logger.Logger,
 		},
 	}
 
-	if len(newSessionInput.AccessKey) > 0 {
-		newSession.logger.DebugWithCtx(newSessionInput.Ctx, "Access key found. Will use it to create new session")
+	if len(createSessionInput.AccessKey) > 0 {
+		newSession.logger.DebugWithCtx(createSessionInput.Ctx, "Access key found. Will use it to create new session")
 
 		// Generate cookie from access key
-		cookieValue := fmt.Sprintf(`j:{"sid": "%s"}`, newSessionInput.AccessKey)
+		cookieValue := fmt.Sprintf(`j:{"sid": "%s"}`, createSessionInput.AccessKey)
 		newSession.cookies["session"] = fmt.Sprintf("session=%s;", url.PathEscape(cookieValue))
 
 	} else {
@@ -68,14 +68,14 @@ func NewSession(parentLogger logger.Logger,
 		// Create new session using username and password
 		var output v3ioc.ControlPlaneOutput
 		responseSessionAttributes := v3ioc.SessionAttributes{}
-		newSessionInput.Plane = "control"
+		createSessionInput.Plane = "control"
 
 		// try to create the resource
-		err := newSession.createResource(newSessionInput.Ctx,
+		err := newSession.createResource(createSessionInput.Ctx,
 			"sessions",
 			"session",
-			&newSessionInput.ControlPlaneInput,
-			&newSessionInput.SessionAttributes,
+			&createSessionInput.ControlPlaneInput,
+			&createSessionInput.SessionAttributes,
 			&output,
 			&responseSessionAttributes)
 
@@ -83,13 +83,13 @@ func NewSession(parentLogger logger.Logger,
 			return nil, err
 		}
 
-		newSession.logger.DebugWithCtx(newSessionInput.Ctx, "Session created", "ID", output.ID)
+		newSession.logger.DebugWithCtx(createSessionInput.Ctx, "Session created", "ID", output.ID)
 	}
 
 	return &newSession, nil
 }
 
-// CreateUser creates a user (blocking)
+// CreateUserSync creates a user (blocking)
 func (s *session) CreateUserSync(createUserInput *v3ioc.CreateUserInput) (*v3ioc.CreateUserOutput, error) {
 
 	// prepare session response resource
@@ -121,7 +121,7 @@ func (s *session) DeleteUserSync(deleteUserInput *v3ioc.DeleteUserInput) error {
 		&deleteUserInput.ControlPlaneInput)
 }
 
-// CreateContainer creates a container (blocking)
+// CreateContainerSync creates a container (blocking)
 func (s *session) CreateContainerSync(
 	createContainerInput *v3ioc.CreateContainerInput) (*v3ioc.CreateContainerOutput, error) {
 
@@ -180,7 +180,7 @@ func (s *session) UpdateClusterInfoSync(
 	return &updateClusterInfoOutput, nil
 }
 
-// CreateEvent emits an event
+// CreateEventSync emits an event (blocking)
 func (s *session) CreateEventSync(createEventInput *v3ioc.CreateEventInput) error {
 
 	// try to create the resource
