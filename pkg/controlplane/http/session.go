@@ -43,12 +43,12 @@ type session struct {
 }
 
 func NewSession(parentLogger logger.Logger,
-	createSessionInput *v3ioc.CreateSessionInput) (v3ioc.Session, error) {
+	newSessionInput *v3ioc.NewSessionInput) (v3ioc.Session, error) {
 
 	newSession := session{
 		logger:    parentLogger.GetChild("http"),
 		cookies:   map[string]string{},
-		endpoints: createSessionInput.Endpoints,
+		endpoints: newSessionInput.Endpoints,
 		httpClient: &fasthttp.Client{
 			TLSConfig: &tls.Config{
 				InsecureSkipVerify: true,
@@ -56,11 +56,11 @@ func NewSession(parentLogger logger.Logger,
 		},
 	}
 
-	if len(createSessionInput.AccessKey) > 0 {
-		newSession.logger.DebugWithCtx(createSessionInput.Ctx, "Access key found. Will use it to create new session")
+	if len(newSessionInput.AccessKey) > 0 {
+		newSession.logger.DebugWithCtx(newSessionInput.Ctx, "Access key found. Will use it to create new session")
 
 		// Generate cookie from access key
-		cookieValue := fmt.Sprintf(`j:{"sid": "%s"}`, createSessionInput.AccessKey)
+		cookieValue := fmt.Sprintf(`j:{"sid": "%s"}`, newSessionInput.AccessKey)
 		newSession.cookies["session"] = fmt.Sprintf("session=%s;", url.PathEscape(cookieValue))
 
 	} else {
@@ -68,14 +68,14 @@ func NewSession(parentLogger logger.Logger,
 		// Create new session using username and password
 		var output v3ioc.ControlPlaneOutput
 		responseSessionAttributes := v3ioc.SessionAttributes{}
-		createSessionInput.Plane = "control"
+		newSessionInput.Plane = "control"
 
 		// try to create the resource
-		err := newSession.createResource(createSessionInput.Ctx,
+		err := newSession.createResource(newSessionInput.Ctx,
 			"sessions",
 			"session",
-			&createSessionInput.ControlPlaneInput,
-			&createSessionInput.SessionAttributes,
+			&newSessionInput.ControlPlaneInput,
+			&newSessionInput.SessionAttributes,
 			&output,
 			&responseSessionAttributes)
 
@@ -83,7 +83,7 @@ func NewSession(parentLogger logger.Logger,
 			return nil, err
 		}
 
-		newSession.logger.DebugWithCtx(createSessionInput.Ctx, "Session created", "ID", output.ID)
+		newSession.logger.DebugWithCtx(newSessionInput.Ctx, "Session created", "ID", output.ID)
 	}
 
 	return &newSession, nil

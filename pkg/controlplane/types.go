@@ -61,10 +61,11 @@ type ControlPlaneOutput struct {
 	Ctx       context.Context
 }
 
-// CreateSessionInput specifies how to create a session
-type CreateSessionInput struct {
+// NewSessionInput specifies how to create a session
+type NewSessionInput struct {
 	ControlPlaneInput
 	Endpoints []string
+	AccessKey string
 	SessionAttributes
 }
 
