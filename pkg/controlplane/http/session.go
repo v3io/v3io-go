@@ -89,7 +89,7 @@ func NewSession(parentLogger logger.Logger,
 	return &newSession, nil
 }
 
-// CreateUser creates a user (blocking)
+// CreateUserSync creates a user (blocking)
 func (s *session) CreateUserSync(createUserInput *v3ioc.CreateUserInput) (*v3ioc.CreateUserOutput, error) {
 
 	// prepare session response resource
@@ -121,7 +121,7 @@ func (s *session) DeleteUserSync(deleteUserInput *v3ioc.DeleteUserInput) error {
 		&deleteUserInput.ControlPlaneInput)
 }
 
-// CreateContainer creates a container (blocking)
+// CreateContainerSync creates a container (blocking)
 func (s *session) CreateContainerSync(
 	createContainerInput *v3ioc.CreateContainerInput) (*v3ioc.CreateContainerOutput, error) {
 
@@ -180,7 +180,7 @@ func (s *session) UpdateClusterInfoSync(
 	return &updateClusterInfoOutput, nil
 }
 
-// CreateEvent emits an event
+// CreateEventSync emits an event (blocking)
 func (s *session) CreateEventSync(createEventInput *v3ioc.CreateEventInput) error {
 
 	// try to create the resource
