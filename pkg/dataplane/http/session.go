@@ -23,7 +23,7 @@ func newSession(parentLogger logger.Logger,
 	accessKey string) (v3io.Session, error) {
 
 	authenticationToken := ""
-	if username != "" && password != "" {
+	if username != "" && password != "" && accessKey == "" {
 		authenticationToken = GenerateAuthenticationToken(username, password)
 	}
 
