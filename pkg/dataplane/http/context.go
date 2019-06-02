@@ -68,7 +68,7 @@ func NewContext(parentLogger logger.Logger, newContextInput *v3io.NewContextInpu
 	}
 
 	if httpEndpointFound && httpsEndpointFound {
-		return nil, errors.New("Cannot create a context with a mix of HTTP and HTTPS endpoints.")
+		return nil, errors.New("cannot create a context with a mix of HTTP and HTTPS endpoints")
 	}
 
 	requestChanLen := newContextInput.RequestChanLen
@@ -81,7 +81,7 @@ func NewContext(parentLogger logger.Logger, newContextInput *v3io.NewContextInpu
 		numWorkers = 8
 	}
 
-	tlsConfig := newContextInput.TlsConfig
+	tlsConfig := newContextInput.TLSConfig
 	if tlsConfig == nil {
 		tlsConfig = &tls.Config{InsecureSkipVerify: true}
 	}
@@ -163,12 +163,41 @@ func (c *context) GetContainerContents(getContainerContentsInput *v3io.GetContai
 }
 
 // GetContainerContentsSync
+// http://IP:8081/bigdata/?prefix-info=1&prefix-only=1&max-keys=1&marker=naipi_files
 func (c *context) GetContainerContentsSync(getContainerContentsInput *v3io.GetContainerContentsInput) (*v3io.Response, error) {
 	getContainerContentOutput := v3io.GetContainerContentsOutput{}
 
 	query := ""
 	if getContainerContentsInput.Path != "" {
 		query += "prefix=" + getContainerContentsInput.Path
+	}
+
+	if getContainerContentsInput.DirectoriesOnly {
+		if len(query) > 0 {
+			query += "&"
+		}
+		query += "prefix-only=1"
+	}
+
+	if getContainerContentsInput.GetAllAttributes {
+		if len(query) > 0 {
+			query += "&"
+		}
+		query += "prefix-info=1"
+	}
+
+	if getContainerContentsInput.Marker != "" {
+		if len(query) > 0 {
+			query += "&"
+		}
+		query += "marker=1"
+	}
+
+	if getContainerContentsInput.Limit > 0 {
+		if len(query) > 0 {
+			query += "&"
+		}
+		query += fmt.Sprintf("max-keys=%d", getContainerContentsInput.Limit)
 	}
 
 	return c.sendRequestAndXMLUnmarshal(&getContainerContentsInput.DataPlaneInput,
