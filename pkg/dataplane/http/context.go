@@ -241,8 +241,14 @@ func (c *context) GetItems(getItemsInput *v3io.GetItemsInput,
 func (c *context) GetItemsSync(getItemsInput *v3io.GetItemsInput) (*v3io.Response, error) {
 
 	// create GetItem Body
-	body := map[string]interface{}{
-		"AttributesToGet": strings.Join(getItemsInput.AttributeNames, ","),
+	body := map[string]interface{}{}
+
+	if len(getItemsInput.AttributeNames) > 0 {
+		body["AttributesToGet"] = strings.Join(getItemsInput.AttributeNames, ",")
+	}
+
+	if getItemsInput.TableName != "" {
+		body["TableName"] = getItemsInput.TableName
 	}
 
 	if getItemsInput.Filter != "" {
