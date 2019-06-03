@@ -163,47 +163,48 @@ func (c *context) GetContainerContents(getContainerContentsInput *v3io.GetContai
 }
 
 // GetContainerContentsSync
-// http://IP:8081/bigdata/?prefix-info=1&prefix-only=1&max-keys=1&marker=naipi_files
 func (c *context) GetContainerContentsSync(getContainerContentsInput *v3io.GetContainerContentsInput) (*v3io.Response, error) {
 	getContainerContentOutput := v3io.GetContainerContentsOutput{}
 
-	query := ""
+	var queryBuilder strings.Builder
 	if getContainerContentsInput.Path != "" {
-		query += "prefix=" + getContainerContentsInput.Path
+		queryBuilder.WriteString("prefix=")
+		queryBuilder.WriteString(getContainerContentsInput.Path)
 	}
 
 	if getContainerContentsInput.DirectoriesOnly {
-		if len(query) > 0 {
-			query += "&"
+		if queryBuilder.Len() > 0 {
+			queryBuilder.WriteByte('&')
 		}
-		query += "prefix-only=1"
+		queryBuilder.WriteString("prefix-only=1")
 	}
 
 	if getContainerContentsInput.GetAllAttributes {
-		if len(query) > 0 {
-			query += "&"
+		if queryBuilder.Len() > 0 {
+			queryBuilder.WriteByte('&')
 		}
-		query += "prefix-info=1"
+		queryBuilder.WriteString("prefix-info=1")
 	}
 
 	if getContainerContentsInput.Marker != "" {
-		if len(query) > 0 {
-			query += "&"
+		if queryBuilder.Len() > 0 {
+			queryBuilder.WriteByte('&')
 		}
-		query += "marker=1"
+		queryBuilder.WriteString("marker=1")
 	}
 
 	if getContainerContentsInput.Limit > 0 {
-		if len(query) > 0 {
-			query += "&"
+		if queryBuilder.Len() > 0 {
+			queryBuilder.WriteByte('&')
 		}
-		query += fmt.Sprintf("max-keys=%d", getContainerContentsInput.Limit)
+		queryBuilder.WriteString("max-keys=")
+		queryBuilder.WriteString(strconv.Itoa(getContainerContentsInput.Limit))
 	}
 
 	return c.sendRequestAndXMLUnmarshal(&getContainerContentsInput.DataPlaneInput,
 		http.MethodGet,
 		"",
-		query,
+		queryBuilder.String(),
 		nil,
 		nil,
 		&getContainerContentOutput)
@@ -323,7 +324,7 @@ func (c *context) GetItemsSync(getItemsInput *v3io.GetItemsInput) (*v3io.Respons
 	c.logger.DebugWithCtx(getItemsInput.Ctx, "Body", "body", string(response.Body()))
 
 	getItemsResponse := struct {
-		Items            []map[string]map[string]interface{}
+		Items []map[string]map[string]interface{}
 		NextMarker       string
 		LastItemIncluded string
 	}{}
