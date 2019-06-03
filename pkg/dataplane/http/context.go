@@ -245,6 +245,10 @@ func (c *context) GetItemsSync(getItemsInput *v3io.GetItemsInput) (*v3io.Respons
 		"AttributesToGet": strings.Join(getItemsInput.AttributeNames, ","),
 	}
 
+	if getItemsInput.TableName != "" {
+		body["TableName"] = getItemsInput.TableName
+	}
+
 	if getItemsInput.Filter != "" {
 		body["FilterExpression"] = getItemsInput.Filter
 	}
