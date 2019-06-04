@@ -313,7 +313,7 @@ func (c *context) GetItemsSync(getItemsInput *v3io.GetItemsInput) (*v3io.Respons
 	c.logger.DebugWithCtx(getItemsInput.Ctx, "Body", "body", string(response.Body()))
 
 	getItemsResponse := struct {
-		Items []map[string]map[string]interface{}
+		Items            []map[string]map[string]interface{}
 		NextMarker       string
 		LastItemIncluded string
 	}{}
