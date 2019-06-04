@@ -35,7 +35,7 @@ func (suite *syncContainerTestSuite) TestGetContainers() {
 	// get containers
 	response, err := suite.container.GetContainersSync(&getContainersInput)
 	suite.Require().NoError(err, "Failed to get containers")
-	defer response.Release()
+	response.Release()
 
 	getContainersOutput := response.Output.(*v3io.GetContainersOutput)
 	fmt.Println(getContainersOutput)
@@ -74,7 +74,7 @@ func (suite *syncContainerTestSuite) TestGetContainerContentsDefault() {
 	// get container contents
 	response, err := suite.container.GetContainerContentsSync(&getContainerContentsInput)
 	suite.Require().NoError(err, "Failed to get container contents")
-	defer response.Release()
+	response.Release()
 
 	getContainerContentsOutput := response.Output.(*v3io.GetContainerContentsOutput)
 	suite.Require().Equal(5, len(getContainerContentsOutput.Contents))
@@ -121,7 +121,7 @@ func (suite *syncContainerTestSuite) TestGetContainerContentsFilesWithAllAttrs()
 	// get container contents
 	response, err := suite.container.GetContainerContentsSync(&getContainerContentsInput)
 	suite.Require().NoError(err, "Failed to get container contents")
-	defer response.Release()
+	response.Release()
 
 	getContainerContentsOutput := response.Output.(*v3io.GetContainerContentsOutput)
 	suite.Require().Equal(5, len(getContainerContentsOutput.Contents))
@@ -137,6 +137,7 @@ func (suite *syncContainerTestSuite) TestGetContainerContentsFilesWithAllAttrs()
 	// get container contents
 	response, err = suite.container.GetContainerContentsSync(&getContainerContentsInput)
 	suite.Require().NoError(err, "Failed to get container contents")
+	response.Release()
 
 	getContainerContentsOutput = response.Output.(*v3io.GetContainerContentsOutput)
 	suite.Require().Equal(5, len(getContainerContentsOutput.Contents))
@@ -187,6 +188,7 @@ func (suite *syncContainerTestSuite) TestGetContainerContentsDirsWithAllAttrs() 
 	// get container contents
 	response, err := suite.container.GetContainerContentsSync(&getContainerContentsInput)
 	suite.Require().NoError(err, "Failed to get container contents")
+	response.Release()
 
 	getContainerContentsOutput := response.Output.(*v3io.GetContainerContentsOutput)
 	suite.Require().Empty(len(getContainerContentsOutput.Contents))
@@ -199,8 +201,6 @@ func (suite *syncContainerTestSuite) TestGetContainerContentsDirsWithAllAttrs() 
 	}
 
 	fmt.Println(getContainerContentsOutput)
-
-	response.Release()
 }
 
 type syncContextContainerTestSuite struct {
@@ -277,7 +277,6 @@ func (suite *syncObjectTestSuite) TestObject() {
 	suite.populateDataPlaneInput(&getObjectInput.DataPlaneInput)
 
 	response, err = suite.container.GetObjectSync(getObjectInput)
-
 	suite.Require().NoError(err, "Failed to get")
 
 	// make sure buckets is not empty
@@ -784,8 +783,7 @@ func (suite *syncStreamTestSuite) deleteAllStreamsInPath(path string) error {
 	if err != nil {
 		return err
 	}
-
-	defer response.Release()
+	response.Release()
 
 	// iterate over streams (prefixes) and delete them
 	for _, commonPrefix := range response.Output.(*v3io.GetContainerContentsOutput).CommonPrefixes {
