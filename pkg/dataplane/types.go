@@ -80,8 +80,7 @@ type Content struct {
 	Key            string   `xml:"Key"`
 	Size           *int     `xml:"Size"`           // file size in bytes
 	LastSequenceID *int     `xml:"LastSequenceId"` // greater than zero for shard files
-	// ETag           string   `xml:"ETag"` // Not in use
-	LastModified string `xml:"LastModified"` // Date in format time.RFC3339: "2019-06-02T14:30:39.18Z"
+	LastModified   string   `xml:"LastModified"`   // Date in format time.RFC3339: "2019-06-02T14:30:39.18Z"
 
 	Mode         *os.FileMode `xml:"Mode"`         // uint32, e.g. 0100664
 	AccessTime   string       `xml:"AccessTime"`   // Date in format time.RFC3339: "2019-06-02T14:30:39.18Z"
@@ -89,7 +88,6 @@ type Content struct {
 	GID          string       `xml:"GID"`          // Hexadecimal representation of GID (e.g. "3e8" -> i.e. "0x3e8" == 1000)
 	UID          string       `xml:"UID"`          // Hexadecimal representation of UID (e.g. "3e8" -> i.e. "0x3e8" == 1000)
 	InodeNumber  *uint32      `xml:"InodeNumber"`  // iNode number
-	// InodeGenID   *int         `xml:"InodeGenId"`   // Not in use
 }
 
 type CommonPrefix struct {
@@ -102,7 +100,6 @@ type CommonPrefix struct {
 	GID            string       `xml:"GID"`          // Hexadecimal representation of GID (e.g. "3e8" -> i.e. "0x3e8" == 1000)
 	UID            string       `xml:"UID"`          // Hexadecimal representation of UID (e.g. "3e8" -> i.e. "0x3e8" == 1000)
 	InodeNumber    *uint32      `xml:"InodeNumber"`  // iNode number
-	// InodeGenID     *int         `xml:"InodeGenId"`   // Not in use
 }
 
 type GetContainerContentsOutput struct {

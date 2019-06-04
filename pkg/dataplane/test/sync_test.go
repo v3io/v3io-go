@@ -36,9 +36,6 @@ func (suite *syncContainerTestSuite) TestGetContainers() {
 	response, err := suite.container.GetContainersSync(&getContainersInput)
 	suite.Require().NoError(err, "Failed to get containers")
 	response.Release()
-
-	getContainersOutput := response.Output.(*v3io.GetContainersOutput)
-	fmt.Println(getContainersOutput)
 }
 
 func (suite *syncContainerTestSuite) TestGetContainerContentsDefault() {
@@ -88,7 +85,6 @@ func (suite *syncContainerTestSuite) TestGetContainerContentsDefault() {
 	}
 
 	suite.Require().Equal(5, len(getContainerContentsOutput.CommonPrefixes))
-	fmt.Println(getContainerContentsOutput)
 }
 
 func (suite *syncContainerTestSuite) TestGetContainerContentsFilesWithAllAttrs() {
@@ -131,7 +127,6 @@ func (suite *syncContainerTestSuite) TestGetContainerContentsFilesWithAllAttrs()
 	for _, content := range getContainerContentsOutput.Contents {
 		validateContent(suite, &content, len(fileContent), true)
 	}
-	fmt.Println(getContainerContentsOutput)
 	// get remaining content
 	getContainerContentsInput.Marker = getContainerContentsOutput.NextMarker
 	// get container contents
@@ -147,8 +142,6 @@ func (suite *syncContainerTestSuite) TestGetContainerContentsFilesWithAllAttrs()
 	for _, content := range getContainerContentsOutput.Contents {
 		validateContent(suite, &content, len(fileContent), true)
 	}
-
-	fmt.Println(getContainerContentsOutput)
 }
 
 func (suite *syncContainerTestSuite) TestGetContainerContentsDirsWithAllAttrs() {
@@ -199,8 +192,6 @@ func (suite *syncContainerTestSuite) TestGetContainerContentsDirsWithAllAttrs() 
 	for _, prefix := range getContainerContentsOutput.CommonPrefixes {
 		validateCommonPrefix(suite, &prefix, true)
 	}
-
-	fmt.Println(getContainerContentsOutput)
 }
 
 type syncContextContainerTestSuite struct {
