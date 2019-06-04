@@ -76,7 +76,6 @@ type GetContainerContentsInput struct {
 }
 
 type Content struct {
-	XMLName        xml.Name `xml:"Contents"`
 	Key            string   `xml:"Key"`
 	Size           *int     `xml:"Size"`           // file size in bytes
 	LastSequenceID *int     `xml:"LastSequenceId"` // greater than zero for shard files
@@ -91,20 +90,18 @@ type Content struct {
 }
 
 type CommonPrefix struct {
-	CommonPrefixes xml.Name     `xml:"CommonPrefixes"`
-	Prefix         string       `xml:"Prefix"`       // directory name
-	LastModified   string       `xml:"LastModified"` // Date in format time.RFC3339: "2019-06-02T14:30:39.18Z"
-	AccessTime     string       `xml:"AccessTime"`   // Date in format time.RFC3339: "2019-06-02T14:30:39.18Z"
-	CreatingTime   string       `xml:"CreatingTime"` // Date in format time.RFC3339: "2019-06-02T14:30:39.18Z"
-	Mode           *os.FileMode `xml:"Mode"`         // uint32, e.g. 040775
-	GID            string       `xml:"GID"`          // Hexadecimal representation of GID (e.g. "3e8" -> i.e. "0x3e8" == 1000)
-	UID            string       `xml:"UID"`          // Hexadecimal representation of UID (e.g. "3e8" -> i.e. "0x3e8" == 1000)
-	InodeNumber    *uint32      `xml:"InodeNumber"`  // iNode number
+	Prefix       string       `xml:"Prefix"`       // directory name
+	LastModified string       `xml:"LastModified"` // Date in format time.RFC3339: "2019-06-02T14:30:39.18Z"
+	AccessTime   string       `xml:"AccessTime"`   // Date in format time.RFC3339: "2019-06-02T14:30:39.18Z"
+	CreatingTime string       `xml:"CreatingTime"` // Date in format time.RFC3339: "2019-06-02T14:30:39.18Z"
+	Mode         *os.FileMode `xml:"Mode"`         // uint32, e.g. 040775
+	GID          string       `xml:"GID"`          // Hexadecimal representation of GID (e.g. "3e8" -> i.e. "0x3e8" == 1000)
+	UID          string       `xml:"UID"`          // Hexadecimal representation of UID (e.g. "3e8" -> i.e. "0x3e8" == 1000)
+	InodeNumber  *uint32      `xml:"InodeNumber"`  // iNode number
 }
 
 type GetContainerContentsOutput struct {
-	BucketName     xml.Name       `xml:"ListBucketResult"`
-	Name           string         `xml:"Name"`
+	Name           string         `xml:"Name"`           // Bucket name
 	NextMarker     string         `xml:"NextMarker"`     // if not empty and isTruncated="true" - has more children (need another fetch to get them)
 	MaxKeys        string         `xml:"MaxKeys"`        // max number of entries in single batch
 	Contents       []Content      `xml:"Contents"`       // files
