@@ -173,31 +173,20 @@ func (c *context) GetContainerContentsSync(getContainerContentsInput *v3io.GetCo
 	}
 
 	if getContainerContentsInput.DirectoriesOnly {
-		if queryBuilder.Len() > 0 {
-			queryBuilder.WriteByte('&')
-		}
-		queryBuilder.WriteString("prefix-only=1")
+		queryBuilder.WriteString("&prefix-only=1")
 	}
 
 	if getContainerContentsInput.GetAllAttributes {
-		if queryBuilder.Len() > 0 {
-			queryBuilder.WriteByte('&')
-		}
-		queryBuilder.WriteString("prefix-info=1")
+		queryBuilder.WriteString("&prefix-info=1")
 	}
 
 	if getContainerContentsInput.Marker != "" {
-		if queryBuilder.Len() > 0 {
-			queryBuilder.WriteByte('&')
-		}
-		queryBuilder.WriteString("marker=1")
+		queryBuilder.WriteString("&marker=")
+		queryBuilder.WriteString(getContainerContentsInput.Marker)
 	}
 
 	if getContainerContentsInput.Limit > 0 {
-		if queryBuilder.Len() > 0 {
-			queryBuilder.WriteByte('&')
-		}
-		queryBuilder.WriteString("max-keys=")
+		queryBuilder.WriteString("&max-keys=")
 		queryBuilder.WriteString(strconv.Itoa(getContainerContentsInput.Limit))
 	}
 
