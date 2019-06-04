@@ -3,6 +3,7 @@ package test
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/v3io/v3io-go/pkg/dataplane"
 	"github.com/v3io/v3io-go/pkg/errors"
@@ -34,15 +35,35 @@ func (suite *syncContainerTestSuite) TestGetContainers() {
 	// get containers
 	response, err := suite.container.GetContainersSync(&getContainersInput)
 	suite.Require().NoError(err, "Failed to get containers")
-
-	getContainersOutput := response.Output.(*v3io.GetContainersOutput)
-	fmt.Println(getContainersOutput)
-
 	response.Release()
 }
 
-func (suite *syncContainerTestSuite) TestGetContainerContents() {
-	getContainerContentsInput := v3io.GetContainerContentsInput{}
+func (suite *syncContainerTestSuite) TestGetContainerContentsDefault() {
+	path := fmt.Sprintf("tmp/test/sync_test/TestGetContainerContentsDefault/%d/", time.Now().Unix())
+	fileContent := "If you cannot do great things, do small things in a great way."
+
+	// Create some content (directory and files)
+	putObjectInput := &v3io.PutObjectInput{}
+	for i := 0; i < 10; i++ {
+		if i < 5 {
+			// Create file with content
+			putObjectInput.Path = fmt.Sprintf("%sfile-%d.txt", path, i)
+			putObjectInput.Body = []byte(fileContent)
+		} else {
+			// create empty directory
+			putObjectInput.Path = fmt.Sprintf("%sdir-%d/", path, i)
+			putObjectInput.Body = nil
+		}
+
+		// when run against a context
+		suite.populateDataPlaneInput(&putObjectInput.DataPlaneInput)
+		err := suite.container.PutObjectSync(putObjectInput)
+		suite.Require().NoError(err, "Failed to create test content")
+	}
+
+	getContainerContentsInput := v3io.GetContainerContentsInput{
+		Path: path,
+	}
 
 	// when run against a context
 	suite.populateDataPlaneInput(&getContainerContentsInput.DataPlaneInput)
@@ -50,11 +71,127 @@ func (suite *syncContainerTestSuite) TestGetContainerContents() {
 	// get container contents
 	response, err := suite.container.GetContainerContentsSync(&getContainerContentsInput)
 	suite.Require().NoError(err, "Failed to get container contents")
+	response.Release()
 
 	getContainerContentsOutput := response.Output.(*v3io.GetContainerContentsOutput)
-	fmt.Println(getContainerContentsOutput)
+	suite.Require().Equal(5, len(getContainerContentsOutput.Contents))
 
+	for _, content := range getContainerContentsOutput.Contents {
+		validateContent(suite, &content, len(fileContent), false)
+	}
+
+	for _, prefix := range getContainerContentsOutput.CommonPrefixes {
+		validateCommonPrefix(suite, &prefix, false)
+	}
+
+	suite.Require().Equal(5, len(getContainerContentsOutput.CommonPrefixes))
+}
+
+func (suite *syncContainerTestSuite) TestGetContainerContentsFilesWithAllAttrs() {
+	path := fmt.Sprintf("tmp/test/sync_test/TestGetContainerContentsFilesWithAllAttrs/%d/", time.Now().Unix())
+	fileContent := "If you cannot do great things, do small things in a great way."
+
+	// Create some content (directory and files)
+	putObjectInput := &v3io.PutObjectInput{}
+	for i := 0; i < 10; i++ {
+		// Create file with content
+		putObjectInput.Path = path + fmt.Sprintf("file-%d.txt", i)
+		putObjectInput.Body = []byte(fileContent)
+
+		// when run against a context
+		suite.populateDataPlaneInput(&putObjectInput.DataPlaneInput)
+		err := suite.container.PutObjectSync(putObjectInput)
+		suite.Require().NoError(err, "Failed to create test content")
+	}
+
+	getContainerContentsInput := v3io.GetContainerContentsInput{
+		Path:             path,
+		GetAllAttributes: true,
+		DirectoriesOnly:  false,
+		Limit:            5,
+	}
+
+	// when run against a context
+	suite.populateDataPlaneInput(&getContainerContentsInput.DataPlaneInput)
+
+	// get container contents
+	response, err := suite.container.GetContainerContentsSync(&getContainerContentsInput)
+	suite.Require().NoError(err, "Failed to get container contents")
 	response.Release()
+
+	getContainerContentsOutput := response.Output.(*v3io.GetContainerContentsOutput)
+	suite.Require().Equal(5, len(getContainerContentsOutput.Contents))
+	suite.Require().Equal(path+"file-4.txt", getContainerContentsOutput.NextMarker)
+	suite.Require().Equal(true, getContainerContentsOutput.IsTruncated)
+
+	for _, content := range getContainerContentsOutput.Contents {
+		validateContent(suite, &content, len(fileContent), true)
+	}
+	// get remaining content
+	getContainerContentsInput.Marker = getContainerContentsOutput.NextMarker
+	// get container contents
+	response, err = suite.container.GetContainerContentsSync(&getContainerContentsInput)
+	suite.Require().NoError(err, "Failed to get container contents")
+	response.Release()
+
+	getContainerContentsOutput = response.Output.(*v3io.GetContainerContentsOutput)
+	suite.Require().Equal(5, len(getContainerContentsOutput.Contents))
+	suite.Require().Equal(path+"file-9.txt", getContainerContentsOutput.NextMarker)
+	suite.Require().Equal(false, getContainerContentsOutput.IsTruncated)
+
+	for _, content := range getContainerContentsOutput.Contents {
+		validateContent(suite, &content, len(fileContent), true)
+	}
+}
+
+func (suite *syncContainerTestSuite) TestGetContainerContentsDirsWithAllAttrs() {
+	path := fmt.Sprintf("tmp/test/sync_test/TestGetContainerContentsDirsWithAllAttrs/%d/", time.Now().Unix())
+	content := "If you cannot do great things, do small things in a great way."
+
+	// Create some content (directory and files)
+	putObjectInput := &v3io.PutObjectInput{}
+	for i := 0; i < 10; i++ {
+		// create 2 files and 8 directories at the target path
+		if i < 2 {
+			// Create file with content
+			putObjectInput.Path = fmt.Sprintf("%sfile-%d.txt", path, i)
+			putObjectInput.Body = []byte(content)
+		} else {
+			// create empty directory
+			putObjectInput.Path = fmt.Sprintf("%sdir-%d/", path, i)
+			putObjectInput.Body = nil
+		}
+
+		// when run against a context
+		suite.populateDataPlaneInput(&putObjectInput.DataPlaneInput)
+		err := suite.container.PutObjectSync(putObjectInput)
+		suite.Require().NoError(err, "Failed to create test content")
+	}
+
+	getContainerContentsInput := v3io.GetContainerContentsInput{
+		Path:             path,
+		GetAllAttributes: true,
+		DirectoriesOnly:  true,
+		Limit:            10,
+	}
+
+	// when run against a context
+	suite.populateDataPlaneInput(&getContainerContentsInput.DataPlaneInput)
+
+	// get container contents
+	response, err := suite.container.GetContainerContentsSync(&getContainerContentsInput)
+	suite.Require().NoError(err, "Failed to get container contents")
+	response.Release()
+
+	getContainerContentsOutput := response.Output.(*v3io.GetContainerContentsOutput)
+	suite.Require().Empty(len(getContainerContentsOutput.Contents))
+	suite.Require().Equal(8, len(getContainerContentsOutput.CommonPrefixes))
+	suite.Require().Equal(path+"dir-9", getContainerContentsOutput.NextMarker)
+	suite.Require().Equal(false, getContainerContentsOutput.IsTruncated)
+
+	for _, prefix := range getContainerContentsOutput.CommonPrefixes {
+		validateCommonPrefix(suite, &prefix, true)
+	}
 }
 
 type syncContextContainerTestSuite struct {
@@ -131,7 +268,6 @@ func (suite *syncObjectTestSuite) TestObject() {
 	suite.populateDataPlaneInput(&getObjectInput.DataPlaneInput)
 
 	response, err = suite.container.GetObjectSync(getObjectInput)
-
 	suite.Require().NoError(err, "Failed to get")
 
 	// make sure buckets is not empty
@@ -438,7 +574,7 @@ func (suite *syncKVTestSuite) verifyItems(items map[string]map[string]interface{
 func (suite *syncKVTestSuite) deleteItems(items map[string]map[string]interface{}) {
 
 	// delete the items
-	for itemKey, _ := range items {
+	for itemKey := range items {
 		input := v3io.DeleteObjectInput{
 			Path: "/emd0/" + itemKey,
 		}
@@ -495,11 +631,13 @@ type syncStreamTestSuite struct {
 
 func (suite *syncStreamTestSuite) SetupTest() {
 	suite.testPath = "/stream-test"
-	suite.deleteAllStreamsInPath(suite.testPath)
+	err := suite.deleteAllStreamsInPath(suite.testPath)
+	suite.Require().NoError(err, "Failed to setup test suite")
 }
 
 func (suite *syncStreamTestSuite) TearDownTest() {
-	suite.deleteAllStreamsInPath(suite.testPath)
+	err := suite.deleteAllStreamsInPath(suite.testPath)
+	suite.Require().NoError(err, "Failed to tea down test suite")
 }
 
 func (suite *syncStreamTestSuite) TestStream() {
@@ -636,8 +774,7 @@ func (suite *syncStreamTestSuite) deleteAllStreamsInPath(path string) error {
 	if err != nil {
 		return err
 	}
-
-	defer response.Release()
+	response.Release()
 
 	// iterate over streams (prefixes) and delete them
 	for _, commonPrefix := range response.Output.(*v3io.GetContainerContentsOutput).CommonPrefixes {
@@ -647,7 +784,10 @@ func (suite *syncStreamTestSuite) deleteAllStreamsInPath(path string) error {
 
 		suite.populateDataPlaneInput(&deleteStreamInput.DataPlaneInput)
 
-		suite.container.DeleteStreamSync(&deleteStreamInput)
+		err := suite.container.DeleteStreamSync(&deleteStreamInput)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -683,4 +823,54 @@ func TestSyncSuite(t *testing.T) {
 	suite.Run(t, new(syncContainerKVTestSuite))
 	suite.Run(t, new(syncContextStreamTestSuite))
 	suite.Run(t, new(syncContainerStreamTestSuite))
+}
+
+func validateContent(suite *syncContainerTestSuite, content *v3io.Content, expectedSize int, withPrefixInfo bool) {
+	// common
+	suite.Require().NotEmpty(content.Key)
+	suite.Require().NotEmpty(content.LastModified)
+	suite.Require().NotNil(content.Size)
+	suite.Require().Equal(expectedSize, *content.Size)
+
+	if withPrefixInfo {
+		suite.Require().NotEmpty(content.AccessTime)
+		suite.Require().NotEmpty(content.CreatingTime)
+		suite.Require().NotEmpty(content.GID)
+		suite.Require().NotEmpty(content.UID)
+		suite.Require().NotEmpty(content.Mode)
+		suite.Require().NotEmpty(content.InodeNumber)
+		suite.Require().Nil(content.LastSequenceID)
+	} else {
+		suite.Require().Empty(content.AccessTime)
+		suite.Require().Empty(content.CreatingTime)
+		suite.Require().Empty(content.GID)
+		suite.Require().Empty(content.UID)
+		suite.Require().Nil(content.Mode)
+		suite.Require().Nil(content.InodeNumber)
+		suite.Require().Nil(content.LastSequenceID)
+	}
+}
+
+func validateCommonPrefix(suite *syncContainerTestSuite, prefix *v3io.CommonPrefix, withPrefixInfo bool) {
+	// common
+	suite.Require().NotEmpty(prefix.Prefix)
+
+	if withPrefixInfo {
+		suite.Require().NotEmpty(prefix.LastModified)
+		suite.Require().NotEmpty(prefix.AccessTime)
+		suite.Require().NotEmpty(prefix.CreatingTime)
+		suite.Require().NotEmpty(prefix.GID)
+		suite.Require().NotEmpty(prefix.UID)
+		suite.Require().NotEmpty(prefix.Mode)
+		suite.Require().NotEmpty(prefix.InodeNumber)
+		suite.Require().Equal(true, *prefix.InodeNumber > 0)
+	} else {
+		suite.Require().Empty(prefix.LastModified)
+		suite.Require().Empty(prefix.AccessTime)
+		suite.Require().Empty(prefix.CreatingTime)
+		suite.Require().Empty(prefix.GID)
+		suite.Require().Empty(prefix.UID)
+		suite.Require().Nil(prefix.Mode)
+		suite.Require().Nil(prefix.InodeNumber)
+	}
 }

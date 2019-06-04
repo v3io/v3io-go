@@ -68,7 +68,7 @@ func NewContext(parentLogger logger.Logger, newContextInput *v3io.NewContextInpu
 	}
 
 	if httpEndpointFound && httpsEndpointFound {
-		return nil, errors.New("Cannot create a context with a mix of HTTP and HTTPS endpoints.")
+		return nil, errors.New("cannot create a context with a mix of HTTP and HTTPS endpoints")
 	}
 
 	requestChanLen := newContextInput.RequestChanLen
@@ -81,7 +81,7 @@ func NewContext(parentLogger logger.Logger, newContextInput *v3io.NewContextInpu
 		numWorkers = 8
 	}
 
-	tlsConfig := newContextInput.TlsConfig
+	tlsConfig := newContextInput.TLSConfig
 	if tlsConfig == nil {
 		tlsConfig = &tls.Config{InsecureSkipVerify: true}
 	}
@@ -166,15 +166,34 @@ func (c *context) GetContainerContents(getContainerContentsInput *v3io.GetContai
 func (c *context) GetContainerContentsSync(getContainerContentsInput *v3io.GetContainerContentsInput) (*v3io.Response, error) {
 	getContainerContentOutput := v3io.GetContainerContentsOutput{}
 
-	query := ""
+	var queryBuilder strings.Builder
 	if getContainerContentsInput.Path != "" {
-		query += "prefix=" + getContainerContentsInput.Path
+		queryBuilder.WriteString("prefix=")
+		queryBuilder.WriteString(getContainerContentsInput.Path)
+	}
+
+	if getContainerContentsInput.DirectoriesOnly {
+		queryBuilder.WriteString("&prefix-only=1")
+	}
+
+	if getContainerContentsInput.GetAllAttributes {
+		queryBuilder.WriteString("&prefix-info=1")
+	}
+
+	if getContainerContentsInput.Marker != "" {
+		queryBuilder.WriteString("&marker=")
+		queryBuilder.WriteString(getContainerContentsInput.Marker)
+	}
+
+	if getContainerContentsInput.Limit > 0 {
+		queryBuilder.WriteString("&max-keys=")
+		queryBuilder.WriteString(strconv.Itoa(getContainerContentsInput.Limit))
 	}
 
 	return c.sendRequestAndXMLUnmarshal(&getContainerContentsInput.DataPlaneInput,
 		http.MethodGet,
 		"",
-		query,
+		queryBuilder.String(),
 		nil,
 		nil,
 		&getContainerContentOutput)
