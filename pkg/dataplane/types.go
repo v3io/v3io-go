@@ -76,10 +76,10 @@ type GetContainerContentsInput struct {
 }
 
 type Content struct {
-	Key            string   `xml:"Key"`
-	Size           *int     `xml:"Size"`           // file size in bytes
-	LastSequenceID *int     `xml:"LastSequenceId"` // greater than zero for shard files
-	LastModified   string   `xml:"LastModified"`   // Date in format time.RFC3339: "2019-06-02T14:30:39.18Z"
+	Key            string `xml:"Key"`
+	Size           *int   `xml:"Size"`           // file size in bytes
+	LastSequenceID *int   `xml:"LastSequenceId"` // greater than zero for shard files
+	LastModified   string `xml:"LastModified"`   // Date in format time.RFC3339: "2019-06-02T14:30:39.18Z"
 
 	Mode         *os.FileMode `xml:"Mode"`         // uint32, e.g. 0100664
 	AccessTime   string       `xml:"AccessTime"`   // Date in format time.RFC3339: "2019-06-02T14:30:39.18Z"
