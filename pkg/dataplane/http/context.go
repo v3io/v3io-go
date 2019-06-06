@@ -923,7 +923,7 @@ func (c *context) sendRequest(dataPlaneInput *v3io.DataPlaneInput,
 
 	// make sure we got expected status
 	if !success {
-		err = v3ioerrors.NewErrorWithStatusCode(fmt.Errorf("Failed %s with status %d", method, statusCode), statusCode)
+		err = v3ioerrors.NewErrorWithStatusCode(fmt.Errorf("Expected a 2xx response status code: %s", response.HTTPResponse.String()), statusCode)
 		goto cleanup
 	}
 

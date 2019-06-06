@@ -2,7 +2,6 @@ package v3ioerrors
 
 import (
 	"errors"
-	"fmt"
 )
 
 var ErrInvalidTypeConversion = errors.New("Invalid type conversion")
@@ -26,5 +25,5 @@ func (e ErrorWithStatusCode) StatusCode() int {
 }
 
 func (e ErrorWithStatusCode) Error() string {
-	return fmt.Sprintf("%s (%d response code)", e.error.Error(), e.statusCode)
+	return e.error.Error()
 }
