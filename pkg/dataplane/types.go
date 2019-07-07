@@ -21,6 +21,8 @@ import (
 	"crypto/tls"
 	"encoding/xml"
 	"os"
+	"strconv"
+	"syscall"
 	"time"
 )
 
@@ -81,7 +83,7 @@ type Content struct {
 	LastSequenceID *int   `xml:"LastSequenceId"` // greater than zero for shard files
 	LastModified   string `xml:"LastModified"`   // Date in format time.RFC3339: "2019-06-02T14:30:39.18Z"
 
-	Mode         *os.FileMode `xml:"Mode"`         // uint32, e.g. 0100664
+	Mode         V3IOFileMode `xml:"Mode"`         // uint32, e.g. 0100664
 	AccessTime   string       `xml:"AccessTime"`   // Date in format time.RFC3339: "2019-06-02T14:30:39.18Z"
 	CreatingTime string       `xml:"CreatingTime"` // Date in format time.RFC3339: "2019-06-02T14:30:39.18Z"
 	GID          string       `xml:"GID"`          // Hexadecimal representation of GID (e.g. "3e8" -> i.e. "0x3e8" == 1000)
@@ -94,10 +96,30 @@ type CommonPrefix struct {
 	LastModified string       `xml:"LastModified"` // Date in format time.RFC3339: "2019-06-02T14:30:39.18Z"
 	AccessTime   string       `xml:"AccessTime"`   // Date in format time.RFC3339: "2019-06-02T14:30:39.18Z"
 	CreatingTime string       `xml:"CreatingTime"` // Date in format time.RFC3339: "2019-06-02T14:30:39.18Z"
-	Mode         *os.FileMode `xml:"Mode"`         // uint32, e.g. 040775
+	Mode         V3IOFileMode `xml:"Mode"`         // uint32, e.g. 040775
 	GID          string       `xml:"GID"`          // Hexadecimal representation of GID (e.g. "3e8" -> i.e. "0x3e8" == 1000)
 	UID          string       `xml:"UID"`          // Hexadecimal representation of UID (e.g. "3e8" -> i.e. "0x3e8" == 1000)
 	InodeNumber  *uint32      `xml:"InodeNumber"`  // iNode number
+}
+
+type V3IOFileMode string
+
+func (vfm V3IOFileMode) FileMode() os.FileMode {
+	return mode(vfm)
+}
+
+func (vfm V3IOFileMode) String() string {
+	return vfm.FileMode().String()
+}
+
+func mode(v3ioFileMode V3IOFileMode) os.FileMode {
+	// Convert 16 bit octal representation of V3IO into decimal 32 bit representation of Go
+	mode, err := strconv.ParseUint(string(v3ioFileMode), 8, 32)
+	if err != nil {
+		panic(err)
+	}
+	golangFileMode := ((mode & syscall.S_IFMT) << 17) | (mode & syscall.IP_OFFMASK)
+	return os.FileMode(golangFileMode)
 }
 
 type GetContainerContentsOutput struct {

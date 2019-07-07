@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"path"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -319,7 +320,7 @@ func (c *context) GetItemsSync(getItemsInput *v3io.GetItemsInput) (*v3io.Respons
 	c.logger.DebugWithCtx(getItemsInput.Ctx, "Body", "body", string(response.Body()))
 
 	getItemsResponse := struct {
-		Items            []map[string]map[string]interface{}
+		Items []map[string]map[string]interface{}
 		NextMarker       string
 		LastItemIncluded string
 	}{}
@@ -923,7 +924,12 @@ func (c *context) sendRequest(dataPlaneInput *v3io.DataPlaneInput,
 
 	// make sure we got expected status
 	if !success {
-		err = v3ioerrors.NewErrorWithStatusCode(fmt.Errorf("Expected a 2xx response status code: %s", response.HTTPResponse.String()), statusCode)
+		var re = regexp.MustCompile(".*X-V3io-Session-Key:.*")
+		sanitizedRequest := re.ReplaceAllString(request.String(), "X-V3io-Session-Key: SANITIZED")
+		err = v3ioerrors.NewErrorWithStatusCode(
+			fmt.Errorf("Expected a 2xx response status code: %s\nRequest details:\n%s",
+				response.HTTPResponse.String(), sanitizedRequest),
+			statusCode)
 		goto cleanup
 	}
 

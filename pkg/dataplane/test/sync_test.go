@@ -632,12 +632,18 @@ type syncStreamTestSuite struct {
 func (suite *syncStreamTestSuite) SetupTest() {
 	suite.testPath = "/stream-test"
 	err := suite.deleteAllStreamsInPath(suite.testPath)
-	suite.Require().NoError(err, "Failed to setup test suite")
+	// get the underlying root error
+	if err != nil {
+		errWithStatusCode, errHasStatusCode := err.(v3ioerrors.ErrorWithStatusCode)
+		suite.Require().True(errHasStatusCode)
+		// File not found is OK
+		suite.Require().Equal(404, errWithStatusCode.StatusCode(), "Failed to setup test suite")
+	}
 }
 
 func (suite *syncStreamTestSuite) TearDownTest() {
 	err := suite.deleteAllStreamsInPath(suite.testPath)
-	suite.Require().NoError(err, "Failed to tea down test suite")
+	suite.Require().NoError(err, "Failed to tear down test suite")
 }
 
 func (suite *syncStreamTestSuite) TestStream() {
@@ -837,7 +843,7 @@ func validateContent(suite *syncContainerTestSuite, content *v3io.Content, expec
 		suite.Require().NotEmpty(content.CreatingTime)
 		suite.Require().NotEmpty(content.GID)
 		suite.Require().NotEmpty(content.UID)
-		suite.Require().NotEmpty(content.Mode)
+		suite.Require().NotEmpty(content.Mode.FileMode())
 		suite.Require().NotEmpty(content.InodeNumber)
 		suite.Require().Nil(content.LastSequenceID)
 	} else {
@@ -861,7 +867,7 @@ func validateCommonPrefix(suite *syncContainerTestSuite, prefix *v3io.CommonPref
 		suite.Require().NotEmpty(prefix.CreatingTime)
 		suite.Require().NotEmpty(prefix.GID)
 		suite.Require().NotEmpty(prefix.UID)
-		suite.Require().NotEmpty(prefix.Mode)
+		suite.Require().NotEmpty(prefix.Mode.FileMode())
 		suite.Require().NotEmpty(prefix.InodeNumber)
 		suite.Require().Equal(true, *prefix.InodeNumber > 0)
 	} else {
