@@ -68,6 +68,11 @@ func (r *Response) Body() []byte {
 	return r.HTTPResponse.Body()
 }
 
+func (r *Response) HeaderPeek(key string) []byte {
+	return r.HTTPResponse.Header.Peek(key)
+}
+
+
 func (r *Response) Request() *Request {
 	return &r.RequestResponse.Request
 }

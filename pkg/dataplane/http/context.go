@@ -16,13 +16,15 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+	"io"
 
 	"github.com/v3io/v3io-go/pkg/dataplane"
 	"github.com/v3io/v3io-go/pkg/errors"
-
+	"github.com/v3io/v3io-go/pkg/dataplane/vncapnp"
 	"github.com/nuclio/errors"
 	"github.com/nuclio/logger"
 	"github.com/valyala/fasthttp"
+	"zombiezen.com/go/capnproto2"
 )
 
 // TODO: Request should have a global pool
@@ -206,6 +208,11 @@ func (c *context) GetItem(getItemInput *v3io.GetItemInput,
 	return c.sendRequestToWorker(getItemInput, context, responseChan)
 }
 
+type attribValuesSection struct {
+	accLen int
+	data vncapnp.VnObjectAttributeValuePtr_List
+}
+
 // GetItemSync
 func (c *context) GetItemSync(getItemInput *v3io.GetItemInput) (*v3io.Response, error) {
 
@@ -308,54 +315,160 @@ func (c *context) GetItemsSync(getItemsInput *v3io.GetItemsInput) (*v3io.Respons
 		"PUT",
 		getItemsInput.Path,
 		"",
-		getItemsHeaders,
+		getItemsHeadersCapnp,
+//		getItemsHeaders,
 		marshalledBody,
 		false)
 
 	if err != nil {
 		return nil, err
 	}
+	contentType := string(response.HeaderPeek("Content-Type"))
 
-	c.logger.DebugWithCtx(getItemsInput.Ctx, "Body", "body", string(response.Body()))
+	if contentType != "application/octet-capnp" {
 
-	getItemsResponse := struct {
-		Items            []map[string]map[string]interface{}
-		NextMarker       string
-		LastItemIncluded string
-	}{}
+		c.logger.DebugWithCtx(getItemsInput.Ctx, "Body", "body", string(response.Body()))
 
-	// unmarshal the body into an ad hoc structure
-	err = json.Unmarshal(response.Body(), &getItemsResponse)
-	if err != nil {
-		return nil, err
-	}
+		getItemsResponse := struct {
+			Items            []map[string]map[string]interface{}
+			NextMarker       string
+			LastItemIncluded string
+		}{}
 
-	//validate getItems response to avoid infinite loop
-	if getItemsResponse.LastItemIncluded != "TRUE" && (getItemsResponse.NextMarker == "" || getItemsResponse.NextMarker == getItemsInput.Marker) {
-		errMsg := fmt.Sprintf("Invalid getItems response: lastItemIncluded=false and nextMarker='%s', "+
-			"startMarker='%s', probably due to object size bigger than 2M. Query is: %+v", getItemsResponse.NextMarker, getItemsInput.Marker, getItemsInput)
-		c.logger.Warn(errMsg)
-	}
-
-	getItemsOutput := v3io.GetItemsOutput{
-		NextMarker: getItemsResponse.NextMarker,
-		Last:       getItemsResponse.LastItemIncluded == "TRUE",
-	}
-
-	// iterate through the items and decode them
-	for _, typedItem := range getItemsResponse.Items {
-
-		item, err := c.decodeTypedAttributes(typedItem)
+		// unmarshal the body into an ad hoc structure
+		err = json.Unmarshal(response.Body(), &getItemsResponse)
 		if err != nil {
 			return nil, err
 		}
 
-		getItemsOutput.Items = append(getItemsOutput.Items, item)
+		//validate getItems response to avoid infinite loop
+		if getItemsResponse.LastItemIncluded != "TRUE" && (getItemsResponse.NextMarker == "" || getItemsResponse.NextMarker == getItemsInput.Marker) {
+			errMsg := fmt.Sprintf("Invalid getItems response: lastItemIncluded=false and nextMarker='%s', "+
+				"startMarker='%s', probably due to object size bigger than 2M. Query is: %+v", getItemsResponse.NextMarker, getItemsInput.Marker, getItemsInput)
+			c.logger.Warn(errMsg)
+		}
+
+		getItemsOutput := v3io.GetItemsOutput{
+			NextMarker: getItemsResponse.NextMarker,
+			Last:       getItemsResponse.LastItemIncluded == "TRUE",
+		}
+
+		// iterate through the items and decode them
+		for _, typedItem := range getItemsResponse.Items {
+
+			item, err := c.decodeTypedAttributes(typedItem)
+			if err != nil {
+				return nil, err
+			}
+
+			getItemsOutput.Items = append(getItemsOutput.Items, item)
+		}
+		// attach the output to the response
+		response.Output = &getItemsOutput
+	} else {
+		r := bytes.NewReader(response.Body())
+		capnpSections := readAllCapnpMessages(r)
+		if len(capnpSections) < 2 {
+			return response, errors.Errorf("getItemsCapnp: Got only %v capnp sections. Expecting at least 2", len(capnpSections))
+		}
+		cookie := string(response.HeaderPeek("X-v3io-cookie"))
+		getItemsOutput := v3io.GetItemsOutput{
+			NextMarker: cookie,
+			Last:       len(cookie) == 0,
+		}
+		if len(capnpSections) < 2 {
+			return response, errors.Errorf("getItemsCapnp: Got only %v capnp sections. Expecting at least 2", len(capnpSections))
+		}
+
+		metadataPayload, err := vncapnp.ReadRootVnObjectItemsGetResponseMetadataPayload(capnpSections[len(capnpSections) - 1])
+		if err != nil {
+			return response, err
+		}
+		//Keys
+		attributeMap, err := metadataPayload.KeyMap()
+ 		if err != nil {
+ 			return response, err
+		}
+		attributeMapNames,err := attributeMap.Names()
+ 		if err != nil {
+			return response, err
+		}
+		attributeNamesPtr,err  := attributeMapNames.Arr()
+		if err != nil {
+			return response, err
+		}
+		//Values
+		valueMap, err := metadataPayload.ValueMap()
+		if err != nil {
+			return response, err
+		}
+		values, err := valueMap.Values()
+		if err != nil {
+			return response, err
+		}
+
+		// Items
+		items, err := metadataPayload.Items()
+		if err != nil {
+			return response, err
+		}
+		valuesSections :=  make([]attribValuesSection , len(capnpSections) - 1)
+
+		accLength := 0
+		//Additional data sections "in between"
+		for i:= 1;i < len(capnpSections) - 1; i++ {
+			data, err := vncapnp.ReadRootVnObjectAttributeValueMap(capnpSections[i])
+			if err != nil {
+				return response, err
+			}
+			dv, err := data.Values()
+			if err != nil {
+				return response, err
+			}
+			accLength = accLength + dv.Len()  
+			valuesSections[i-1].data = dv
+			valuesSections[i-1].accLen = accLength
+		}
+		accLength = accLength + values.Len()  
+		valuesSections[len(capnpSections) - 2].data = values
+		valuesSections[len(capnpSections) - 2].accLen = accLength
+
+		//Read in all the attribute names
+		attributesNamesNr := attributeNamesPtr.Len()
+		attributeNames := make([]string,attributesNamesNr)
+		for i := 0; i < attributesNamesNr; i++ {
+			attributeNames[i], err = attributeNamesPtr.At(i).Str()
+			if err != nil {
+				return response, err
+			}
+		}
+
+		// iterate through the items and decode them
+		for i := 0; i < items.Len(); i++ {
+			itemPtr := items.At(i)
+			item, err := itemPtr.Item()
+			if err != nil {
+				return response, err
+			}
+			name, err := item.Name()
+			if err != nil {
+				return response, err
+			}
+			itemAttributes, err := item.Attrs()
+			if err != nil {
+				return response, err
+			}
+			ditem, err := decodeCapnpAttributes(itemAttributes, valuesSections, attributeNames)
+			if err != nil {
+				return response, err
+			}
+			ditem["__name"] = name
+			getItemsOutput.Items = append(getItemsOutput.Items, ditem)
+		}
+		
+		// attach the output to the response
+		response.Output = &getItemsOutput
 	}
-
-	// attach the output to the response
-	response.Output = &getItemsOutput
-
 	return response, nil
 }
 
@@ -1140,4 +1253,63 @@ func (c *context) workerEntry(workerIndex int) {
 		// write to response channel
 		request.ResponseChan <- &request.RequestResponse.Response
 	}
+}
+
+func readAllCapnpMessages(r io.Reader) ([]*capnp.Message){
+	res := make([]*capnp.Message, 0, 0)
+	for {
+		msg, err := capnp.NewDecoder(r).Decode()
+		if err != nil {
+			break
+		}
+		res = append(res, msg)
+	}
+	return res
+}
+
+func getSectionAndIndex(values []attribValuesSection, idx int) (section int, resIdx int){
+	if len(values) == 1 {
+		return 0, idx
+	}
+	for i := 1; i<len(values); i++ {
+		if values[i].accLen > idx {
+			return i,idx - values[i-1].accLen
+		}
+	}
+	return 0, idx
+}
+
+func decodeCapnpAttributes(keyValues vncapnp.VnObjectItemsGetMappedKeyValuePair_List, values []attribValuesSection, attributeNames []string) (map[string]interface{}, error) {
+	attributes := map[string]interface{}{}
+	for j := 0; j < keyValues.Len(); j++ {
+		attrPtr := keyValues.At(j)
+		valIdx := int(attrPtr.ValueMapIndex())
+		attrIdx := int(attrPtr.KeyMapIndex())
+
+		attributeName := attributeNames[attrIdx]
+		sectIdx, valIdx := getSectionAndIndex(values, valIdx)
+		value, err := values[sectIdx].data.At(valIdx).Value()
+		if err != nil {
+			return attributes, err
+		}
+		switch value.Which() {
+		case vncapnp.ExtAttrValue_Which_qword:
+			attributes[attributeName] = int(value.Qword())
+		case vncapnp.ExtAttrValue_Which_uqword:
+			attributes[attributeName] = int(value.Uqword())
+		case vncapnp.ExtAttrValue_Which_blob:
+			attributes[attributeName], err = value.Blob()
+		case vncapnp.ExtAttrValue_Which_str:
+			attributes[attributeName], err = value.Str()
+		case vncapnp.ExtAttrValue_Which_dfloat:
+			attributes[attributeName] = value.Dfloat()
+		case vncapnp.ExtAttrValue_Which_boolean:
+			attributes[attributeName] = value.Boolean()
+		case vncapnp.ExtAttrValue_Which_notExists:
+			{}
+		default:
+			return attributes, errors.Errorf("getItemsCapnp: %s type for %s attribute is not expected", value.Which().String(), attributeName)
+		}
+	}
+	return attributes, nil
 }

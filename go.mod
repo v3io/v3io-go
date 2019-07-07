@@ -15,4 +15,5 @@ require (
 	github.com/valyala/fasthttp v1.2.0
 	go.uber.org/atomic v1.3.2 // indirect
 	go.uber.org/multierr v1.1.0 // indirect
+	zombiezen.com/go/capnproto2 v2.17.0+incompatible
 )
