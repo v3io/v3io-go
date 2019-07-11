@@ -36,6 +36,13 @@ var getItemsHeaders = map[string]string{
 	"X-v3io-function": getItemsFunctionName,
 }
 
+// headers for update item
+var getItemsHeadersCapnp = map[string]string{
+	"Content-Type":    "application/json",
+	"X-v3io-response-content-type": "capnp",
+	"X-v3io-function": getItemsFunctionName,
+}
+
 // headers for create stream
 var createStreamHeaders = map[string]string{
 	"Content-Type":    "application/json",
