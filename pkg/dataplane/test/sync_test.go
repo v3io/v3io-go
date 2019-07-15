@@ -851,7 +851,7 @@ func validateContent(suite *syncContainerTestSuite, content *v3io.Content, expec
 		suite.Require().Empty(content.CreatingTime)
 		suite.Require().Empty(content.GID)
 		suite.Require().Empty(content.UID)
-		suite.Require().Nil(content.Mode)
+		suite.Require().Empty(content.Mode)
 		suite.Require().Nil(content.InodeNumber)
 		suite.Require().Nil(content.LastSequenceID)
 	}
@@ -876,7 +876,7 @@ func validateCommonPrefix(suite *syncContainerTestSuite, prefix *v3io.CommonPref
 		suite.Require().Empty(prefix.CreatingTime)
 		suite.Require().Empty(prefix.GID)
 		suite.Require().Empty(prefix.UID)
-		suite.Require().Nil(prefix.Mode)
+		suite.Require().Empty(prefix.Mode)
 		suite.Require().Nil(prefix.InodeNumber)
 	}
 }

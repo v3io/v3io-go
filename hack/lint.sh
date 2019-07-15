@@ -9,6 +9,7 @@ echo Linting imports with impi
 $GOPATH/bin/impi \
     --local github.com/v3io/v3io-go \
     --scheme stdLocalThirdParty \
+    --skip=pkg/dataplane/schemas/node/common \
     ./pkg/...
 
 echo Getting all packages
@@ -43,4 +44,5 @@ $GOPATH/bin/gometalinter.v2 \
     --exclude="should have comment" \
     --skip=pkg/platform/kube/apis \
     --skip=pkg/platform/kube/client \
+    --skip=pkg/dataplane/schemas/node/common \
     ./pkg/...
