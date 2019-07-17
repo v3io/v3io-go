@@ -21,7 +21,6 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -425,7 +424,9 @@ func (s *session) sendRequest(ctx context.Context, request *request, timeout tim
 
 	if !request.allowErrors {
 		if responseInstance.statusCode >= 300 {
-			return nil, v3ioerrors.NewErrorWithStatusCode(errors.New("Failed to execute HTTP request"),
+			return nil, v3ioerrors.NewErrorWithStatusCode(
+				fmt.Errorf("Failed to execute HTTP request %s/%s.\nResponse code: %d",
+					s.endpoints[0], request.path, responseInstance.statusCode),
 				responseInstance.statusCode)
 		}
 	}

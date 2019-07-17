@@ -7,20 +7,22 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
 	"path"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
-	"io"
 
 	"github.com/v3io/v3io-go/pkg/dataplane"
-	"github.com/v3io/v3io-go/pkg/errors"
 	"github.com/v3io/v3io-go/pkg/dataplane/schemas/node/common"
+	"github.com/v3io/v3io-go/pkg/errors"
+
 	"github.com/nuclio/errors"
 	"github.com/nuclio/logger"
 	"github.com/valyala/fasthttp"
@@ -210,7 +212,7 @@ func (c *context) GetItem(getItemInput *v3io.GetItemInput,
 
 type attributeValuesSection struct {
 	accumulatedPreviousSectionsLength int
-	data node_common_capnp.VnObjectAttributeValuePtr_List
+	data                              node_common_capnp.VnObjectAttributeValuePtr_List
 }
 
 // GetItemSync
@@ -262,7 +264,6 @@ func (c *context) GetItems(getItemsInput *v3io.GetItemsInput,
 	responseChan chan *v3io.Response) (*v3io.Request, error) {
 	return c.sendRequestToWorker(getItemsInput, context, responseChan)
 }
-
 
 // GetItemSync
 func (c *context) GetItemsSync(getItemsInput *v3io.GetItemsInput) (*v3io.Response, error) {
@@ -899,7 +900,12 @@ func (c *context) sendRequest(dataPlaneInput *v3io.DataPlaneInput,
 
 	// make sure we got expected status
 	if !success {
-		err = v3ioerrors.NewErrorWithStatusCode(fmt.Errorf("Expected a 2xx response status code: %s", response.HTTPResponse.String()), statusCode)
+		var re = regexp.MustCompile(".*X-V3io-Session-Key:.*")
+		sanitizedRequest := re.ReplaceAllString(request.String(), "X-V3io-Session-Key: SANITIZED")
+		err = v3ioerrors.NewErrorWithStatusCode(
+			fmt.Errorf("Expected a 2xx response status code: %s\nRequest details:\n%s",
+				response.HTTPResponse.String(), sanitizedRequest),
+			statusCode)
 		goto cleanup
 	}
 
@@ -1118,7 +1124,7 @@ func (c *context) workerEntry(workerIndex int) {
 	}
 }
 
-func readAllCapnpMessages(reader io.Reader) ([]*capnp.Message){
+func readAllCapnpMessages(reader io.Reader) []*capnp.Message {
 	var capnpMessages []*capnp.Message
 	for {
 		msg, err := capnp.NewDecoder(reader).Decode()
@@ -1130,13 +1136,13 @@ func readAllCapnpMessages(reader io.Reader) ([]*capnp.Message){
 	return capnpMessages
 }
 
-func getSectionAndIndex(values []attributeValuesSection, idx int) (section int, resIdx int){
+func getSectionAndIndex(values []attributeValuesSection, idx int) (section int, resIdx int) {
 	if len(values) == 1 {
 		return 0, idx
 	}
-	for i := 1; i<len(values); i++ {
+	for i := 1; i < len(values); i++ {
 		if values[i].accumulatedPreviousSectionsLength > idx {
-			return i,idx - values[i-1].accumulatedPreviousSectionsLength
+			return i, idx - values[i-1].accumulatedPreviousSectionsLength
 		}
 	}
 	return 0, idx
@@ -1153,7 +1159,7 @@ func decodeCapnpAttributes(keyValues node_common_capnp.VnObjectItemsGetMappedKey
 		sectIdx, valIdx := getSectionAndIndex(values, valIdx)
 		value, err := values[sectIdx].data.At(valIdx).Value()
 		if err != nil {
-			return attributes, errors.Wrapf(err,"values[%d].data.At(%d).Value",sectIdx, valIdx )
+			return attributes, errors.Wrapf(err, "values[%d].data.At(%d).Value", sectIdx, valIdx)
 		}
 		switch value.Which() {
 		case node_common_capnp.ExtAttrValue_Which_qword:
@@ -1162,14 +1168,20 @@ func decodeCapnpAttributes(keyValues node_common_capnp.VnObjectItemsGetMappedKey
 			attributes[attributeName] = int(value.Uqword())
 		case node_common_capnp.ExtAttrValue_Which_blob:
 			attributes[attributeName], err = value.Blob()
+			if err != nil {
+				return attributes, errors.Wrapf(err, "unable to get value of BLOB attribute '%s'", attributeName)
+			}
 		case node_common_capnp.ExtAttrValue_Which_str:
 			attributes[attributeName], err = value.Str()
+			if err != nil {
+				return attributes, errors.Wrapf(err, "unable to get value of String attribute '%s'", attributeName)
+			}
 		case node_common_capnp.ExtAttrValue_Which_dfloat:
 			attributes[attributeName] = value.Dfloat()
 		case node_common_capnp.ExtAttrValue_Which_boolean:
 			attributes[attributeName] = value.Boolean()
 		case node_common_capnp.ExtAttrValue_Which_notExists:
-			{}
+			continue // skip
 		default:
 			return attributes, errors.Errorf("getItemsCapnp: %s type for %s attribute is not expected", value.Which().String(), attributeName)
 		}
@@ -1177,7 +1189,7 @@ func decodeCapnpAttributes(keyValues node_common_capnp.VnObjectItemsGetMappedKey
 	return attributes, nil
 }
 
-func (c *context) getItemsParseJSONResponse(response *v3io.Response, getItemsInput *v3io.GetItemsInput) (*v3io.GetItemsOutput, error){
+func (c *context) getItemsParseJSONResponse(response *v3io.Response, getItemsInput *v3io.GetItemsInput) (*v3io.GetItemsOutput, error) {
 
 	getItemsResponse := struct {
 		Items            []map[string]map[string]interface{}
@@ -1217,11 +1229,11 @@ func (c *context) getItemsParseJSONResponse(response *v3io.Response, getItemsInp
 	return &getItemsOutput, nil
 }
 
-func (c *context) getItemsParseCAPNPResponse(response *v3io.Response) (*v3io.GetItemsOutput, error){
-	responseBodyReader  := bytes.NewReader(response.Body())
-	capnpSections := readAllCapnpMessages(responseBodyReader )
+func (c *context) getItemsParseCAPNPResponse(response *v3io.Response) (*v3io.GetItemsOutput, error) {
+	responseBodyReader := bytes.NewReader(response.Body())
+	capnpSections := readAllCapnpMessages(responseBodyReader)
 	if len(capnpSections) < 2 {
-		return  nil, errors.Errorf("getItemsCapnp: Got only %v capnp sections. Expecting at least 2", len(capnpSections))
+		return nil, errors.Errorf("getItemsCapnp: Got only %v capnp sections. Expecting at least 2", len(capnpSections))
 	}
 	cookie := string(response.HeaderPeek("X-v3io-cookie"))
 	getItemsOutput := v3io.GetItemsOutput{
@@ -1232,66 +1244,66 @@ func (c *context) getItemsParseCAPNPResponse(response *v3io.Response) (*v3io.Get
 		return nil, errors.Errorf("getItemsCapnp: Got only %v capnp sections. Expecting at least 2", len(capnpSections))
 	}
 
-	metadataPayload, err := node_common_capnp.ReadRootVnObjectItemsGetResponseMetadataPayload(capnpSections[len(capnpSections) - 1])
+	metadataPayload, err := node_common_capnp.ReadRootVnObjectItemsGetResponseMetadataPayload(capnpSections[len(capnpSections)-1])
 	if err != nil {
-		return nil, errors.Wrap(err,"ReadRootVnObjectItemsGetResponseMetadataPayload")
+		return nil, errors.Wrap(err, "ReadRootVnObjectItemsGetResponseMetadataPayload")
 	}
 	//Keys
 	attributeMap, err := metadataPayload.KeyMap()
-	 if err != nil {
-		return nil, errors.Wrap(err,"metadataPayload.KeyMap")
-	}
-	attributeMapNames,err := attributeMap.Names()
-	 if err != nil {
-		return nil, errors.Wrap(err,"attributeMap.Names")
-	}
-	attributeNamesPtr,err  := attributeMapNames.Arr()
 	if err != nil {
-		return nil, errors.Wrap(err,"attributeMapNames.Arr")
+		return nil, errors.Wrap(err, "metadataPayload.KeyMap")
+	}
+	attributeMapNames, err := attributeMap.Names()
+	if err != nil {
+		return nil, errors.Wrap(err, "attributeMap.Names")
+	}
+	attributeNamesPtr, err := attributeMapNames.Arr()
+	if err != nil {
+		return nil, errors.Wrap(err, "attributeMapNames.Arr")
 	}
 	//Values
 	valueMap, err := metadataPayload.ValueMap()
 	if err != nil {
-		return nil, errors.Wrap(err,"metadataPayload.ValueMap")
+		return nil, errors.Wrap(err, "metadataPayload.ValueMap")
 	}
 	values, err := valueMap.Values()
 	if err != nil {
-		return nil, errors.Wrap(err,"valueMap.Values")
+		return nil, errors.Wrap(err, "valueMap.Values")
 	}
 
 	// Items
 	items, err := metadataPayload.Items()
 	if err != nil {
-		return nil, errors.Wrap(err,"metadataPayload.Items")
+		return nil, errors.Wrap(err, "metadataPayload.Items")
 	}
-	valuesSections :=  make([]attributeValuesSection , len(capnpSections) - 1)
+	valuesSections := make([]attributeValuesSection, len(capnpSections)-1)
 
 	accLength := 0
 	//Additional data sections "in between"
-	for capnpSectionIndex:= 1;capnpSectionIndex < len(capnpSections) - 1; capnpSectionIndex++ {
+	for capnpSectionIndex := 1; capnpSectionIndex < len(capnpSections)-1; capnpSectionIndex++ {
 		data, err := node_common_capnp.ReadRootVnObjectAttributeValueMap(capnpSections[capnpSectionIndex])
 		if err != nil {
-			return nil, errors.Wrap(err,"node_common_capnp.ReadRootVnObjectAttributeValueMap")
+			return nil, errors.Wrap(err, "node_common_capnp.ReadRootVnObjectAttributeValueMap")
 		}
 		dv, err := data.Values()
 		if err != nil {
-			return nil, errors.Wrap(err,"data.Values")
+			return nil, errors.Wrap(err, "data.Values")
 		}
-		accLength = accLength + dv.Len()  
+		accLength = accLength + dv.Len()
 		valuesSections[capnpSectionIndex-1].data = dv
 		valuesSections[capnpSectionIndex-1].accumulatedPreviousSectionsLength = accLength
 	}
-	accLength = accLength + values.Len()  
-	valuesSections[len(capnpSections) - 2].data = values
-	valuesSections[len(capnpSections) - 2].accumulatedPreviousSectionsLength = accLength
+	accLength = accLength + values.Len()
+	valuesSections[len(capnpSections)-2].data = values
+	valuesSections[len(capnpSections)-2].accumulatedPreviousSectionsLength = accLength
 
 	//Read in all the attribute names
 	attributeNamesNumber := attributeNamesPtr.Len()
-	attributeNames := make([]string,attributeNamesNumber)
+	attributeNames := make([]string, attributeNamesNumber)
 	for attributeIndex := 0; attributeIndex < attributeNamesNumber; attributeIndex++ {
 		attributeNames[attributeIndex], err = attributeNamesPtr.At(attributeIndex).Str()
 		if err != nil {
-			return nil, errors.Wrapf(err,"attributeNamesPtr.At(%d) size %d", attributeIndex, attributeNamesNumber)
+			return nil, errors.Wrapf(err, "attributeNamesPtr.At(%d) size %d", attributeIndex, attributeNamesNumber)
 		}
 	}
 
@@ -1300,19 +1312,19 @@ func (c *context) getItemsParseCAPNPResponse(response *v3io.Response) (*v3io.Get
 		itemPtr := items.At(itemIndex)
 		item, err := itemPtr.Item()
 		if err != nil {
-			return nil, errors.Wrap(err,"itemPtr.Item")
+			return nil, errors.Wrap(err, "itemPtr.Item")
 		}
 		name, err := item.Name()
 		if err != nil {
-			return nil, errors.Wrap(err,"item.Name")
+			return nil, errors.Wrap(err, "item.Name")
 		}
 		itemAttributes, err := item.Attrs()
 		if err != nil {
-			return nil, errors.Wrap(err,"item.Attrs")
+			return nil, errors.Wrap(err, "item.Attrs")
 		}
 		ditem, err := decodeCapnpAttributes(itemAttributes, valuesSections, attributeNames)
 		if err != nil {
-			return nil, errors.Wrap(err,"decodeCapnpAttributes")
+			return nil, errors.Wrap(err, "decodeCapnpAttributes")
 		}
 		ditem["__name"] = name
 		getItemsOutput.Items = append(getItemsOutput.Items, ditem)
