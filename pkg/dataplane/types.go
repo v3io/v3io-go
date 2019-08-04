@@ -22,7 +22,6 @@ import (
 	"encoding/xml"
 	"os"
 	"strconv"
-	"syscall"
 	"time"
 )
 
@@ -113,12 +112,15 @@ func (vfm FileMode) String() string {
 }
 
 func mode(v3ioFileMode FileMode) os.FileMode {
+	const S_IFMT = 0xf000
+	const IP_OFFMASK = 0x1fff
+
 	// Convert 16 bit octal representation of V3IO into decimal 32 bit representation of Go
 	mode, err := strconv.ParseUint(string(v3ioFileMode), 8, 32)
 	if err != nil {
 		panic(err)
 	}
-	golangFileMode := ((mode & syscall.S_IFMT) << 17) | (mode & syscall.IP_OFFMASK)
+	golangFileMode := ((mode & S_IFMT) << 17) | (mode & IP_OFFMASK)
 	return os.FileMode(golangFileMode)
 }
 
