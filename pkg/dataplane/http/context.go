@@ -950,7 +950,7 @@ func (c *context) encodeTypedAttributes(attributes map[string]interface{}) (map[
 		typedAttributes[attributeName] = make(map[string]interface{})
 		switch value := attributeValue.(type) {
 		default:
-			return nil, fmt.Errorf("Unexpected attribute type for %s: %T", attributeName, reflect.TypeOf(attributeValue))
+			return nil, fmt.Errorf("unexpected attribute type for %s: %T", attributeName, reflect.TypeOf(attributeValue))
 		case int:
 			typedAttributes[attributeName]["N"] = strconv.Itoa(value)
 		case int64:
@@ -964,6 +964,9 @@ func (c *context) encodeTypedAttributes(attributes map[string]interface{}) (map[
 			typedAttributes[attributeName]["B"] = base64.StdEncoding.EncodeToString(value)
 		case bool:
 			typedAttributes[attributeName]["BOOL"] = value
+		case time.Time:
+			nanos := value.UnixNano()
+			typedAttributes[attributeName]["TS"] = fmt.Sprintf("%v:%v", nanos / 1000000000, nanos % 1000000000)
 		}
 	}
 
@@ -994,7 +997,7 @@ func (c *context) decodeTypedAttributes(typedAttributes map[string]map[string]in
 				// try float
 				floatValue, err := strconv.ParseFloat(numberValue, 64)
 				if err != nil {
-					return nil, fmt.Errorf("Value for %s is not int or float: %s", attributeName, numberValue)
+					return nil, fmt.Errorf("value for %s is not int or float: %s", attributeName, numberValue)
 				}
 
 				// save as float
@@ -1026,6 +1029,28 @@ func (c *context) decodeTypedAttributes(typedAttributes map[string]map[string]in
 			}
 
 			attributes[attributeName] = boolValue
+		} else if value, ok := typedAttributeValue["TS"]; ok {
+			timestampValue, ok := value.(string)
+			if !ok {
+				return nil, typeError(attributeName, "TS", value)
+			}
+
+			timeParts := strings.Split(timestampValue, ":")
+			if len(timeParts) != 2{
+				return nil, fmt.Errorf("incorrect format of timestamp value: %v", timestampValue)
+			}
+
+			seconds, err := strconv.ParseInt(timeParts[0], 10, 64)
+			if err != nil{
+				return nil, err
+			}
+			nanos, err := strconv.ParseInt(timeParts[1], 10, 64)
+			if err != nil{
+				return nil, err
+			}
+			timeValue := time.Unix(seconds, nanos)
+
+			attributes[attributeName] = timeValue
 		}
 	}
 
