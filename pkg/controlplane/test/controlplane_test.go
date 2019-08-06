@@ -2,6 +2,7 @@ package test
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -34,21 +35,23 @@ func (suite *githubClientSuite) SetupSuite() {
 	newSessionInput.Endpoints = []string{controlplaneURL}
 
 	session, err := v3iochttp.NewSession(suite.logger, &newSessionInput)
-	suite.Require().NoError(err)
+	suite.Require().NoError(err, fmt.Sprintf("\nInput: %v\n", newSessionInput))
 
-	// create a user for the tests
+	// create a unique user for the tests
+	ts := time.Now().Unix()
 	createUserInput := v3ioc.CreateUserInput{}
 	createUserInput.Ctx = suite.ctx
-	createUserInput.FirstName = "Test"
-	createUserInput.LastName = "User"
-	createUserInput.Username = "testuser0"
-	createUserInput.Password = "testpass0"
-	createUserInput.Email = "test@user.com"
+	createUserInput.FirstName = fmt.Sprintf("Test-%d", ts)
+	createUserInput.LastName = fmt.Sprintf("User-%d", ts)
+	createUserInput.Username = fmt.Sprintf("testuser-%d", ts)
+	createUserInput.Password = fmt.Sprintf("testpasswd-%d", ts)
+	createUserInput.Email = fmt.Sprintf("testuser-%d@user.com", ts)
 	createUserInput.Description = "A user created from tests"
 	createUserInput.AssignedPolicies = []string{"Security Admin", "Data", "Application Admin", "Function Admin"}
 
 	// create a user with security session
 	createUserOutput, err := session.CreateUserSync(&createUserInput)
+	suite.Require().NoError(err)
 	suite.Require().NotNil(createUserOutput.ID)
 	suite.userID = createUserOutput.ID
 

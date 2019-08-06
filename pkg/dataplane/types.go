@@ -21,6 +21,7 @@ import (
 	"crypto/tls"
 	"encoding/xml"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -81,23 +82,46 @@ type Content struct {
 	LastSequenceID *int   `xml:"LastSequenceId"` // greater than zero for shard files
 	LastModified   string `xml:"LastModified"`   // Date in format time.RFC3339: "2019-06-02T14:30:39.18Z"
 
-	Mode         *os.FileMode `xml:"Mode"`         // uint32, e.g. 0100664
-	AccessTime   string       `xml:"AccessTime"`   // Date in format time.RFC3339: "2019-06-02T14:30:39.18Z"
-	CreatingTime string       `xml:"CreatingTime"` // Date in format time.RFC3339: "2019-06-02T14:30:39.18Z"
-	GID          string       `xml:"GID"`          // Hexadecimal representation of GID (e.g. "3e8" -> i.e. "0x3e8" == 1000)
-	UID          string       `xml:"UID"`          // Hexadecimal representation of UID (e.g. "3e8" -> i.e. "0x3e8" == 1000)
-	InodeNumber  *uint32      `xml:"InodeNumber"`  // iNode number
+	Mode         FileMode `xml:"Mode"`         // octal (ListDir) or decimal (GetItems) base, depends on API, e.g. 33204 or 0100664
+	AccessTime   string   `xml:"AccessTime"`   // Date in format time.RFC3339: "2019-06-02T14:30:39.18Z"
+	CreatingTime string   `xml:"CreatingTime"` // Date in format time.RFC3339: "2019-06-02T14:30:39.18Z"
+	GID          string   `xml:"GID"`          // Hexadecimal representation of GID (e.g. "3e8" -> i.e. "0x3e8" == 1000)
+	UID          string   `xml:"UID"`          // Hexadecimal representation of UID (e.g. "3e8" -> i.e. "0x3e8" == 1000)
+	InodeNumber  *uint32  `xml:"InodeNumber"`  // iNode number
 }
 
 type CommonPrefix struct {
-	Prefix       string       `xml:"Prefix"`       // directory name
-	LastModified string       `xml:"LastModified"` // Date in format time.RFC3339: "2019-06-02T14:30:39.18Z"
-	AccessTime   string       `xml:"AccessTime"`   // Date in format time.RFC3339: "2019-06-02T14:30:39.18Z"
-	CreatingTime string       `xml:"CreatingTime"` // Date in format time.RFC3339: "2019-06-02T14:30:39.18Z"
-	Mode         *os.FileMode `xml:"Mode"`         // uint32, e.g. 040775
-	GID          string       `xml:"GID"`          // Hexadecimal representation of GID (e.g. "3e8" -> i.e. "0x3e8" == 1000)
-	UID          string       `xml:"UID"`          // Hexadecimal representation of UID (e.g. "3e8" -> i.e. "0x3e8" == 1000)
-	InodeNumber  *uint32      `xml:"InodeNumber"`  // iNode number
+	Prefix       string   `xml:"Prefix"`       // directory name
+	LastModified string   `xml:"LastModified"` // Date in format time.RFC3339: "2019-06-02T14:30:39.18Z"
+	AccessTime   string   `xml:"AccessTime"`   // Date in format time.RFC3339: "2019-06-02T14:30:39.18Z"
+	CreatingTime string   `xml:"CreatingTime"` // Date in format time.RFC3339: "2019-06-02T14:30:39.18Z"
+	Mode         FileMode `xml:"Mode"`         // octal number, e.g. 040775
+	GID          string   `xml:"GID"`          // Hexadecimal representation of GID (e.g. "3e8" -> i.e. "0x3e8" == 1000)
+	UID          string   `xml:"UID"`          // Hexadecimal representation of UID (e.g. "3e8" -> i.e. "0x3e8" == 1000)
+	InodeNumber  *uint32  `xml:"InodeNumber"`  // iNode number
+}
+
+type FileMode string
+
+func (vfm FileMode) FileMode() os.FileMode {
+	return mode(vfm)
+}
+
+func (vfm FileMode) String() string {
+	return vfm.FileMode().String()
+}
+
+func mode(v3ioFileMode FileMode) os.FileMode {
+	const S_IFMT = 0xf000
+	const IP_OFFMASK = 0x1fff
+
+	// Convert 16 bit octal representation of V3IO into decimal 32 bit representation of Go
+	mode, err := strconv.ParseUint(string(v3ioFileMode), 8, 32)
+	if err != nil {
+		panic(err)
+	}
+	golangFileMode := ((mode & S_IFMT) << 17) | (mode & IP_OFFMASK)
+	return os.FileMode(golangFileMode)
 }
 
 type GetContainerContentsOutput struct {
