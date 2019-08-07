@@ -972,7 +972,7 @@ func (c *context) encodeTypedAttributes(attributes map[string]interface{}) (map[
 			typedAttributes[attributeName]["BOOL"] = value
 		case time.Time:
 			nanos := value.UnixNano()
-			typedAttributes[attributeName]["TS"] = fmt.Sprintf("%v:%v", nanos / 1000000000, nanos % 1000000000)
+			typedAttributes[attributeName]["TS"] = fmt.Sprintf("%v:%v", nanos/1000000000, nanos%1000000000)
 		}
 	}
 
@@ -1042,16 +1042,16 @@ func (c *context) decodeTypedAttributes(typedAttributes map[string]map[string]in
 			}
 
 			timeParts := strings.Split(timestampValue, ":")
-			if len(timeParts) != 2{
+			if len(timeParts) != 2 {
 				return nil, fmt.Errorf("incorrect format of timestamp value: %v", timestampValue)
 			}
 
 			seconds, err := strconv.ParseInt(timeParts[0], 10, 64)
-			if err != nil{
+			if err != nil {
 				return nil, err
 			}
 			nanos, err := strconv.ParseInt(timeParts[1], 10, 64)
-			if err != nil{
+			if err != nil {
 				return nil, err
 			}
 			timeValue := time.Unix(seconds, nanos)
@@ -1205,6 +1205,12 @@ func decodeCapnpAttributes(keyValues node_common_capnp.VnObjectItemsGetMappedKey
 			attributes[attributeName] = value.Dfloat()
 		case node_common_capnp.ExtAttrValue_Which_boolean:
 			attributes[attributeName] = value.Boolean()
+		case node_common_capnp.ExtAttrValue_Which_time:
+			t, err := value.Time()
+			if err != nil {
+				return nil, err
+			}
+			attributes[attributeName] = time.Unix(t.TvSec(), t.TvNsec())
 		case node_common_capnp.ExtAttrValue_Which_notExists:
 			continue // skip
 		default:
@@ -1217,7 +1223,7 @@ func decodeCapnpAttributes(keyValues node_common_capnp.VnObjectItemsGetMappedKey
 func (c *context) getItemsParseJSONResponse(response *v3io.Response, getItemsInput *v3io.GetItemsInput) (*v3io.GetItemsOutput, error) {
 
 	getItemsResponse := struct {
-		Items            []map[string]map[string]interface{}
+		Items []map[string]map[string]interface{}
 		NextMarker       string
 		LastItemIncluded string
 	}{}
