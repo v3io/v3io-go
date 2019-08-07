@@ -1314,10 +1314,6 @@ func (c *context) getItemsParseCAPNPResponse(response *v3io.Response) (*v3io.Get
 		if err != nil {
 			return nil, errors.Wrap(err, "itemPtr.Item")
 		}
-		name, err := item.Name()
-		if err != nil {
-			return nil, errors.Wrap(err, "item.Name")
-		}
 		itemAttributes, err := item.Attrs()
 		if err != nil {
 			return nil, errors.Wrap(err, "item.Attrs")
@@ -1326,7 +1322,6 @@ func (c *context) getItemsParseCAPNPResponse(response *v3io.Response) (*v3io.Get
 		if err != nil {
 			return nil, errors.Wrap(err, "decodeCapnpAttributes")
 		}
-		ditem["__name"] = name
 		getItemsOutput.Items = append(getItemsOutput.Items, ditem)
 	}
 	return &getItemsOutput, nil
