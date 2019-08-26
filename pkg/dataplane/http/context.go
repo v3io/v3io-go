@@ -331,7 +331,14 @@ func (c *context) GetItemsSync(getItemsInput *v3io.GetItemsInput) (*v3io.Respons
 		c.logger.DebugWithCtx(getItemsInput.Ctx, "Body", "body", string(response.Body()))
 		response.Output, err = c.getItemsParseJSONResponse(response, getItemsInput)
 	} else {
-		response.Output, err = c.getItemsParseCAPNPResponse(response)
+		var withWildcard bool
+		for _, attributeName := range getItemsInput.AttributeNames {
+			if attributeName == "*" || attributeName == "**" {
+				withWildcard = true
+				break
+			}
+		}
+		response.Output, err = c.getItemsParseCAPNPResponse(response, withWildcard)
 	}
 	return response, err
 }
@@ -1260,7 +1267,7 @@ func (c *context) getItemsParseJSONResponse(response *v3io.Response, getItemsInp
 	return &getItemsOutput, nil
 }
 
-func (c *context) getItemsParseCAPNPResponse(response *v3io.Response) (*v3io.GetItemsOutput, error) {
+func (c *context) getItemsParseCAPNPResponse(response *v3io.Response, withWildcard bool) (*v3io.GetItemsOutput, error) {
 	responseBodyReader := bytes.NewReader(response.Body())
 	capnpSections := readAllCapnpMessages(responseBodyReader)
 	if len(capnpSections) < 2 {
@@ -1352,6 +1359,13 @@ func (c *context) getItemsParseCAPNPResponse(response *v3io.Response) (*v3io.Get
 		ditem, err := decodeCapnpAttributes(itemAttributes, valuesSections, attributeNames)
 		if err != nil {
 			return nil, errors.Wrap(err, "decodeCapnpAttributes")
+		}
+		if withWildcard {
+			name, err := item.Name()
+			if err != nil {
+				return nil, errors.Wrap(err, "item.Name")
+			}
+			ditem["__name"] = name
 		}
 		getItemsOutput.Items = append(getItemsOutput.Items, ditem)
 	}
