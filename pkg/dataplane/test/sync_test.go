@@ -482,8 +482,8 @@ func (suite *syncKVTestSuite) TestEMD() {
 
 func (suite *syncKVTestSuite) TestPutItems() {
 	items := map[string]map[string]interface{}{
-		"bob":   {"age": 42, "feature": "mustache", "married": false, "timestamp": int64(1556450700000)},
-		"linda": {"age": 41, "feature": "singing", "married": true, "timestamp": int64(1556450700000)},
+		"bob":   {"age": 42, "feature": "mustache", "married": false, "timestamp": 1556450700000},
+		"linda": {"age": 41, "feature": "singing", "married": true, "timestamp": 1556450700000},
 	}
 
 	putItemsInput := &v3io.PutItemsInput{
@@ -565,7 +565,14 @@ func (suite *syncKVTestSuite) verifyItems(items map[string]map[string]interface{
 	suite.Require().NoError(err)
 	suite.Require().Len(receivedItems, len(items))
 
-	// TODO: test values
+	for _, receivedItem := range receivedItems {
+		nameIface, ok := receivedItem["__name"]
+		suite.Require().True(ok, "Received an item without a name")
+		name, ok := nameIface.(string)
+		suite.Require().True(ok, "Received an item with a non-string name")
+		items[name]["__name"] = name
+		suite.Require().EqualValues(items[name], map[string]interface{}(receivedItem))
+	}
 
 	// release the response
 	cursor.Release()
