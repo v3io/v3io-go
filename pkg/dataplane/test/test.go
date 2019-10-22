@@ -15,6 +15,7 @@ type testSuite struct { // nolint: deadcode
 	suite.Suite
 	logger              logger.Logger
 	container           v3io.Container
+	url                 string
 	containerName       string
 	authenticationToken string
 	accessKey           string
@@ -25,6 +26,7 @@ func (suite *testSuite) SetupSuite() {
 }
 
 func (suite *testSuite) populateDataPlaneInput(dataPlaneInput *v3io.DataPlaneInput) {
+	dataPlaneInput.URL = suite.url
 	dataPlaneInput.ContainerName = suite.containerName
 	dataPlaneInput.AuthenticationToken = suite.authenticationToken
 	dataPlaneInput.AccessKey = suite.accessKey
@@ -34,14 +36,13 @@ func (suite *testSuite) createContext() {
 	var err error
 
 	// create a context
-	suite.container, err = v3iohttp.NewContext(suite.logger, &v3io.NewContextInput{
-		ClusterEndpoints: []string{os.Getenv("V3IO_DATAPLANE_URL")},
-	})
+	suite.container, err = v3iohttp.NewContext(suite.logger, &v3io.NewContextInput{})
 	suite.Require().NoError(err)
 
 	// populate fields that would have been populated by session/container
 	suite.containerName = "bigdata"
 
+	suite.url = os.Getenv("V3IO_DATAPLANE_URL")
 	username := os.Getenv("V3IO_DATAPLANE_USERNAME")
 	password := os.Getenv("V3IO_DATAPLANE_PASSWORD")
 
@@ -55,12 +56,11 @@ func (suite *testSuite) createContext() {
 func (suite *testSuite) createContainer() {
 
 	// create a context
-	context, err := v3iohttp.NewContext(suite.logger, &v3io.NewContextInput{
-		ClusterEndpoints: []string{os.Getenv("V3IO_DATAPLANE_URL")},
-	})
+	context, err := v3iohttp.NewContext(suite.logger, &v3io.NewContextInput{})
 	suite.Require().NoError(err)
 
 	session, err := context.NewSession(&v3io.NewSessionInput{
+		URL:       os.Getenv("V3IO_DATAPLANE_URL"),
 		Username:  os.Getenv("V3IO_DATAPLANE_USERNAME"),
 		Password:  os.Getenv("V3IO_DATAPLANE_PASSWORD"),
 		AccessKey: os.Getenv("V3IO_DATAPLANE_ACCESS_KEY"),
