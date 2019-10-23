@@ -36,7 +36,7 @@ func (suite *testSuite) createContext() {
 	var err error
 
 	// create a context
-	suite.container, err = v3iohttp.NewContext(suite.logger, &v3io.NewContextInput{})
+	suite.container, err = v3iohttp.NewContext(suite.logger, v3iohttp.NewDefaultClient(), &v3io.NewContextInput{})
 	suite.Require().NoError(err)
 
 	// populate fields that would have been populated by session/container
@@ -56,7 +56,7 @@ func (suite *testSuite) createContext() {
 func (suite *testSuite) createContainer() {
 
 	// create a context
-	context, err := v3iohttp.NewContext(suite.logger, &v3io.NewContextInput{})
+	context, err := v3iohttp.NewContext(suite.logger, v3iohttp.NewDefaultClient(), &v3io.NewContextInput{})
 	suite.Require().NoError(err)
 
 	session, err := context.NewSession(&v3io.NewSessionInput{

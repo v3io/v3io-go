@@ -40,7 +40,29 @@ type context struct {
 	numWorkers       int
 }
 
-func NewContext(parentLogger logger.Logger, newContextInput *v3io.NewContextInput) (v3io.Context, error) {
+func NewClient(tlsConfig *tls.Config, dialTimeout time.Duration) *fasthttp.Client {
+	if tlsConfig == nil {
+		tlsConfig = &tls.Config{InsecureSkipVerify: true}
+	}
+
+	if dialTimeout == 0 {
+		dialTimeout = fasthttp.DefaultDialTimeout
+	}
+	dialFunction := func(addr string) (net.Conn, error) {
+		return fasthttp.DialTimeout(addr, dialTimeout)
+	}
+
+	return &fasthttp.Client{
+		TLSConfig: tlsConfig,
+		Dial:      dialFunction,
+	}
+}
+
+func NewDefaultClient() *fasthttp.Client {
+	return NewClient(nil, 0)
+}
+
+func NewContext(parentLogger logger.Logger, client *fasthttp.Client, newContextInput *v3io.NewContextInput) (v3io.Context, error) {
 	requestChanLen := newContextInput.RequestChanLen
 	if requestChanLen == 0 {
 		requestChanLen = 1024
@@ -51,24 +73,9 @@ func NewContext(parentLogger logger.Logger, newContextInput *v3io.NewContextInpu
 		numWorkers = 8
 	}
 
-	tlsConfig := newContextInput.TLSConfig
-	if tlsConfig == nil {
-		tlsConfig = &tls.Config{InsecureSkipVerify: true}
-	}
-
-	dialTimeout := newContextInput.DialTimeout
-	if dialTimeout == 0 {
-		dialTimeout = fasthttp.DefaultDialTimeout
-	}
-	dialFunction := func(addr string) (net.Conn, error) {
-		return fasthttp.DialTimeout(addr, dialTimeout)
-	}
 	newContext := &context{
-		logger: parentLogger.GetChild("context.http"),
-		httpClient: &fasthttp.Client{
-			TLSConfig: tlsConfig,
-			Dial:      dialFunction,
-		},
+		logger:      parentLogger.GetChild("context.http"),
+		httpClient:  client,
 		requestChan: make(chan *v3io.Request, requestChanLen),
 		numWorkers:  numWorkers,
 	}

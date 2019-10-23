@@ -18,11 +18,12 @@ package v3io
 
 import (
 	"context"
-	"crypto/tls"
 	"encoding/xml"
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/valyala/fasthttp"
 )
 
 //
@@ -30,10 +31,9 @@ import (
 //
 
 type NewContextInput struct {
+	Client         *fasthttp.Client
 	NumWorkers     int
 	RequestChanLen int
-	TLSConfig      *tls.Config
-	DialTimeout    time.Duration
 }
 
 type NewSessionInput struct {
