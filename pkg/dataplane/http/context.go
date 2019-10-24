@@ -35,46 +35,34 @@ var requestID uint64
 type context struct {
 	logger           logger.Logger
 	requestChan      chan *v3io.Request
-	httpClient       *fasthttp.HostClient
+	httpClient       *fasthttp.Client
 	clusterEndpoints []string
 	numWorkers       int
 }
 
-func NewContext(parentLogger logger.Logger, newContextInput *v3io.NewContextInput) (v3io.Context, error) {
-	var hosts []string
-	var httpEndpointFound, httpsEndpointFound bool
-
-	if len(newContextInput.ClusterEndpoints) == 0 {
-		return nil, errors.New("Zero cluster endpoints provided")
+func NewClient(tlsConfig *tls.Config, dialTimeout time.Duration) *fasthttp.Client {
+	if tlsConfig == nil {
+		tlsConfig = &tls.Config{InsecureSkipVerify: true}
 	}
 
-	// iterate over endpoints which contain scheme
-	for _, clusterEndpoint := range newContextInput.ClusterEndpoints {
-
-		// Return a clearer error if an empty cluster endpoint is provided.
-		if clusterEndpoint == "" {
-			return nil, errors.New("Cluster endpoint may not be empty")
-		}
-
-		parsedClusterEndpoint, err := url.Parse(clusterEndpoint)
-		if err != nil {
-			return nil, err
-		}
-		switch parsedClusterEndpoint.Scheme {
-		case "http":
-			httpEndpointFound = true
-		case "https":
-			httpsEndpointFound = true
-		default:
-			return nil, errors.Errorf("Unsupported endpoint scheme: %s", parsedClusterEndpoint.Scheme)
-		}
-		hosts = append(hosts, parsedClusterEndpoint.Host)
+	if dialTimeout == 0 {
+		dialTimeout = fasthttp.DefaultDialTimeout
+	}
+	dialFunction := func(addr string) (net.Conn, error) {
+		return fasthttp.DialTimeout(addr, dialTimeout)
 	}
 
-	if httpEndpointFound && httpsEndpointFound {
-		return nil, errors.New("cannot create a context with a mix of HTTP and HTTPS endpoints")
+	return &fasthttp.Client{
+		TLSConfig: tlsConfig,
+		Dial:      dialFunction,
 	}
+}
 
+func NewDefaultClient() *fasthttp.Client {
+	return NewClient(nil, 0)
+}
+
+func NewContext(parentLogger logger.Logger, client *fasthttp.Client, newContextInput *v3io.NewContextInput) (v3io.Context, error) {
 	requestChanLen := newContextInput.RequestChanLen
 	if requestChanLen == 0 {
 		requestChanLen = 1024
@@ -85,29 +73,11 @@ func NewContext(parentLogger logger.Logger, newContextInput *v3io.NewContextInpu
 		numWorkers = 8
 	}
 
-	tlsConfig := newContextInput.TLSConfig
-	if tlsConfig == nil {
-		tlsConfig = &tls.Config{InsecureSkipVerify: true}
-	}
-
-	dialTimeout := newContextInput.DialTimeout
-	if dialTimeout == 0 {
-		dialTimeout = fasthttp.DefaultDialTimeout
-	}
-	dialFunction := func(addr string) (net.Conn, error) {
-		return fasthttp.DialTimeout(addMissingPort(addr, httpsEndpointFound), dialTimeout)
-	}
 	newContext := &context{
-		logger: parentLogger.GetChild("context.http"),
-		httpClient: &fasthttp.HostClient{
-			Addr:      strings.Join(hosts, ","),
-			IsTLS:     httpsEndpointFound,
-			TLSConfig: tlsConfig,
-			Dial:      dialFunction,
-		},
-		clusterEndpoints: newContextInput.ClusterEndpoints,
-		requestChan:      make(chan *v3io.Request, requestChanLen),
-		numWorkers:       numWorkers,
+		logger:      parentLogger.GetChild("context.http"),
+		httpClient:  client,
+		requestChan: make(chan *v3io.Request, requestChanLen),
+		numWorkers:  numWorkers,
 	}
 
 	for workerIndex := 0; workerIndex < numWorkers; workerIndex++ {
@@ -117,24 +87,11 @@ func NewContext(parentLogger logger.Logger, newContextInput *v3io.NewContextInpu
 	return newContext, nil
 }
 
-// Code from fasthttp library https://github.com/valyala/fasthttp/blob/ea427d2f448aa8abc0b139f638e80184d4b23d9d/client.go#L1596
-// For some reason, this code is skipped when a custom dial function is provided.
-func addMissingPort(addr string, isTLS bool) string {
-	n := strings.Index(addr, ":")
-	if n >= 0 {
-		return addr
-	}
-	port := 80
-	if isTLS {
-		port = 443
-	}
-	return fmt.Sprintf("%s:%d", addr, port)
-}
-
 // create a new session
 func (c *context) NewSession(newSessionInput *v3io.NewSessionInput) (v3io.Session, error) {
 	return newSession(c.logger,
 		c,
+		newSessionInput.URL,
 		newSessionInput.Username,
 		newSessionInput.Password,
 		newSessionInput.AccessKey)
@@ -855,7 +812,7 @@ func (c *context) sendRequest(dataPlaneInput *v3io.DataPlaneInput,
 	request := fasthttp.AcquireRequest()
 	response := c.allocateResponse()
 
-	uri, err := c.buildRequestURI(dataPlaneInput.ContainerName, query, path)
+	uri, err := c.buildRequestURI(dataPlaneInput.URL, dataPlaneInput.ContainerName, query, path)
 	if err != nil {
 		return nil, err
 	}
@@ -936,8 +893,8 @@ cleanup:
 	return response, nil
 }
 
-func (c *context) buildRequestURI(containerName string, query string, pathStr string) (*url.URL, error) {
-	uri, err := url.Parse(c.clusterEndpoints[0])
+func (c *context) buildRequestURI(urlString string, containerName string, query string, pathStr string) (*url.URL, error) {
+	uri, err := url.Parse(urlString)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to parse cluster endpoint URL %s", c.clusterEndpoints[0])
 	}

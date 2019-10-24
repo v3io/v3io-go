@@ -18,11 +18,12 @@ package v3io
 
 import (
 	"context"
-	"crypto/tls"
 	"encoding/xml"
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/valyala/fasthttp"
 )
 
 //
@@ -30,14 +31,13 @@ import (
 //
 
 type NewContextInput struct {
-	ClusterEndpoints []string
-	NumWorkers       int
-	RequestChanLen   int
-	TLSConfig        *tls.Config
-	DialTimeout      time.Duration
+	Client         *fasthttp.Client
+	NumWorkers     int
+	RequestChanLen int
 }
 
 type NewSessionInput struct {
+	URL       string
 	Username  string
 	Password  string
 	AccessKey string
@@ -53,6 +53,7 @@ type NewContainerInput struct {
 
 type DataPlaneInput struct {
 	Ctx                 context.Context
+	URL                 string
 	ContainerName       string
 	AuthenticationToken string
 	AccessKey           string
@@ -112,8 +113,8 @@ func (vfm FileMode) String() string {
 }
 
 func mode(v3ioFileMode FileMode) os.FileMode {
-	const S_IFMT = 0xf000
-	const IP_OFFMASK = 0x1fff
+	const S_IFMT = 0xf000     // nolint: golint
+	const IP_OFFMASK = 0x1fff // nolint: golint
 
 	// Convert 16 bit octal representation of V3IO into decimal 32 bit representation of Go
 	mode, err := strconv.ParseUint(string(v3ioFileMode), 8, 32)
