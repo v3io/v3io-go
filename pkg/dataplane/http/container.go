@@ -25,6 +25,7 @@ func newContainer(parentLogger logger.Logger,
 
 func (c *container) populateInputFields(input *v3io.DataPlaneInput) {
 	input.ContainerName = c.containerName
+	input.URL = c.session.url
 	input.AuthenticationToken = c.session.authenticationToken
 	input.AccessKey = c.session.accessKey
 }
