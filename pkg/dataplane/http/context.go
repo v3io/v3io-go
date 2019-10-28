@@ -962,7 +962,7 @@ func (c *context) buildRequestURI(containerName string, query string, pathStr st
 	if strings.HasSuffix(pathStr, "/") {
 		uri.Path += "/" // retain trailing slash
 	}
-	uri.RawQuery = query
+	uri.RawQuery = strings.ReplaceAll(query, " ", "%20")
 	return uri, nil
 }
 
