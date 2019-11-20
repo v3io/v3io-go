@@ -188,6 +188,7 @@ type PutItemInput struct {
 	Path       string
 	Condition  string
 	Attributes map[string]interface{}
+	UpdateMode string
 }
 
 type PutItemsInput struct {

@@ -352,6 +352,12 @@ func (c *context) PutItem(putItemInput *v3io.PutItemInput,
 
 // PutItemSync
 func (c *context) PutItemSync(putItemInput *v3io.PutItemInput) error {
+	var body map[string]interface{}
+	if putItemInput.UpdateMode != "" {
+		body = map[string]interface{}{
+			"UpdateMode": putItemInput.UpdateMode,
+		}
+	}
 
 	// prepare the query path
 	_, err := c.putItem(&putItemInput.DataPlaneInput,
@@ -360,7 +366,7 @@ func (c *context) PutItemSync(putItemInput *v3io.PutItemInput) error {
 		putItemInput.Attributes,
 		putItemInput.Condition,
 		putItemHeaders,
-		nil)
+		body)
 
 	return err
 }
