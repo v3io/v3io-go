@@ -433,6 +433,10 @@ func (c *context) UpdateItemSync(updateItemInput *v3io.UpdateItemInput) error {
 			"UpdateMode": "CreateOrReplaceAttributes",
 		}
 
+		if updateItemInput.UpdateMode != "" {
+			body["UpdateMode"] = updateItemInput.UpdateMode
+		}
+
 		_, err = c.putItem(&updateItemInput.DataPlaneInput,
 			updateItemInput.Path,
 			putItemFunctionName,
@@ -448,7 +452,8 @@ func (c *context) UpdateItemSync(updateItemInput *v3io.UpdateItemInput) error {
 			updateItemFunctionName,
 			*updateItemInput.Expression,
 			updateItemInput.Condition,
-			updateItemHeaders)
+			updateItemHeaders,
+			updateItemInput.UpdateMode)
 	}
 
 	return err
@@ -784,12 +789,18 @@ func (c *context) updateItemWithExpression(dataPlaneInput *v3io.DataPlaneInput,
 	functionName string,
 	expression string,
 	condition string,
-	headers map[string]string) (*v3io.Response, error) {
+	headers map[string]string,
+	updateMode string) (*v3io.Response, error) {
 
 	body := map[string]interface{}{
 		"UpdateExpression": expression,
 		"UpdateMode":       "CreateOrReplaceAttributes",
 	}
+
+	if updateMode != "" {
+		body["UpdateMode"] = updateMode
+	}
+
 
 	if condition != "" {
 		body["ConditionExpression"] = condition
