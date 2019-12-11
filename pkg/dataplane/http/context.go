@@ -40,11 +40,19 @@ type context struct {
 	numWorkers       int
 }
 
-func NewClient(tlsConfig *tls.Config, dialTimeout time.Duration) *fasthttp.Client {
+type NewClientInput struct {
+	tlsConfig       *tls.Config
+	dialTimeout     time.Duration
+	maxConnsPerHost int
+}
+
+func NewClient(newClientInput *NewClientInput) *fasthttp.Client {
+	tlsConfig := newClientInput.tlsConfig
 	if tlsConfig == nil {
 		tlsConfig = &tls.Config{InsecureSkipVerify: true}
 	}
 
+	dialTimeout := newClientInput.dialTimeout
 	if dialTimeout == 0 {
 		dialTimeout = fasthttp.DefaultDialTimeout
 	}
@@ -53,13 +61,14 @@ func NewClient(tlsConfig *tls.Config, dialTimeout time.Duration) *fasthttp.Clien
 	}
 
 	return &fasthttp.Client{
-		TLSConfig: tlsConfig,
-		Dial:      dialFunction,
+		TLSConfig:       tlsConfig,
+		Dial:            dialFunction,
+		MaxConnsPerHost: newClientInput.maxConnsPerHost,
 	}
 }
 
 func NewDefaultClient() *fasthttp.Client {
-	return NewClient(nil, 0)
+	return NewClient(&NewClientInput{})
 }
 
 func NewContext(parentLogger logger.Logger, client *fasthttp.Client, newContextInput *v3io.NewContextInput) (v3io.Context, error) {
@@ -763,7 +772,6 @@ func (c *context) updateItemWithExpression(dataPlaneInput *v3io.DataPlaneInput,
 	if updateMode != "" {
 		body["UpdateMode"] = updateMode
 	}
-
 
 	if condition != "" {
 		body["ConditionExpression"] = condition
