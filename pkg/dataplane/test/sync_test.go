@@ -850,7 +850,9 @@ func validateContent(suite *syncContainerTestSuite, content *v3io.Content, expec
 		suite.Require().NotEmpty(content.CreatingTime)
 		suite.Require().NotEmpty(content.GID)
 		suite.Require().NotEmpty(content.UID)
-		suite.Require().NotEmpty(content.Mode.FileMode())
+		mode, err := content.Mode.FileMode()
+		suite.NoErrorf(err, "Failed to resolve file mode")
+		suite.Require().NotEmpty(mode)
 		suite.Require().NotEmpty(content.InodeNumber)
 		suite.Require().Nil(content.LastSequenceID)
 	} else {
@@ -874,7 +876,9 @@ func validateCommonPrefix(suite *syncContainerTestSuite, prefix *v3io.CommonPref
 		suite.Require().NotEmpty(prefix.CreatingTime)
 		suite.Require().NotEmpty(prefix.GID)
 		suite.Require().NotEmpty(prefix.UID)
-		suite.Require().NotEmpty(prefix.Mode.FileMode())
+		mode, err := prefix.Mode.FileMode()
+		suite.NoErrorf(err, "Failed to resolve file mode")
+		suite.Require().NotEmpty(mode)
 		suite.Require().NotEmpty(prefix.InodeNumber)
 		suite.Require().Equal(true, *prefix.InodeNumber > 0)
 	} else {
