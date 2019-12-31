@@ -18,12 +18,13 @@ package v3io
 
 import (
 	"context"
-	"crypto/tls"
 	"encoding/xml"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/valyala/fasthttp"
 )
 
 //
@@ -31,14 +32,13 @@ import (
 //
 
 type NewContextInput struct {
-	ClusterEndpoints []string
-	NumWorkers       int
-	RequestChanLen   int
-	TLSConfig        *tls.Config
-	DialTimeout      time.Duration
+	Client         *fasthttp.Client
+	NumWorkers     int
+	RequestChanLen int
 }
 
 type NewSessionInput struct {
+	URL       string
 	Username  string
 	Password  string
 	AccessKey string
@@ -54,6 +54,7 @@ type NewContainerInput struct {
 
 type DataPlaneInput struct {
 	Ctx                 context.Context
+	URL                 string
 	ContainerName       string
 	AuthenticationToken string
 	AccessKey           string
@@ -113,8 +114,8 @@ func (vfm FileMode) String() string {
 }
 
 func mode(v3ioFileMode FileMode) os.FileMode {
-	const S_IFMT = 0xf000
-	const IP_OFFMASK = 0x1fff
+	const S_IFMT = 0xf000     // nolint: golint
+	const IP_OFFMASK = 0x1fff // nolint: golint
 
 	// Note, File mode from different API's has different base.
 	// For example Scan API returns file mode as decimal number (base 10) while ListDir as Octal (base 8)
@@ -200,6 +201,7 @@ type PutItemInput struct {
 	Path       string
 	Condition  string
 	Attributes map[string]interface{}
+	UpdateMode string
 }
 
 type PutItemsInput struct {
@@ -221,6 +223,7 @@ type UpdateItemInput struct {
 	Attributes map[string]interface{}
 	Expression *string
 	Condition  string
+	UpdateMode string
 }
 
 type GetItemInput struct {
