@@ -125,9 +125,9 @@ func mode(v3ioFileMode FileMode) (os.FileMode, error) {
 	// For example Scan API returns file mode as decimal number (base 10) while ListDir as Octal (base 8)
 	var sFileMode = string(v3ioFileMode)
 	if strings.HasPrefix(sFileMode, "0") {
-		// Convert 16 bit octal representation of V3IO into decimal 32 bit representation of Go
+		// Convert octal representation of V3IO into decimal representation of Go
 		if mode, err := strconv.ParseUint(sFileMode, 8, 32); err != nil {
-			panic(err)
+			return os.FileMode(S_IFMT), err
 		} else {
 			golangFileMode := ((mode & S_IFMT) << 17) | (mode & IP_OFFMASK)
 			return os.FileMode(golangFileMode), nil
@@ -156,7 +156,7 @@ type GetContainersInput struct {
 
 type GetContainersOutput struct {
 	DataPlaneOutput
-	XMLName xml.Name    `xml:"ListAllMyBucketsResult"`
+	XMLName xml.Name    `xml:"ListBucketResult"`
 	Owner   interface{} `xml:"Owner"`
 	Results Containers  `xml:"Buckets"`
 }

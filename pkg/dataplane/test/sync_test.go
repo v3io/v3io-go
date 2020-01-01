@@ -24,8 +24,7 @@ type syncContainerTestSuite struct {
 }
 
 func (suite *syncContainerTestSuite) TestGetContainers() {
-	suite.T().Skip()
-	suite.containerName = ""
+	suite.containerName = "bigdata"
 
 	getContainersInput := v3io.GetContainersInput{}
 
@@ -853,6 +852,9 @@ func validateContent(suite *syncContainerTestSuite, content *v3io.Content, expec
 		mode, err := content.Mode.FileMode()
 		suite.NoErrorf(err, "Failed to resolve file mode")
 		suite.Require().NotEmpty(mode)
+		suite.Require().False(mode.IsDir())
+		suite.Require().True(mode.IsRegular())
+		suite.Require().Equal("-rw-rw-r--", mode.String(), "File '%s' mode '%v'", content.Key, content.Mode)
 		suite.Require().NotEmpty(content.InodeNumber)
 		suite.Require().Nil(content.LastSequenceID)
 	} else {
@@ -877,6 +879,11 @@ func validateCommonPrefix(suite *syncContainerTestSuite, prefix *v3io.CommonPref
 		suite.Require().NotEmpty(prefix.GID)
 		suite.Require().NotEmpty(prefix.UID)
 		mode, err := prefix.Mode.FileMode()
+		suite.NoErrorf(err, "Failed to resolve file mode")
+		suite.Require().NotEmpty(mode)
+		suite.Require().True(mode.IsDir())
+		suite.Require().False(mode.IsRegular())
+		suite.Require().Equal("drwxrwxr-x", mode.String(), "Dir '%s' mode '%v'", prefix.Prefix, prefix.Mode) // expected mode: -rw-rw-r-- (664)
 		suite.NoErrorf(err, "Failed to resolve file mode")
 		suite.Require().NotEmpty(mode)
 		suite.Require().NotEmpty(prefix.InodeNumber)
