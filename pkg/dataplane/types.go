@@ -184,6 +184,16 @@ type GetObjectInput struct {
 	NumBytes int
 }
 
+type GetObjectByInodeInput struct {
+	DataPlaneInput
+	InodeNumber uint32
+	Slice       int
+	CTimeSecs   int64
+	CTimeNanos  int64
+	Offset      int
+	NumBytes    int
+}
+
 type PutObjectInput struct {
 	DataPlaneInput
 	Path   string
