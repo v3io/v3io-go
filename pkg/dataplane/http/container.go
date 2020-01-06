@@ -114,6 +114,20 @@ func (c *container) GetObjectSync(getObjectInput *v3io.GetObjectInput) (*v3io.Re
 	return c.session.context.GetObjectSync(getObjectInput)
 }
 
+// GetObjectByInode
+func (c *container) GetObjectByInode(getObjectByInodeInput *v3io.GetObjectByInodeInput,
+	context interface{},
+	responseChan chan *v3io.Response) (*v3io.Request, error) {
+	c.populateInputFields(&getObjectByInodeInput.DataPlaneInput)
+	return c.session.context.GetObjectByInode(getObjectByInodeInput, context, responseChan)
+}
+
+// GetObjectByInodeSync
+func (c *container) GetObjectByInodeSync(getObjectByInodeInput *v3io.GetObjectByInodeInput) (*v3io.Response, error) {
+	c.populateInputFields(&getObjectByInodeInput.DataPlaneInput)
+	return c.session.context.GetObjectByInodeSync(getObjectByInodeInput)
+}
+
 // PutObject
 func (c *container) PutObject(putObjectInput *v3io.PutObjectInput,
 	context interface{},

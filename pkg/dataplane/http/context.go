@@ -449,6 +449,29 @@ func (c *context) GetObjectSync(getObjectInput *v3io.GetObjectInput) (*v3io.Resp
 		false)
 }
 
+// GetObjectByInode
+func (c *context) GetObjectByInode(getObjectByInodeInput *v3io.GetObjectByInodeInput,
+	context interface{},
+	responseChan chan *v3io.Response) (*v3io.Request, error) {
+	return c.sendRequestToWorker(getObjectByInodeInput, context, responseChan)
+}
+
+// GetObjectByInodeSync
+func (c *context) GetObjectByInodeSync(getObjectByInodeInput *v3io.GetObjectByInodeInput) (*v3io.Response, error) {
+	headers := make(map[string]string)
+	headers["slice"] = strconv.FormatInt(int64(getObjectByInodeInput.Slice), 10)
+	headers["ctime-sec"] = strconv.FormatInt(int64(getObjectByInodeInput.CTimeSecs), 10)
+	headers["ctime-nsec"] = strconv.FormatInt(int64(getObjectByInodeInput.CTimeNanos), 10)
+
+	return c.sendRequest(&getObjectByInodeInput.DataPlaneInput,
+		http.MethodGet,
+		strconv.FormatInt(int64(getObjectByInodeInput.InodeNumber), 10),
+		"",
+		headers,
+		nil,
+		false)
+}
+
 // PutObject
 func (c *context) PutObject(putObjectInput *v3io.PutObjectInput,
 	context interface{},
@@ -1097,6 +1120,8 @@ func (c *context) workerEntry(workerIndex int) {
 			err = c.PutObjectSync(typedInput)
 		case *v3io.GetObjectInput:
 			response, err = c.GetObjectSync(typedInput)
+		case *v3io.GetObjectByInodeInput:
+			response, err = c.GetObjectByInodeSync(typedInput)
 		case *v3io.DeleteObjectInput:
 			err = c.DeleteObjectSync(typedInput)
 		case *v3io.GetItemInput:
