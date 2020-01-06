@@ -45,6 +45,12 @@ type Container interface {
 	// GetObjectSync
 	GetObjectSync(*GetObjectInput) (*Response, error)
 
+	// GetObjectByInode
+	GetObjectByInode(*GetObjectByInodeInput, interface{}, chan *Response) (*Request, error)
+
+	// GetObjectByInodeSync
+	GetObjectByInodeSync(*GetObjectByInodeInput) (*Response, error)
+
 	// PutObject
 	PutObject(*PutObjectInput, interface{}, chan *Response) (*Request, error)
 
