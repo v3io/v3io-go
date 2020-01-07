@@ -462,8 +462,8 @@ func (c *context) GetObjectByInodeSync(getObjectByInodeInput *v3io.GetObjectByIn
 	// TODO: remove slice - in new release engine extracts slice from the iNode
 	headers["slice"] = strconv.FormatInt(int64(getObjectByInodeInput.Slice), 10)
 
-	headers["ctime-sec"] = strconv.FormatInt(int64(getObjectByInodeInput.CTimeSecs), 10)
-	headers["ctime-nsec"] = strconv.FormatInt(int64(getObjectByInodeInput.CTimeNanos), 10)
+	headers["ctime-sec"] = strconv.FormatInt(getObjectByInodeInput.CTimeSecs, 10)
+	headers["ctime-nsec"] = strconv.FormatInt(getObjectByInodeInput.CTimeNanos, 10)
 
 	return c.sendRequest(&getObjectByInodeInput.DataPlaneInput,
 		http.MethodGet,
@@ -1245,7 +1245,7 @@ func decodeCapnpAttributes(keyValues node_common_capnp.VnObjectItemsGetMappedKey
 func (c *context) getItemsParseJSONResponse(response *v3io.Response, getItemsInput *v3io.GetItemsInput) (*v3io.GetItemsOutput, error) {
 
 	getItemsResponse := struct {
-		Items []map[string]map[string]interface{}
+		Items            []map[string]map[string]interface{}
 		NextMarker       string
 		LastItemIncluded string
 	}{}
