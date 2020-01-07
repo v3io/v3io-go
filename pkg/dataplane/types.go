@@ -186,7 +186,7 @@ type GetObjectInput struct {
 
 type GetObjectByInodeInput struct {
 	DataPlaneInput
-	InodeNumber uint32
+	InodeNumber uint64
 	Slice       int
 	CTimeSecs   int64
 	CTimeNanos  int64
