@@ -21,6 +21,7 @@ import (
 	"encoding/xml"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/valyala/fasthttp"
@@ -99,30 +100,45 @@ type CommonPrefix struct {
 	Mode         FileMode `xml:"Mode"`         // octal number, e.g. 040775
 	GID          string   `xml:"GID"`          // Hexadecimal representation of GID (e.g. "3e8" -> i.e. "0x3e8" == 1000)
 	UID          string   `xml:"UID"`          // Hexadecimal representation of UID (e.g. "3e8" -> i.e. "0x3e8" == 1000)
-	InodeNumber  *uint32  `xml:"InodeNumber"`  // iNode number
+	InodeNumber  *uint64  `xml:"InodeNumber"`  // iNode number
 }
 
 type FileMode string
 
-func (vfm FileMode) FileMode() os.FileMode {
+func (vfm FileMode) FileMode() (os.FileMode, error) {
 	return mode(vfm)
 }
 
 func (vfm FileMode) String() string {
-	return vfm.FileMode().String()
+	mode, err := vfm.FileMode()
+	if err != nil {
+		return "unresolved"
+	}
+	return mode.String()
 }
 
-func mode(v3ioFileMode FileMode) os.FileMode {
+func mode(v3ioFileMode FileMode) (os.FileMode, error) {
 	const S_IFMT = 0xf000     // nolint: golint
 	const IP_OFFMASK = 0x1fff // nolint: golint
 
-	// Convert 16 bit octal representation of V3IO into decimal 32 bit representation of Go
-	mode, err := strconv.ParseUint(string(v3ioFileMode), 8, 32)
-	if err != nil {
-		panic(err)
+	// Note, File mode from different API's has different base.
+	// For example Scan API returns file mode as decimal number (base 10) while ListDir as Octal (base 8)
+	var sFileMode = string(v3ioFileMode)
+	if strings.HasPrefix(sFileMode, "0") {
+		// Convert octal representation of V3IO into decimal representation of Go
+		if mode, err := strconv.ParseUint(sFileMode, 8, 32); err != nil {
+			return os.FileMode(S_IFMT), err
+		} else {
+			golangFileMode := ((mode & S_IFMT) << 17) | (mode & IP_OFFMASK)
+			return os.FileMode(golangFileMode), nil
+		}
+	} else {
+		mode, err := strconv.ParseUint(sFileMode, 10, 32)
+		if err != nil {
+			return os.FileMode(S_IFMT), err
+		}
+		return os.FileMode(mode), nil
 	}
-	golangFileMode := ((mode & S_IFMT) << 17) | (mode & IP_OFFMASK)
-	return os.FileMode(golangFileMode)
 }
 
 type GetContainerContentsOutput struct {
@@ -140,7 +156,7 @@ type GetContainersInput struct {
 
 type GetContainersOutput struct {
 	DataPlaneOutput
-	XMLName xml.Name    `xml:"ListAllMyBucketsResult"`
+	XMLName xml.Name    `xml:"ListBucketResult"`
 	Owner   interface{} `xml:"Owner"`
 	Results Containers  `xml:"Buckets"`
 }
