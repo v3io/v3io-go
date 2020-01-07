@@ -904,10 +904,16 @@ func (c *context) sendRequest(dataPlaneInput *v3io.DataPlaneInput,
 
 	statusCode = response.HTTPResponse.StatusCode()
 
-	c.logger.DebugWithCtx(dataPlaneInput.Ctx,
-		"Rx",
-		"statusCode", statusCode,
-		"Content-Length", response.HTTPResponse.Header.ContentLength())
+	{
+		contentLength := response.HTTPResponse.Header.ContentLength()
+		if contentLength < 0 {
+			contentLength = 0
+		}
+		c.logger.DebugWithCtx(dataPlaneInput.Ctx,
+			"Rx",
+			"statusCode", statusCode,
+			"Content-Length", contentLength)
+	}
 
 	// did we get a 2xx response?
 	success = statusCode >= 200 && statusCode < 300
