@@ -865,7 +865,7 @@ func (c *context) sendRequest(dataPlaneInput *v3io.DataPlaneInput,
 		"Tx",
 		"uri", uriStr,
 		"method", method,
-		"body", string(request.Body()))
+		"body-length", len(body))
 
 	if dataPlaneInput.Timeout <= 0 {
 		err = c.httpClient.Do(request, response.HTTPResponse)
@@ -882,7 +882,7 @@ func (c *context) sendRequest(dataPlaneInput *v3io.DataPlaneInput,
 	c.logger.DebugWithCtx(dataPlaneInput.Ctx,
 		"Rx",
 		"statusCode", statusCode,
-		"body", string(response.HTTPResponse.Body()))
+		"Content-Length", response.HTTPResponse.Header.ContentLength())
 
 	// did we get a 2xx response?
 	success = statusCode >= 200 && statusCode < 300
@@ -1212,7 +1212,7 @@ func decodeCapnpAttributes(keyValues node_common_capnp.VnObjectItemsGetMappedKey
 func (c *context) getItemsParseJSONResponse(response *v3io.Response, getItemsInput *v3io.GetItemsInput) (*v3io.GetItemsOutput, error) {
 
 	getItemsResponse := struct {
-		Items            []map[string]map[string]interface{}
+		Items []map[string]map[string]interface{}
 		NextMarker       string
 		LastItemIncluded string
 	}{}
