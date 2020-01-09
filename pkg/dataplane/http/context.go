@@ -279,11 +279,16 @@ func (c *context) GetItemsSync(getItemsInput *v3io.GetItemsInput) (*v3io.Respons
 		return nil, err
 	}
 
+	headers := getItemsHeadersCapnp
+	if getItemsInput.RequestJsonResponse {
+		headers = getItemsHeaders
+	}
+
 	response, err := c.sendRequest(&getItemsInput.DataPlaneInput,
 		"PUT",
 		getItemsInput.Path,
 		"",
-		getItemsHeadersCapnp,
+		headers,
 		marshalledBody,
 		false)
 
@@ -1218,7 +1223,7 @@ func decodeCapnpAttributes(keyValues node_common_capnp.VnObjectItemsGetMappedKey
 func (c *context) getItemsParseJSONResponse(response *v3io.Response, getItemsInput *v3io.GetItemsInput) (*v3io.GetItemsOutput, error) {
 
 	getItemsResponse := struct {
-		Items []map[string]map[string]interface{}
+		Items            []map[string]map[string]interface{}
 		NextMarker       string
 		LastItemIncluded string
 	}{}
