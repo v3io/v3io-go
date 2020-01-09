@@ -459,9 +459,6 @@ func (c *context) GetObjectByInode(getObjectByInodeInput *v3io.GetObjectByInodeI
 // GetObjectByInodeSync
 func (c *context) GetObjectByInodeSync(getObjectByInodeInput *v3io.GetObjectByInodeInput) (*v3io.Response, error) {
 	headers := make(map[string]string)
-	// TODO: remove slice - in new release engine extracts slice from the iNode
-	headers["slice"] = strconv.FormatInt(int64(getObjectByInodeInput.Slice), 10)
-
 	headers["ctime-sec"] = strconv.FormatInt(getObjectByInodeInput.CTimeSecs, 10)
 	headers["ctime-nsec"] = strconv.FormatInt(getObjectByInodeInput.CTimeNanos, 10)
 

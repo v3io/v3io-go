@@ -186,7 +186,6 @@ type GetObjectInput struct {
 type GetObjectByInodeInput struct {
 	DataPlaneInput
 	InodeNumber uint64
-	Slice       int // TODO: remove since can be calculated from iNode on server side
 	CTimeSecs   int64
 	CTimeNanos  int64
 	Offset      int
