@@ -1,8 +1,3 @@
-# All top-level dirs except for vendor/.
-TOPLEVEL_DIRS=`ls -d ./*/. | grep -v '^./vendor/.$$' | grep -v '^./hack/.$$' | grep -v '^./examples/.$$' | sed 's/\.$$/.../'`
-TOPLEVEL_DIRS_GOFMT_SYNTAX=`ls -d ./*/. | grep -v '^./vendor/.$$'` | grep -v '^./hack/.$$' | grep -v '^./examples/.$$'
-TOPLEVEL_DIRS_IMPI_SYNTAX=`ls -d ./*/. | grep -v '^./vendor/.$$' | grep -v '^./hack/.$$' | grep -v '^./examples/.$$' | sed 's/$$/../'`
-
 .PHONY: check-env
 check-env:
 ifndef V3IO_DATAPLANE_URL
@@ -32,15 +27,10 @@ generate-capnp:
 clean:
 	pushd ./pkg/dataplane/schemas/; ./clean; popd
 
-.PHONY: get
-get:
-	GO111MODULE=on \
-		go get -v -tags "unit integration" $(TOPLEVEL_DIRS)
-
 .PHONY: test
 test: check-env
 	GO111MODULE=on \
-		go test -race -tags unit -count 1 $(TOPLEVEL_DIRS)
+		go test -race -tags unit -count 1 ./...
 
 .PHONY: lint
 lint:
@@ -54,4 +44,4 @@ lint:
 	@echo Done.
 
 .PHONY: build
-build: clean generate-capnp get lint test
+build: clean generate-capnp lint test
