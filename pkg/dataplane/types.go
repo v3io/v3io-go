@@ -243,17 +243,18 @@ type GetItemOutput struct {
 
 type GetItemsInput struct {
 	DataPlaneInput
-	Path              string
-	TableName         string
-	AttributeNames    []string
-	Filter            string
-	Marker            string
-	ShardingKey       string
-	Limit             int
-	Segment           int
-	TotalSegments     int
-	SortKeyRangeStart string
-	SortKeyRangeEnd   string
+	Path                string
+	TableName           string
+	AttributeNames      []string
+	Filter              string
+	Marker              string
+	ShardingKey         string
+	Limit               int
+	Segment             int
+	TotalSegments       int
+	SortKeyRangeStart   string
+	SortKeyRangeEnd     string
+	RequestJsonResponse bool
 }
 
 type GetItemsOutput struct {

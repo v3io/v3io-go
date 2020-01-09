@@ -30,11 +30,17 @@ var getItemHeaders = map[string]string{
 	"X-v3io-function": getItemFunctionName,
 }
 
-// headers for get item with captain-proto serialisation
+// headers for get items
+var getItemsHeaders = map[string]string{
+	"Content-Type":    "application/json",
+	"X-v3io-function": getItemsFunctionName,
+}
+
+// headers for get items requesting captain-proto response
 var getItemsHeadersCapnp = map[string]string{
 	"Content-Type":                 "application/json",
-	"X-v3io-response-content-type": "capnp",
 	"X-v3io-function":              getItemsFunctionName,
+	"X-v3io-response-content-type": "capnp",
 }
 
 // headers for create stream
