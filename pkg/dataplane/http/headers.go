@@ -10,6 +10,7 @@ const (
 	putRecordsFunctionName   = "PutRecords"
 	getRecordsFunctionName   = "GetRecords"
 	seekShardsFunctionName   = "SeekShard"
+	getGetClusterMD          = "GetClusterMD"
 )
 
 // headers for put item
@@ -67,4 +68,10 @@ var seekShardsInputTypeToString = [...]string{
 	"SEQUENCE",
 	"LATEST",
 	"EARLIEST",
+}
+
+// headers get cluster metadata
+var getGetClusterMetadataHeaders = map[string]string{
+	"Content-Type":    "application/json",
+	"X-v3io-function": getGetClusterMD,
 }

@@ -186,7 +186,7 @@ type GetObjectInput struct {
 type GetObjectByInodeInput struct {
 	DataPlaneInput
 	InodeNumber uint64
-	Slice       int
+	Slice       int // TODO: remove since can be calculated from iNode on server side
 	CTimeSecs   int64
 	CTimeNanos  int64
 	Offset      int
@@ -358,4 +358,13 @@ type GetRecordsOutput struct {
 	MSecBehindLatest    int
 	RecordsBehindLatest int
 	Records             []GetRecordsResult
+}
+
+type GetNumberOfVirtualNodesInput struct {
+	DataPlaneInput
+}
+
+type GetNumberOfVirtualNodesOutput struct {
+	DataPlaneInput
+	NumberOfVirtualNodes int `json:"NumberOfVNs"`
 }

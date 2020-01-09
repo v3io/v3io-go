@@ -51,6 +51,12 @@ type Container interface {
 	// GetObjectByInodeSync
 	GetObjectByInodeSync(*GetObjectByInodeInput) (*Response, error)
 
+	// GetNumberOfVirtualNodes
+	GetNumberOfVirtualNodes(*GetNumberOfVirtualNodesInput, interface{}, chan *Response) (*Request, error)
+
+	// GetNumberOfVirtualNodesSync
+	GetNumberOfVirtualNodesSync(*GetNumberOfVirtualNodesInput) (*Response, error)
+
 	// PutObject
 	PutObject(*PutObjectInput, interface{}, chan *Response) (*Request, error)
 

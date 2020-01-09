@@ -14,12 +14,12 @@ type container struct {
 
 func newContainer(parentLogger logger.Logger,
 	session *session,
-	containerName string) (v3io.Container, error) {
+	name string) (v3io.Container, error) {
 
 	return &container{
 		logger:        parentLogger.GetChild("container"),
 		session:       session,
-		containerName: containerName,
+		containerName: name,
 	}, nil
 }
 
@@ -126,6 +126,20 @@ func (c *container) GetObjectByInode(getObjectByInodeInput *v3io.GetObjectByInod
 func (c *container) GetObjectByInodeSync(getObjectByInodeInput *v3io.GetObjectByInodeInput) (*v3io.Response, error) {
 	c.populateInputFields(&getObjectByInodeInput.DataPlaneInput)
 	return c.session.context.GetObjectByInodeSync(getObjectByInodeInput)
+}
+
+// GetNumberOfVirtualNodes
+func (c *container) GetNumberOfVirtualNodes(getNumberOfVirtualNodesInput *v3io.GetNumberOfVirtualNodesInput,
+	context interface{}, responseChan chan *v3io.Response) (*v3io.Request, error) {
+
+	c.populateInputFields(&getNumberOfVirtualNodesInput.DataPlaneInput)
+	return c.session.context.GetNumberOfVirtualNodes(getNumberOfVirtualNodesInput, context, responseChan)
+}
+
+// GetNumberOfVirtualNodesSync
+func (c *container) GetNumberOfVirtualNodesSync(getNumberOfVirtualNodesInput *v3io.GetNumberOfVirtualNodesInput) (*v3io.Response, error) {
+	c.populateInputFields(&getNumberOfVirtualNodesInput.DataPlaneInput)
+	return c.session.context.GetNumberOfVirtualNodesSync(getNumberOfVirtualNodesInput)
 }
 
 // PutObject

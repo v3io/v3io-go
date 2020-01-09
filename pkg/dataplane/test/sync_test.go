@@ -37,6 +37,24 @@ func (suite *syncContainerTestSuite) TestGetContainers() {
 	response.Release()
 }
 
+func (suite *syncContainerTestSuite) TestGetNumberOfVirtualNodes() {
+	suite.containerName = "bigdata"
+
+	getNumberOfVirtualNodesInput := v3io.GetNumberOfVirtualNodesInput{}
+
+	// when run against a context
+	suite.populateDataPlaneInput(&getNumberOfVirtualNodesInput.DataPlaneInput)
+
+	// get containers
+	response, err := suite.container.GetNumberOfVirtualNodesSync(&getNumberOfVirtualNodesInput)
+	suite.Require().NoError(err, "Failed to get containers")
+
+	getNumberOfVirtualNodesOutput := response.Output.(*v3io.GetNumberOfVirtualNodesOutput)
+	suite.Require().True(getNumberOfVirtualNodesOutput.NumberOfVirtualNodes > 0)
+
+	response.Release()
+}
+
 func (suite *syncContainerTestSuite) TestGetContainerContentsDefault() {
 	path := fmt.Sprintf("tmp/test/sync_test/TestGetContainerContentsDefault/%d/", time.Now().Unix())
 	fileContent := "If you cannot do great things, do small things in a great way."

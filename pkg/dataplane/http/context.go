@@ -514,6 +514,41 @@ func (c *context) DeleteObjectSync(deleteObjectInput *v3io.DeleteObjectInput) er
 	return err
 }
 
+// GetNumberOfVirtualNodes
+func (c *context) GetNumberOfVirtualNodes(getNumberOfVirtualNodesInput *v3io.GetNumberOfVirtualNodesInput,
+	context interface{},
+	responseChan chan *v3io.Response) (*v3io.Request, error) {
+	return c.sendRequestToWorker(getNumberOfVirtualNodesInput, context, responseChan)
+}
+
+// GetNumberOfVirtualNodesSync
+func (c *context) GetNumberOfVirtualNodesSync(getNumberOfVirtualNodesInput *v3io.GetNumberOfVirtualNodesInput) (*v3io.Response, error) {
+	response, err := c.sendRequest(&getNumberOfVirtualNodesInput.DataPlaneInput,
+		http.MethodPost,
+		"",
+		"",
+		getGetClusterMetadataHeaders,
+		nil,
+		false)
+
+	if err != nil {
+		return nil, err
+	}
+
+	getNumberOfVirtualNodesOutput := v3io.GetNumberOfVirtualNodesOutput{}
+
+	// unmarshal the body into an ad hoc structure
+	err = json.Unmarshal(response.Body(), &getNumberOfVirtualNodesOutput)
+	if err != nil {
+		return nil, err
+	}
+
+	// set the output in the response
+	response.Output = &getNumberOfVirtualNodesOutput
+
+	return response, err
+}
+
 // CreateStream
 func (c *context) CreateStream(createStreamInput *v3io.CreateStreamInput,
 	context interface{},
@@ -1124,6 +1159,8 @@ func (c *context) workerEntry(workerIndex int) {
 			response, err = c.GetObjectSync(typedInput)
 		case *v3io.GetObjectByInodeInput:
 			response, err = c.GetObjectByInodeSync(typedInput)
+		case *v3io.GetNumberOfVirtualNodesInput:
+			response, err = c.GetNumberOfVirtualNodesSync(typedInput)
 		case *v3io.DeleteObjectInput:
 			err = c.DeleteObjectSync(typedInput)
 		case *v3io.GetItemInput:
