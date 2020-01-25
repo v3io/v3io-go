@@ -34,14 +34,22 @@ var requestID uint64
 
 var ErrContextStopped = errors.New("Context stopped")
 
+type inactivityMonitorRequest int
+
+const (
+	inactivityMonitorRequestReset inactivityMonitorRequest = 0
+	inactivityMonitorRequestStop  inactivityMonitorRequest = 1
+)
+
 type context struct {
-	logger            logger.Logger
-	requestChan       chan *v3io.Request
-	httpClient        *fasthttp.Client
-	clusterEndpoints  []string
-	numWorkers        int
-	inactivityTimer   *time.Timer
-	inactivityTimeout time.Duration
+	logger                   logger.Logger
+	requestChan              chan *v3io.Request
+	httpClient               *fasthttp.Client
+	clusterEndpoints         []string
+	numWorkers               int
+	inactivityMonitorTimer   *time.Timer
+	inactivityMonitorChan    chan inactivityMonitorRequest
+	inactivityMonitorTimeout time.Duration
 }
 
 func NewClient(tlsConfig *tls.Config, dialTimeout time.Duration) *fasthttp.Client {
@@ -52,6 +60,7 @@ func NewClient(tlsConfig *tls.Config, dialTimeout time.Duration) *fasthttp.Clien
 	if dialTimeout == 0 {
 		dialTimeout = fasthttp.DefaultDialTimeout
 	}
+
 	dialFunction := func(addr string) (net.Conn, error) {
 		return fasthttp.DialTimeout(addr, dialTimeout)
 	}
@@ -78,34 +87,35 @@ func NewContext(parentLogger logger.Logger, client *fasthttp.Client, newContextI
 	}
 
 	newContext := &context{
-		logger:            parentLogger.GetChild("context.http"),
-		httpClient:        client,
-		requestChan:       make(chan *v3io.Request, requestChanLen),
-		numWorkers:        numWorkers,
-		inactivityTimeout: newContextInput.InactivityTimeout,
+		logger:                   parentLogger.GetChild("context.http"),
+		httpClient:               client,
+		requestChan:              make(chan *v3io.Request, requestChanLen),
+		numWorkers:               numWorkers,
+		inactivityMonitorTimeout: newContextInput.InactivityTimeout,
 	}
 
 	for workerIndex := 0; workerIndex < numWorkers; workerIndex++ {
 		go newContext.workerEntry(workerIndex)
 	}
 
-	if newContext.inactivityTimeout != 0 {
-		newContext.inactivityTimer = time.NewTimer(newContext.inactivityTimeout)
+	if newContext.inactivityMonitorTimeout != 0 {
+		newContext.inactivityMonitorChan = make(chan inactivityMonitorRequest, newContext.numWorkers)
+		newContext.inactivityMonitorTimer = time.NewTimer(newContext.inactivityMonitorTimeout)
 
-		go newContext.waitForInactivityTimeout(newContext.inactivityTimer)
+		go newContext.inactivityMonitorEntry()
 	}
 
 	newContext.logger.DebugWith("Created context",
 		"numWorkers", numWorkers,
-		"inactivityTimeout", newContextInput.InactivityTimeout)
+		"inactivityMonitorTimeout", newContextInput.InactivityTimeout)
 
 	return newContext, nil
 }
 
 // stops a context
 func (c *context) Stop(timeout *time.Duration) error {
-	if c.inactivityTimer != nil {
-		c.inactivityTimer.Stop()
+	if c.inactivityMonitorTimer != nil {
+		c.inactivityMonitorChan <- inactivityMonitorRequestStop
 	}
 
 	return c.stop("User requested stop", timeout)
@@ -846,8 +856,8 @@ func (c *context) sendRequest(dataPlaneInput *v3io.DataPlaneInput,
 	var err error
 
 	// if there's an inactivity timer, reset it
-	if c.inactivityTimer != nil {
-		c.inactivityTimer.Reset(c.inactivityTimeout)
+	if c.inactivityMonitorTimer != nil {
+		c.inactivityMonitorChan <- inactivityMonitorRequestReset
 	}
 
 	if dataPlaneInput.ContainerName == "" {
@@ -1394,10 +1404,26 @@ func (c *context) getItemsParseCAPNPResponse(response *v3io.Response, withWildca
 	return &getItemsOutput, nil
 }
 
-func (c *context) waitForInactivityTimeout(workerTimeoutTimer *time.Timer) {
-	c.logger.DebugWith("Monitoring context inactivity")
+func (c *context) inactivityMonitorEntry() {
+	c.logger.DebugWith("Inactivity monitor starting")
 
-	<-workerTimeoutTimer.C
+	inactivityMonitorTimerExpired := true
+
+	for inactivityMonitorTimerExpired {
+		select {
+		case request := <-c.inactivityMonitorChan:
+			switch request {
+			case inactivityMonitorRequestStop:
+				c.logger.Debug("Inactivity monitor requested to stop")
+				return
+			case inactivityMonitorRequestReset:
+				c.inactivityMonitorTimer.Reset(c.inactivityMonitorTimeout)
+			}
+
+		case <-c.inactivityMonitorTimer.C:
+			inactivityMonitorTimerExpired = true
+		}
+	}
 
 	// force stop
 	c.stop("Inactivity timout expired", nil) // nolint: errcheck
