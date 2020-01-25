@@ -1405,11 +1405,12 @@ func (c *context) getItemsParseCAPNPResponse(response *v3io.Response, withWildca
 }
 
 func (c *context) inactivityMonitorEntry() {
-	c.logger.DebugWith("Inactivity monitor starting")
+	c.logger.DebugWith("Inactivity monitor starting",
+		"timeout", c.inactivityMonitorTimeout)
 
-	inactivityMonitorTimerExpired := true
+	inactivityMonitorTimerExpired := false
 
-	for inactivityMonitorTimerExpired {
+	for !inactivityMonitorTimerExpired {
 		select {
 		case request := <-c.inactivityMonitorChan:
 			switch request {
@@ -1441,9 +1442,7 @@ func (c *context) stop(reason string, timeout *time.Duration) error {
 		"reason", reason,
 		"timeout", timeoutStr)
 
-	if timeout != nil {
-		workerStoppedChan = make(chan *v3io.Response, c.numWorkers)
-	}
+	workerStoppedChan = make(chan *v3io.Response, c.numWorkers)
 
 	// it's guaranteed that a single worker will not read two messages from the queue, so
 	// each worker should receive a single stop request
