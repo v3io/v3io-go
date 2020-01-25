@@ -48,8 +48,8 @@ func (suite *testSuite) createContext() {
 
 	// create a context
 	suite.context, err = v3iohttp.NewContext(suite.logger, &v3io.NewContextInput{
-		ClusterEndpoints: []string{os.Getenv("V3IO_DATAPLANE_URL")},
-		WorkerTimeout: 10 * time.Second,
+		ClusterEndpoints:  []string{os.Getenv("V3IO_DATAPLANE_URL")},
+		InactivityTimeout: 10 * time.Second,
 	})
 	suite.container = suite.context
 	suite.Require().NoError(err)

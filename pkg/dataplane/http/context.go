@@ -32,15 +32,16 @@ import (
 // TODO: Request should have a global pool
 var requestID uint64
 
-var ErrWorkerStopped = errors.New("Worker stopped")
+var ErrContextStopped = errors.New("Context stopped")
 
 type context struct {
-	logger           logger.Logger
-	requestChan      chan *v3io.Request
-	httpClient       *fasthttp.HostClient
-	clusterEndpoints []string
-	numWorkers       int
-	workerTimeout    time.Duration
+	logger            logger.Logger
+	requestChan       chan *v3io.Request
+	httpClient        *fasthttp.HostClient
+	clusterEndpoints  []string
+	numWorkers        int
+	inactivityTimer   *time.Timer
+	inactivityTimeout time.Duration
 }
 
 func NewContext(parentLogger logger.Logger, newContextInput *v3io.NewContextInput) (v3io.Context, error) {
@@ -110,62 +111,32 @@ func NewContext(parentLogger logger.Logger, newContextInput *v3io.NewContextInpu
 			TLSConfig: tlsConfig,
 			Dial:      dialFunction,
 		},
-		clusterEndpoints: newContextInput.ClusterEndpoints,
-		requestChan:      make(chan *v3io.Request, requestChanLen),
-		numWorkers:       numWorkers,
-		workerTimeout:    newContextInput.WorkerTimeout,
+		clusterEndpoints:  newContextInput.ClusterEndpoints,
+		requestChan:       make(chan *v3io.Request, requestChanLen),
+		numWorkers:        numWorkers,
+		inactivityTimeout: newContextInput.InactivityTimeout,
 	}
 
 	for workerIndex := 0; workerIndex < numWorkers; workerIndex++ {
 		go newContext.workerEntry(workerIndex)
 	}
 
-	newContext.logger.DebugWith("Created context", "numWorkers", numWorkers)
+	if newContext.inactivityTimeout != 0 {
+		newContext.inactivityTimer = time.NewTimer(newContext.inactivityTimeout)
+
+		go newContext.waitForInactivityTimeout(newContext.inactivityTimer)
+	}
+
+	newContext.logger.DebugWith("Created context",
+		"numWorkers", numWorkers,
+		"inactivityTimeout", newContextInput.InactivityTimeout)
 
 	return newContext, nil
 }
 
 // stops a context
 func (c *context) Stop(timeout *time.Duration) error {
-	var workerStoppedChan chan *v3io.Response
-
-	c.logger.DebugWith("Stopping context", "timeout", timeout)
-
-	if timeout != nil {
-		workerStoppedChan = make(chan *v3io.Response, c.numWorkers)
-	}
-
-	// it's guaranteed that a single worker will not read two messages from the queue, so
-	// each worker should receive a single stop request
-	for workerIdx := 0; workerIdx < c.numWorkers; workerIdx++ {
-		_, err := c.sendRequestToWorker(&v3io.StopContextInput{},
-			nil,
-			workerStoppedChan)
-
-		if err != nil {
-			return errors.Wrap(err, "Failed to send request to worker")
-		}
-	}
-
-	// if timeout is set, wait for all workers to stop
-	if timeout != nil {
-		deadline := time.After(*timeout)
-		workersStopped := 0
-
-		// while not all workers stopped, wait for them to stop
-		for workersStopped < c.numWorkers {
-			select {
-			case <-workerStoppedChan:
-				workersStopped++
-			case <-deadline:
-				return errors.New("Timed out waiting for context to stop")
-			}
-		}
-	}
-
-	c.logger.DebugWith("Context stopped", "timeout", timeout)
-
-	return nil
+	return c.stop("User requested stop", timeout)
 }
 
 // create a new session
@@ -885,6 +856,11 @@ func (c *context) sendRequest(dataPlaneInput *v3io.DataPlaneInput,
 	var statusCode int
 	var err error
 
+	// if there's an inactivity timer, reset it
+	if c.inactivityTimer != nil {
+		c.inactivityTimer.Reset(c.inactivityTimeout)
+	}
+
 	if dataPlaneInput.ContainerName == "" {
 		return nil, errors.New("ContainerName must not be empty")
 	}
@@ -1134,26 +1110,10 @@ func (c *context) sendRequestToWorker(input interface{},
 
 func (c *context) workerEntry(workerIndex int) {
 	for {
-		var request *v3io.Request
-
-		// if there's no timeout, just read from the request channel and don't spend time allocating
-		// timeout channels
-		if c.workerTimeout == 0 {
-			request = <-c.requestChan
-
-		} else {
-
-			// if there is a timeout, we need to read with a timeout (this costs some extra allocation)
-			select {
-			case request = <-c.requestChan:
-			case <-time.After(c.workerTimeout):
-				c.logger.DebugWith("Worker shutting down according to timeout", "idx", workerIndex)
-				return
-			}
-		}
+		request := <-c.requestChan
 
 		if err := c.handleRequest(workerIndex, request); err != nil {
-			if err == ErrWorkerStopped {
+			if err == ErrContextStopped {
 				return
 			}
 
@@ -1202,11 +1162,11 @@ func (c *context) handleRequest(workerIndex int, request *v3io.Request) error {
 		response, err = c.GetContainerContentsSync(typedInput)
 	case *v3io.StopContextInput:
 		response = &v3io.Response{
-			Output: &v3io.StopContextOutput {
+			Output: &v3io.StopContextOutput{
 				WorkerIndex: workerIndex,
 			},
 		}
-		err = ErrWorkerStopped
+		err = ErrContextStopped
 	default:
 		c.logger.ErrorWith("Got unexpected request type", "type", reflect.TypeOf(request.Input).String())
 	}
@@ -1457,4 +1417,62 @@ func addMissingPort(addr string, isTLS bool) string {
 		port = 443
 	}
 	return fmt.Sprintf("%s:%d", addr, port)
+}
+
+func (c *context) waitForInactivityTimeout(workerTimeoutTimer *time.Timer) {
+	c.logger.DebugWith("Monitoring context inactivity")
+
+	<-workerTimeoutTimer.C
+
+	// force stop
+	c.stop("Inactivity timout expired", nil) // nolint: errcheck
+}
+
+func (c *context) stop(reason string, timeout *time.Duration) error {
+	var workerStoppedChan chan *v3io.Response
+
+	timeoutStr := "None"
+	if timeout != nil {
+		timeoutStr = timeout.String()
+	}
+
+	c.logger.DebugWith("Stopping context",
+		"reason", reason,
+		"timeout", timeoutStr)
+
+	if timeout != nil {
+		workerStoppedChan = make(chan *v3io.Response, c.numWorkers)
+	}
+
+	// it's guaranteed that a single worker will not read two messages from the queue, so
+	// each worker should receive a single stop request
+	for workerIdx := 0; workerIdx < c.numWorkers; workerIdx++ {
+		_, err := c.sendRequestToWorker(&v3io.StopContextInput{Reason: reason},
+			nil,
+			workerStoppedChan)
+
+		if err != nil {
+			return errors.Wrap(err, "Failed to send request to worker")
+		}
+	}
+
+	// if timeout is set, wait for all workers to stop
+	if timeout != nil {
+		deadline := time.After(*timeout)
+		workersStopped := 0
+
+		// while not all workers stopped, wait for them to stop
+		for workersStopped < c.numWorkers {
+			select {
+			case <-workerStoppedChan:
+				workersStopped++
+			case <-deadline:
+				return errors.New("Timed out waiting for context to stop")
+			}
+		}
+	}
+
+	c.logger.DebugWith("Context stopped")
+
+	return nil
 }

@@ -2,9 +2,10 @@ package test
 
 import (
 	"fmt"
-	"github.com/v3io/v3io-go/pkg/dataplane"
 	"testing"
 	"time"
+
+	"github.com/v3io/v3io-go/pkg/dataplane"
 
 	"github.com/stretchr/testify/suite"
 )

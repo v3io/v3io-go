@@ -30,15 +30,16 @@ import (
 //
 
 type NewContextInput struct {
-	ClusterEndpoints []string
-	NumWorkers       int
-	RequestChanLen   int
-	TLSConfig        *tls.Config
-	DialTimeout      time.Duration
-	WorkerTimeout    time.Duration
+	ClusterEndpoints  []string
+	NumWorkers        int
+	RequestChanLen    int
+	TLSConfig         *tls.Config
+	DialTimeout       time.Duration
+	InactivityTimeout time.Duration
 }
 
 type StopContextInput struct {
+	Reason string
 }
 
 type StopContextOutput struct {
@@ -120,8 +121,8 @@ func (vfm FileMode) String() string {
 }
 
 func mode(v3ioFileMode FileMode) os.FileMode {
-	const S_IFMT = 0xf000
-	const IP_OFFMASK = 0x1fff
+	const S_IFMT = 0xf000     // nolint: golint
+	const IP_OFFMASK = 0x1fff // nolint: golint
 
 	// Convert 16 bit octal representation of V3IO into decimal 32 bit representation of Go
 	mode, err := strconv.ParseUint(string(v3ioFileMode), 8, 32)
