@@ -16,9 +16,14 @@ limitations under the License.
 
 package v3io
 
+import "time"
+
 type Context interface {
 	Container
 
 	// create a new session
 	NewSession(*NewSessionInput) (Session, error)
+
+	// stops a context
+	Stop(*time.Duration) error
 }
