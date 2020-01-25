@@ -2,6 +2,7 @@ package test
 
 import (
 	"os"
+	"time"
 
 	"github.com/v3io/v3io-go/pkg/dataplane"
 	"github.com/v3io/v3io-go/pkg/dataplane/http"
@@ -14,6 +15,7 @@ import (
 type testSuite struct { // nolint: deadcode
 	suite.Suite
 	logger              logger.Logger
+	context             v3io.Context
 	container           v3io.Container
 	url                 string
 	containerName       string
@@ -23,6 +25,17 @@ type testSuite struct { // nolint: deadcode
 
 func (suite *testSuite) SetupSuite() {
 	suite.logger, _ = nucliozap.NewNuclioZapTest("test")
+}
+
+func (suite *testSuite) TearDownSuite() {
+	if suite.context == nil {
+		return
+	}
+
+	timeout := 10 * time.Second
+
+	err := suite.context.Stop(&timeout)
+	suite.Require().NoError(err)
 }
 
 func (suite *testSuite) populateDataPlaneInput(dataPlaneInput *v3io.DataPlaneInput) {
@@ -36,8 +49,11 @@ func (suite *testSuite) createContext() {
 	var err error
 
 	// create a context
-	suite.container, err = v3iohttp.NewContext(suite.logger, v3iohttp.NewDefaultClient(), &v3io.NewContextInput{})
+	suite.context, err = v3iohttp.NewContext(suite.logger, v3iohttp.NewDefaultClient(), &v3io.NewContextInput{
+		InactivityTimeout: 10 * time.Second,
+	})
 	suite.Require().NoError(err)
+	suite.container = suite.context
 
 	// populate fields that would have been populated by session/container
 	suite.containerName = "bigdata"
