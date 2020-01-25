@@ -32,12 +32,15 @@ import (
 // TODO: Request should have a global pool
 var requestID uint64
 
+var ErrWorkerStopped = errors.New("Worker stopped")
+
 type context struct {
 	logger           logger.Logger
 	requestChan      chan *v3io.Request
 	httpClient       *fasthttp.HostClient
 	clusterEndpoints []string
 	numWorkers       int
+	workerTimeout    time.Duration
 }
 
 func NewContext(parentLogger logger.Logger, newContextInput *v3io.NewContextInput) (v3io.Context, error) {
@@ -94,9 +97,11 @@ func NewContext(parentLogger logger.Logger, newContextInput *v3io.NewContextInpu
 	if dialTimeout == 0 {
 		dialTimeout = fasthttp.DefaultDialTimeout
 	}
+
 	dialFunction := func(addr string) (net.Conn, error) {
 		return fasthttp.DialTimeout(addMissingPort(addr, httpsEndpointFound), dialTimeout)
 	}
+
 	newContext := &context{
 		logger: parentLogger.GetChild("context.http"),
 		httpClient: &fasthttp.HostClient{
@@ -108,27 +113,59 @@ func NewContext(parentLogger logger.Logger, newContextInput *v3io.NewContextInpu
 		clusterEndpoints: newContextInput.ClusterEndpoints,
 		requestChan:      make(chan *v3io.Request, requestChanLen),
 		numWorkers:       numWorkers,
+		workerTimeout:    newContextInput.WorkerTimeout,
 	}
 
 	for workerIndex := 0; workerIndex < numWorkers; workerIndex++ {
 		go newContext.workerEntry(workerIndex)
 	}
 
+	newContext.logger.DebugWith("Created context", "numWorkers", numWorkers)
+
 	return newContext, nil
 }
 
-// Code from fasthttp library https://github.com/valyala/fasthttp/blob/ea427d2f448aa8abc0b139f638e80184d4b23d9d/client.go#L1596
-// For some reason, this code is skipped when a custom dial function is provided.
-func addMissingPort(addr string, isTLS bool) string {
-	n := strings.Index(addr, ":")
-	if n >= 0 {
-		return addr
+// stops a context
+func (c *context) Stop(timeout *time.Duration) error {
+	var workerStoppedChan chan *v3io.Response
+
+	c.logger.DebugWith("Stopping context", "timeout", timeout)
+
+	if timeout != nil {
+		workerStoppedChan = make(chan *v3io.Response, c.numWorkers)
 	}
-	port := 80
-	if isTLS {
-		port = 443
+
+	// it's guaranteed that a single worker will not read two messages from the queue, so
+	// each worker should receive a single stop request
+	for workerIdx := 0; workerIdx < c.numWorkers; workerIdx++ {
+		_, err := c.sendRequestToWorker(&v3io.StopContextInput{},
+			nil,
+			workerStoppedChan)
+
+		if err != nil {
+			return errors.Wrap(err, "Failed to send request to worker")
+		}
 	}
-	return fmt.Sprintf("%s:%d", addr, port)
+
+	// if timeout is set, wait for all workers to stop
+	if timeout != nil {
+		deadline := time.After(*timeout)
+		workersStopped := 0
+
+		// while not all workers stopped, wait for them to stop
+		for workersStopped < c.numWorkers {
+			select {
+			case <-workerStoppedChan:
+				workersStopped++
+			case <-deadline:
+				return errors.New("Timed out waiting for context to stop")
+			}
+		}
+	}
+
+	c.logger.DebugWith("Context stopped", "timeout", timeout)
+
+	return nil
 }
 
 // create a new session
@@ -1097,63 +1134,99 @@ func (c *context) sendRequestToWorker(input interface{},
 
 func (c *context) workerEntry(workerIndex int) {
 	for {
-		var response *v3io.Response
-		var err error
+		var request *v3io.Request
 
-		// read a request
-		request := <-c.requestChan
+		// if there's no timeout, just read from the request channel and don't spend time allocating
+		// timeout channels
+		if c.workerTimeout == 0 {
+			request = <-c.requestChan
 
-		// according to the input type
-		switch typedInput := request.Input.(type) {
-		case *v3io.PutObjectInput:
-			err = c.PutObjectSync(typedInput)
-		case *v3io.GetObjectInput:
-			response, err = c.GetObjectSync(typedInput)
-		case *v3io.DeleteObjectInput:
-			err = c.DeleteObjectSync(typedInput)
-		case *v3io.GetItemInput:
-			response, err = c.GetItemSync(typedInput)
-		case *v3io.GetItemsInput:
-			response, err = c.GetItemsSync(typedInput)
-		case *v3io.PutItemInput:
-			err = c.PutItemSync(typedInput)
-		case *v3io.PutItemsInput:
-			response, err = c.PutItemsSync(typedInput)
-		case *v3io.UpdateItemInput:
-			err = c.UpdateItemSync(typedInput)
-		case *v3io.CreateStreamInput:
-			err = c.CreateStreamSync(typedInput)
-		case *v3io.DeleteStreamInput:
-			err = c.DeleteStreamSync(typedInput)
-		case *v3io.GetRecordsInput:
-			response, err = c.GetRecordsSync(typedInput)
-		case *v3io.PutRecordsInput:
-			response, err = c.PutRecordsSync(typedInput)
-		case *v3io.SeekShardInput:
-			response, err = c.SeekShardSync(typedInput)
-		case *v3io.GetContainersInput:
-			response, err = c.GetContainersSync(typedInput)
-		case *v3io.GetContainerContentsInput:
-			response, err = c.GetContainerContentsSync(typedInput)
-		default:
-			c.logger.ErrorWith("Got unexpected request type", "type", reflect.TypeOf(request.Input).String())
+		} else {
+
+			// if there is a timeout, we need to read with a timeout (this costs some extra allocation)
+			select {
+			case request = <-c.requestChan:
+			case <-time.After(c.workerTimeout):
+				c.logger.DebugWith("Worker shutting down according to timeout", "idx", workerIndex)
+				return
+			}
 		}
 
-		// TODO: have the sync interfaces somehow use the pre-allocated response
-		if response != nil {
-			request.RequestResponse.Response = *response
+		if err := c.handleRequest(workerIndex, request); err != nil {
+			if err == ErrWorkerStopped {
+				return
+			}
+
+			c.logger.WarnWith("Failed handling request",
+				"workerIdx", workerIndex,
+				"err", err)
 		}
-
-		response = &request.RequestResponse.Response
-
-		response.ID = request.ID
-		response.Error = err
-		response.RequestResponse = request.RequestResponse
-		response.Context = request.Context
-
-		// write to response channel
-		request.ResponseChan <- &request.RequestResponse.Response
 	}
+}
+
+func (c *context) handleRequest(workerIndex int, request *v3io.Request) error {
+	var response *v3io.Response
+	var err error
+
+	// according to the input type
+	switch typedInput := request.Input.(type) {
+	case *v3io.PutObjectInput:
+		err = c.PutObjectSync(typedInput)
+	case *v3io.GetObjectInput:
+		response, err = c.GetObjectSync(typedInput)
+	case *v3io.DeleteObjectInput:
+		err = c.DeleteObjectSync(typedInput)
+	case *v3io.GetItemInput:
+		response, err = c.GetItemSync(typedInput)
+	case *v3io.GetItemsInput:
+		response, err = c.GetItemsSync(typedInput)
+	case *v3io.PutItemInput:
+		err = c.PutItemSync(typedInput)
+	case *v3io.PutItemsInput:
+		response, err = c.PutItemsSync(typedInput)
+	case *v3io.UpdateItemInput:
+		err = c.UpdateItemSync(typedInput)
+	case *v3io.CreateStreamInput:
+		err = c.CreateStreamSync(typedInput)
+	case *v3io.DeleteStreamInput:
+		err = c.DeleteStreamSync(typedInput)
+	case *v3io.GetRecordsInput:
+		response, err = c.GetRecordsSync(typedInput)
+	case *v3io.PutRecordsInput:
+		response, err = c.PutRecordsSync(typedInput)
+	case *v3io.SeekShardInput:
+		response, err = c.SeekShardSync(typedInput)
+	case *v3io.GetContainersInput:
+		response, err = c.GetContainersSync(typedInput)
+	case *v3io.GetContainerContentsInput:
+		response, err = c.GetContainerContentsSync(typedInput)
+	case *v3io.StopContextInput:
+		response = &v3io.Response{
+			Output: &v3io.StopContextOutput {
+				WorkerIndex: workerIndex,
+			},
+		}
+		err = ErrWorkerStopped
+	default:
+		c.logger.ErrorWith("Got unexpected request type", "type", reflect.TypeOf(request.Input).String())
+	}
+
+	// TODO: have the sync interfaces somehow use the pre-allocated response
+	if response != nil {
+		request.RequestResponse.Response = *response
+	}
+
+	response = &request.RequestResponse.Response
+
+	response.ID = request.ID
+	response.Error = err
+	response.RequestResponse = request.RequestResponse
+	response.Context = request.Context
+
+	// write to response channel
+	request.ResponseChan <- &request.RequestResponse.Response
+
+	return err
 }
 
 func readAllCapnpMessages(reader io.Reader) []*capnp.Message {
@@ -1370,4 +1443,18 @@ func (c *context) getItemsParseCAPNPResponse(response *v3io.Response, withWildca
 		getItemsOutput.Items = append(getItemsOutput.Items, ditem)
 	}
 	return &getItemsOutput, nil
+}
+
+// Code from fasthttp library https://github.com/valyala/fasthttp/blob/ea427d2f448aa8abc0b139f638e80184d4b23d9d/client.go#L1596
+// For some reason, this code is skipped when a custom dial function is provided.
+func addMissingPort(addr string, isTLS bool) string {
+	n := strings.Index(addr, ":")
+	if n >= 0 {
+		return addr
+	}
+	port := 80
+	if isTLS {
+		port = 443
+	}
+	return fmt.Sprintf("%s:%d", addr, port)
 }

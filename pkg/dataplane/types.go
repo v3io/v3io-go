@@ -35,6 +35,14 @@ type NewContextInput struct {
 	RequestChanLen   int
 	TLSConfig        *tls.Config
 	DialTimeout      time.Duration
+	WorkerTimeout    time.Duration
+}
+
+type StopContextInput struct {
+}
+
+type StopContextOutput struct {
+	WorkerIndex int
 }
 
 type NewSessionInput struct {
