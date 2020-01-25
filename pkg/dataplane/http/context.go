@@ -104,6 +104,10 @@ func NewContext(parentLogger logger.Logger, client *fasthttp.Client, newContextI
 
 // stops a context
 func (c *context) Stop(timeout *time.Duration) error {
+	if c.inactivityTimer != nil {
+		c.inactivityTimer.Stop()
+	}
+
 	return c.stop("User requested stop", timeout)
 }
 
