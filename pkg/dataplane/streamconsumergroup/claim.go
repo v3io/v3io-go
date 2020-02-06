@@ -97,6 +97,7 @@ func (c *streamConsumerGroupClaim) pollMessages(location string) (string, error)
 	if err != nil {
 		return "", errors.Wrapf(err, "Failed getting records: %s", location)
 	}
+	defer response.Release()
 
 	getRecordsOutput := response.Output.(*v3io.GetRecordsOutput)
 

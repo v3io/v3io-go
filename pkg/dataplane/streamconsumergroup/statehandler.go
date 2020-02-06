@@ -177,8 +177,19 @@ func (sh *streamConsumerGroupStateHandler) resolveMaxNumberOfShardsPerSession(nu
 }
 
 func (sh *streamConsumerGroupStateHandler) resolveNumberOfShards() (int, error) {
-	// TODO: implement this using list dir on stream dir and count files
-	return 8, nil
+	// get all shards in the stream
+	response, err := sh.streamConsumerGroup.container.GetContainerContentsSync(&v3io.GetContainerContentsInput{
+		DataPlaneInput: sh.streamConsumerGroup.dataPlaneInput,
+		Path:           sh.streamConsumerGroup.streamPath,
+	})
+
+	if err != nil {
+		return 0, errors.Wrapf(err, "Failed getting stream shards: %s", sh.streamConsumerGroup.streamPath)
+	}
+
+	defer response.Release()
+
+	return len(response.Output.(*v3io.GetContainerContentsOutput).Contents), nil
 }
 
 func (sh *streamConsumerGroupStateHandler) modifyState(modifier stateModifier) (*State, error) {
@@ -210,6 +221,8 @@ func (sh *streamConsumerGroupStateHandler) modifyState(modifier stateModifier) (
 				return true, errors.Wrap(err, "Failed getting state item")
 			}
 		} else {
+			defer response.Release()
+
 			getItemOutput := response.Output.(*v3io.GetItemOutput)
 
 			stateContentsInterface, foundStateAttribute := getItemOutput.Item["state"]

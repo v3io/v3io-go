@@ -134,6 +134,7 @@ func (scg *streamConsumerGroup) seekShard(shardID int, inputType v3io.SeekShardI
 	if err != nil {
 		return "", errors.Wrapf(err, "Failed seeking shard: %v", shardID)
 	}
+	defer response.Release()
 
 	return response.Output.(*v3io.SeekShardOutput).Location, nil
 }

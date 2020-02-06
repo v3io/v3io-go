@@ -57,6 +57,7 @@ func (lh *streamConsumerGroupLocationHandler) getShardLocationFromPersistency(sh
 	if err != nil {
 		return "", errors.Wrap(err, "Failed getting shard location item from persistency")
 	}
+	defer response.Release()
 	getItemOutput := response.Output.(*v3io.GetItemOutput)
 
 	shardLocationInterface, foundShardLocationAttribute := getItemOutput.Item[shardLocationAttribute]
