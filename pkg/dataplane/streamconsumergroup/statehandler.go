@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path"
+	"reflect"
 	"time"
 
 	"github.com/v3io/v3io-go/pkg/common"
@@ -14,6 +15,8 @@ import (
 	"github.com/nuclio/errors"
 	"github.com/nuclio/logger"
 )
+
+const stateContentsAttributeKey string = "state"
 
 type streamConsumerGroupStateHandler struct {
 	logger                     logger.Logger
@@ -123,8 +126,6 @@ func (sh *streamConsumerGroupStateHandler) refreshState() (*State, error) {
 	return newState, nil
 }
 
-type stateModifier func(*State) (*State, error)
-
 func (sh *streamConsumerGroupStateHandler) resolveShardsToAssign(state *State) ([]int, error) {
 	numberOfShards, err := sh.resolveNumberOfShards()
 	if err != nil {
@@ -195,64 +196,29 @@ func (sh *streamConsumerGroupStateHandler) resolveNumberOfShards() (int, error) 
 func (sh *streamConsumerGroupStateHandler) modifyState(modifier stateModifier) (*State, error) {
 	var modifiedState *State
 
-	stateFilePath, err := sh.getStateFilePath()
-	if err != nil {
-		return nil, errors.Wrap(err, "Failed getting state file path")
-	}
-
 	backoff := sh.streamConsumerGroup.config.State.ModifyRetry.Backoff
 	attempts := sh.streamConsumerGroup.config.State.ModifyRetry.Attempts
 	ctx := context.TODO()
 
-	err = common.RetryFunc(ctx, sh.logger, attempts, nil, &backoff, func(_ int) (bool, error) {
-		var statePtr *State
-
-		response, err := sh.streamConsumerGroup.container.GetItemSync(&v3io.GetItemInput{
-			DataPlaneInput: sh.streamConsumerGroup.dataPlaneInput,
-			Path:           stateFilePath,
-			AttributeNames: []string{"__mtime", "state"},
-		})
+	err := common.RetryFunc(ctx, sh.logger, attempts, nil, &backoff, func(_ int) (bool, error) {
+		state, mtime, err := sh.getStateFromPersistency()
 		if err != nil {
-			errWithStatusCode, errHasStatusCode := err.(v3ioerrors.ErrorWithStatusCode)
-			if !errHasStatusCode {
-				return true, errors.Wrap(err, "Got error without status code")
+			if err != common.ErrNotFound {
+				return true, errors.Wrap(err, "failed getting current state from persistency")
 			}
-			if errWithStatusCode.StatusCode() != 404 {
-				return true, errors.Wrap(err, "Failed getting state item")
-			}
-		} else {
-			defer response.Release()
-
-			getItemOutput := response.Output.(*v3io.GetItemOutput)
-
-			stateContentsInterface, foundStateAttribute := getItemOutput.Item["state"]
-			if !foundStateAttribute {
-				return true, errors.New("Failed getting state attribute")
-			}
-			stateContents, ok := stateContentsInterface.(string)
-			if !ok {
-				return true, errors.New("Unknown type for state attribute")
-			}
-
-			var state State
-
-			err = json.Unmarshal([]byte(stateContents), state)
-			if err != nil {
-				return true, errors.Wrap(err, "Failed unmarshaling state contents")
-			}
-
-			statePtr = &state
+			state = nil
+			mtime = nil
 		}
 
-		modifiedState, err := modifier(statePtr)
+		modifiedState, err := modifier(state)
 		if err != nil {
 			return true, errors.Wrap(err, "Failed modifying state")
 		}
 
-		//modifiedStateContents, err := json.Marshal(modifiedState)
-		_, err = json.Marshal(modifiedState)
-
-		// TODO: create or update state (need to get mtime attribute from the item as well)
+		err = sh.setStateInPersistency(modifiedState, mtime)
+		if err != nil {
+			return true, errors.Wrap(err, "Failed setting state in persistency state")
+		}
 
 		return false, nil
 	})
@@ -266,18 +232,94 @@ func (sh *streamConsumerGroupStateHandler) getStateFilePath() (string, error) {
 	return path.Join(sh.streamConsumerGroup.streamPath, fmt.Sprintf("%s-state.json", sh.streamConsumerGroup.ID)), nil
 }
 
-func (sh *streamConsumerGroupStateHandler) GetState() (*State, error) {
-	return sh.lastState, nil
+func (sh *streamConsumerGroupStateHandler) setStateInPersistency(state *State, mtime *time.Time) error {
+	stateFilePath, err := sh.getStateFilePath()
+	if err != nil {
+		return errors.Wrap(err, "Failed getting state file path")
+	}
+
+	stateContents, err := json.Marshal(state)
+	if err != nil {
+		return errors.Wrap(err, "Failed marshaling state file contents")
+	}
+
+	var condition string
+	if mtime != nil {
+		condition = fmt.Sprintf("__mtime == %s", *mtime)
+	}
+
+	err = sh.streamConsumerGroup.container.UpdateItemSync(&v3io.UpdateItemInput{
+		DataPlaneInput: sh.streamConsumerGroup.dataPlaneInput,
+		Path:           stateFilePath,
+		Attributes: map[string]interface{}{
+			stateContentsAttributeKey: stateContents,
+		},
+		Condition: condition,
+	})
+	if err != nil {
+		return errors.Wrap(err, "Failed setting state in persistency")
+	}
+
+	return nil
+}
+
+func (sh *streamConsumerGroupStateHandler) getStateFromPersistency() (*State, *time.Time, error) {
+	stateFilePath, err := sh.getStateFilePath()
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "Failed getting state file path")
+	}
+
+	response, err := sh.streamConsumerGroup.container.GetItemSync(&v3io.GetItemInput{
+		DataPlaneInput: sh.streamConsumerGroup.dataPlaneInput,
+		Path:           stateFilePath,
+		AttributeNames: []string{"__mtime", stateContentsAttributeKey},
+	})
+	if err != nil {
+		errWithStatusCode, errHasStatusCode := err.(v3ioerrors.ErrorWithStatusCode)
+		if !errHasStatusCode {
+			return nil, nil, errors.Wrap(err, "Got error without status code")
+		}
+		if errWithStatusCode.StatusCode() != 404 {
+			return nil, nil, errors.Wrap(err, "Failed getting state item")
+		}
+		return nil, nil, common.ErrNotFound
+	}
+	defer response.Release()
+
+	getItemOutput := response.Output.(*v3io.GetItemOutput)
+
+	stateContentsInterface, foundStateAttribute := getItemOutput.Item[stateContentsAttributeKey]
+	if !foundStateAttribute {
+		return nil, nil, errors.New("Failed getting state attribute")
+	}
+	stateContents, ok := stateContentsInterface.(string)
+	if !ok {
+		return nil, nil, errors.Errorf("Unexpected type for state attribute: %s", reflect.TypeOf(stateContentsInterface))
+	}
+
+	var state State
+
+	err = json.Unmarshal([]byte(stateContents), state)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "Failed unmarshaling state contents")
+	}
+
+	mtimeInterface, foundMtimeAttribute := getItemOutput.Item["__mtime"]
+	if !foundMtimeAttribute {
+		return nil, nil, errors.New("Failed getting mtime attribute")
+	}
+	mtime, ok := mtimeInterface.(time.Time)
+	if !ok {
+		return nil, nil, errors.Errorf("Unexpected type for mtime attribute: %s", reflect.TypeOf(mtimeInterface))
+	}
+
+	return &state, &mtime, nil
 }
 
 func (sh *streamConsumerGroupStateHandler) GetMemberState(memberID string) (*SessionState, error) {
-	state, err := sh.GetState()
-	if err != nil {
-		return nil, errors.Wrap(err, "Failed getting state")
-	}
-	for index, sessionState := range state.Sessions {
+	for index, sessionState := range sh.lastState.Sessions {
 		if sessionState.MemberID == memberID {
-			return &state.Sessions[index], nil
+			return &sh.lastState.Sessions[index], nil
 		}
 	}
 	return nil, errors.Errorf("Member state not found: %s", memberID)

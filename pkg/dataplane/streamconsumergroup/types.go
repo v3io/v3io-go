@@ -9,9 +9,10 @@ type LocationHandler interface {
 	MarkLocation(shardID int, location string) error
 }
 
+type stateModifier func(*State) (*State, error)
+
 type StateHandler interface {
 	Start() error
-	GetState() (*State, error)
 	GetMemberState(string) (*SessionState, error)
 }
 
