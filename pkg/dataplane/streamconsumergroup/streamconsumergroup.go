@@ -28,7 +28,7 @@ type streamConsumerGroupMember struct {
 	session v3io.StreamConsumerGroupSession
 }
 
-func newStreamConsumerGroup(id string,
+func NewStreamConsumerGroup(id string,
 	parentLogger logger.Logger,
 	config *Config,
 	dataPlaneInput v3io.DataPlaneInput,
