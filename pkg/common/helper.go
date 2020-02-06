@@ -2,11 +2,12 @@ package common
 
 import (
 	"context"
-	"github.com/nuclio/errors"
-	"github.com/nuclio/logger"
 	"reflect"
 	"runtime"
 	"time"
+
+	"github.com/nuclio/errors"
+	"github.com/nuclio/logger"
 )
 
 func getFunctionName(fn interface{}) string {

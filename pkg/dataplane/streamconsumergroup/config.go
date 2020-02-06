@@ -1,9 +1,10 @@
 package streamconsumergroup
 
 import (
+	"time"
+
 	"github.com/v3io/v3io-go/pkg/common"
 	"github.com/v3io/v3io-go/pkg/dataplane"
-	"time"
 )
 
 type Config struct {

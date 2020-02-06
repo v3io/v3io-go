@@ -2,11 +2,13 @@ package streamconsumergroup
 
 import (
 	"fmt"
-	"github.com/nuclio/errors"
-	"github.com/nuclio/logger"
-	"github.com/v3io/v3io-go/pkg/dataplane"
 	"path"
 	"time"
+
+	"github.com/v3io/v3io-go/pkg/dataplane"
+
+	"github.com/nuclio/errors"
+	"github.com/nuclio/logger"
 )
 
 type streamConsumerGroupClaim struct {

@@ -2,9 +2,11 @@ package streamconsumergroup
 
 import (
 	"fmt"
+
+	"github.com/v3io/v3io-go/pkg/dataplane"
+
 	"github.com/nuclio/errors"
 	"github.com/nuclio/logger"
-	"github.com/v3io/v3io-go/pkg/dataplane"
 )
 
 type streamConsumerGroupStateSession struct {
