@@ -15,22 +15,23 @@ type streamConsumerGroupClaim struct {
 	logger              logger.Logger
 	streamConsumerGroup *streamConsumerGroup
 	shardID             int
+	initialLocation     string
 	member              *streamConsumerGroupMember
-	recordsChannel      chan v3io.StreamRecord
+	chunksChannel       chan *v3io.StreamChunk
 	stopPollingChannel  chan bool
 }
 
 func newStreamConsumerGroupClaim(streamConsumerGroup *streamConsumerGroup,
 	shardID int, member *streamConsumerGroupMember) (v3io.StreamConsumerGroupClaim, error) {
 
-	recordsChannelSize := streamConsumerGroup.config.Claim.RecordsChannelSize
+	chunksChannelSize := streamConsumerGroup.config.Claim.ChunksChannelSize
 
 	return &streamConsumerGroupClaim{
 		logger:              streamConsumerGroup.logger.GetChild(fmt.Sprintf("claim-%v", shardID)),
 		streamConsumerGroup: streamConsumerGroup,
 		shardID:             shardID,
 		member:              member,
-		recordsChannel:      make(chan v3io.StreamRecord, recordsChannelSize),
+		chunksChannel:       make(chan *v3io.StreamChunk, chunksChannelSize),
 		stopPollingChannel:  make(chan bool),
 	}, nil
 }
@@ -40,13 +41,33 @@ func (c *streamConsumerGroupClaim) Start() error {
 	go c.pollMessagesPeriodically(c.stopPollingChannel, pollingInterval)
 
 	// tell the consumer group handler to consume the claim
-	c.member.handler.ConsumeClaim(c)
+	c.member.handler.ConsumeClaim(c.member.session, c)
 	return nil
 }
 
 func (c *streamConsumerGroupClaim) Stop() error {
 	c.stopPollingChannel <- true
 	return nil
+}
+
+func (c *streamConsumerGroupClaim) Stream() (string, error) {
+	// TODO: maybe differentiate between stream and stream path
+	return c.streamConsumerGroup.streamPath, nil
+}
+
+func (c *streamConsumerGroupClaim) Shard() (int, error) {
+	return c.shardID, nil
+}
+
+func (c *streamConsumerGroupClaim) InitialLocation() (string, error) {
+	if c.initialLocation == "" {
+		return "", errors.New("Initial location has not been populated yet")
+	}
+	return c.initialLocation, nil
+}
+
+func (c *streamConsumerGroupClaim) Chunks() <-chan *v3io.StreamChunk {
+	return c.chunksChannel
 }
 
 func (c *streamConsumerGroupClaim) pollMessagesPeriodically(stopChannel chan bool, pollingInterval time.Duration) {
@@ -65,6 +86,9 @@ func (c *streamConsumerGroupClaim) pollMessagesPeriodically(stopChannel chan boo
 			ticker.Stop()
 			return
 		case <-ticker.C:
+			if c.initialLocation == "" && location != "" {
+				c.initialLocation = location
+			}
 			location, err = c.pollMessages(location)
 			if err != nil {
 				c.logger.WarnWith("Failed polling messages", "err", errors.GetErrorStackString(err, 10))
@@ -84,13 +108,13 @@ func (c *streamConsumerGroupClaim) pollMessages(location string) (string, error)
 		}
 	}
 
-	getRecordsLimit := c.streamConsumerGroup.config.Claim.Polling.GetRecordsLimit
+	chunkSize := c.streamConsumerGroup.config.Claim.Polling.ChunkSize
 
 	getRecordsInput := v3io.GetRecordsInput{
 		DataPlaneInput: c.streamConsumerGroup.dataPlaneInput,
 		Path:           path.Join(c.streamConsumerGroup.streamPath, string(c.shardID)),
 		Location:       location,
-		Limit:          getRecordsLimit,
+		Limit:          chunkSize,
 	}
 
 	response, err := c.streamConsumerGroup.container.GetRecordsSync(&getRecordsInput)
@@ -101,6 +125,8 @@ func (c *streamConsumerGroupClaim) pollMessages(location string) (string, error)
 
 	getRecordsOutput := response.Output.(*v3io.GetRecordsOutput)
 
+	records := make([]v3io.StreamRecord, len(getRecordsOutput.Records))
+
 	for _, getRecordResult := range getRecordsOutput.Records {
 		record := v3io.StreamRecord{
 			ShardID:      &c.shardID,
@@ -109,9 +135,17 @@ func (c *streamConsumerGroupClaim) pollMessages(location string) (string, error)
 			PartitionKey: getRecordResult.PartitionKey,
 		}
 
-		// write into messages channel, blocking if there's no space
-		c.recordsChannel <- record
+		records = append(records, record)
 	}
+
+	chunk := v3io.StreamChunk{
+		Records:      records,
+		NextLocation: getRecordsOutput.NextLocation,
+		ShardID:      c.shardID,
+	}
+
+	// write into chunks channel, blocking if there's no space
+	c.chunksChannel <- &chunk
 
 	return getRecordsOutput.NextLocation, nil
 }

@@ -275,6 +275,12 @@ type StreamRecord struct {
 	PartitionKey string
 }
 
+type StreamChunk struct {
+	Records      []StreamRecord
+	NextLocation string
+	ShardID      int
+}
+
 type SeekShardInputType int
 
 const (
@@ -364,7 +370,7 @@ type StreamConsumerGroupHandler interface {
 	// ConsumeClaim must start a consumer loop of ConsumerGroupClaim's Messages().
 	// Once the Messages() channel is closed, the Handler must finish its processing
 	// loop and exit.
-	ConsumeClaim(StreamConsumerGroupClaim) error
+	ConsumeClaim(StreamConsumerGroupSession, StreamConsumerGroupClaim) error
 }
 
 type StreamConsumerGroup interface {
@@ -375,9 +381,19 @@ type StreamConsumerGroup interface {
 type StreamConsumerGroupSession interface {
 	Start() error
 	Stop() error
+
+	// Claims returns information about the claimed shards.
+	Claims() ([]int, error)
+	MemberID() (string, error)
+	MarkChunk(*StreamChunk) error
 }
 
 type StreamConsumerGroupClaim interface {
 	Start() error
 	Stop() error
+
+	Stream() (string, error)
+	Shard() (int, error)
+	InitialLocation() (string, error)
+	Chunks() <-chan *StreamChunk
 }

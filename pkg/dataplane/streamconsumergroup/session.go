@@ -71,3 +71,27 @@ func (sh *streamConsumerGroupStateSession) Stop() error {
 
 	return nil
 }
+
+func (sh *streamConsumerGroupStateSession) Claims() ([]int, error) {
+	claimedShardIDs := make([]int, 0)
+	for _, claim := range sh.claims {
+		shardID, err := claim.Shard()
+		if err != nil {
+			return nil, errors.Wrap(err, "Failed getting claim shard")
+		}
+		claimedShardIDs = append(claimedShardIDs, shardID)
+	}
+	return claimedShardIDs, nil
+}
+
+func (sh *streamConsumerGroupStateSession) MemberID() (string, error) {
+	return sh.member.ID, nil
+}
+
+func (sh *streamConsumerGroupStateSession) MarkChunk(streamChunk *v3io.StreamChunk) error {
+	err := sh.streamConsumerGroup.locationHandler.MarkLocation(streamChunk.ShardID, streamChunk.NextLocation)
+	if err != nil {
+		errors.Wrap(err, "Failed marking chunk as consumed")
+	}
+	return nil
+}
