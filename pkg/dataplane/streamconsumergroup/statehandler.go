@@ -101,11 +101,11 @@ func (sh *streamConsumerGroupStateHandler) refreshState() (*State, error) {
 		state.Sessions = validSessions
 
 		// create or update sessions in the state
-		for _, member := range sh.streamConsumerGroup.members {
+		for memberID := range sh.streamConsumerGroup.members {
 			var sessionState *SessionState
 			for index, session := range state.Sessions {
-				if session.MemberID == member.ID {
-					session = state.Sessions[index]
+				if session.MemberID == memberID {
+					sessionState = &state.Sessions[index]
 					break
 				}
 			}
@@ -118,7 +118,7 @@ func (sh *streamConsumerGroupStateHandler) refreshState() (*State, error) {
 					return nil, errors.Wrap(err, "Failed resolving shards for session")
 				}
 				state.Sessions = append(state.Sessions, SessionState{
-					MemberID:      member.ID,
+					MemberID:      memberID,
 					LastHeartbeat: &now,
 					Shards:        shards,
 				})
@@ -219,7 +219,7 @@ func (sh *streamConsumerGroupStateHandler) modifyState(modifier stateModifier) (
 			mtime = nil
 		}
 
-		modifiedState, err := modifier(state)
+		modifiedState, err = modifier(state)
 		if err != nil {
 			return true, errors.Wrap(err, "Failed modifying state")
 		}

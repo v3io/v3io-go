@@ -14,7 +14,7 @@ type streamConsumerGroup struct {
 	logger          logger.Logger
 	config          *Config
 	dataPlaneInput  v3io.DataPlaneInput
-	members         []streamConsumerGroupMember
+	members         map[string]streamConsumerGroupMember
 	streamPath      string
 	maxWorkers      int
 	stateHandler    StateHandler
@@ -45,7 +45,7 @@ func NewStreamConsumerGroup(id string,
 		logger:         parentLogger.GetChild("streamConsumerGroup"),
 		config:         config,
 		dataPlaneInput: dataPlaneInput,
-		members:        make([]streamConsumerGroupMember, 0),
+		members:        make(map[string]streamConsumerGroupMember, 0),
 		streamPath:     streamPath,
 		maxWorkers:     maxWorkers,
 		container:      container,
@@ -54,7 +54,7 @@ func NewStreamConsumerGroup(id string,
 
 func (scg *streamConsumerGroup) Consume(memberID string, streamConsumerGroupHandler v3io.StreamConsumerGroupHandler) error {
 
-	member := streamConsumerGroupMember{
+	scg.members[memberID] = streamConsumerGroupMember{
 		ID:      memberID,
 		handler: streamConsumerGroupHandler,
 	}
@@ -94,6 +94,8 @@ func (scg *streamConsumerGroup) Consume(memberID string, streamConsumerGroupHand
 		return errors.Wrap(err, "Failed getting stream consumer group state")
 	}
 
+	member := scg.members[memberID]
+
 	// create a session object from our state
 	streamConsumerGroupSession, err := newStreamConsumerGroupSession(scg, state, &member)
 	if err != nil {
@@ -101,8 +103,6 @@ func (scg *streamConsumerGroup) Consume(memberID string, streamConsumerGroupHand
 	}
 
 	member.session = streamConsumerGroupSession
-
-	scg.members = append(scg.members, member)
 
 	// start it
 	streamConsumerGroupSession.Start()
