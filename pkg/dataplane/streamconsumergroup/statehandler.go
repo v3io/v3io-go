@@ -241,7 +241,7 @@ func (sh *streamConsumerGroupStateHandler) getStateFilePath() (string, error) {
 	return path.Join(sh.streamConsumerGroup.streamPath, fmt.Sprintf("%s-state.json", sh.streamConsumerGroup.ID)), nil
 }
 
-func (sh *streamConsumerGroupStateHandler) setStateInPersistency(state *State, mtime *time.Time) error {
+func (sh *streamConsumerGroupStateHandler) setStateInPersistency(state *State, mtime *int) error {
 	stateFilePath, err := sh.getStateFilePath()
 	if err != nil {
 		return errors.Wrap(err, "Failed getting state file path")
@@ -254,7 +254,7 @@ func (sh *streamConsumerGroupStateHandler) setStateInPersistency(state *State, m
 
 	var condition string
 	if mtime != nil {
-		condition = fmt.Sprintf("__mtime == %s", *mtime)
+		condition = fmt.Sprintf("__mtime_secs == %v", *mtime)
 	}
 
 	err = sh.streamConsumerGroup.container.UpdateItemSync(&v3io.UpdateItemInput{
@@ -272,7 +272,7 @@ func (sh *streamConsumerGroupStateHandler) setStateInPersistency(state *State, m
 	return nil
 }
 
-func (sh *streamConsumerGroupStateHandler) getStateFromPersistency() (*State, *time.Time, error) {
+func (sh *streamConsumerGroupStateHandler) getStateFromPersistency() (*State, *int, error) {
 	stateFilePath, err := sh.getStateFilePath()
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "Failed getting state file path")
@@ -281,7 +281,7 @@ func (sh *streamConsumerGroupStateHandler) getStateFromPersistency() (*State, *t
 	response, err := sh.streamConsumerGroup.container.GetItemSync(&v3io.GetItemInput{
 		DataPlaneInput: sh.streamConsumerGroup.dataPlaneInput,
 		Path:           stateFilePath,
-		AttributeNames: []string{"__mtime", stateContentsAttributeKey},
+		AttributeNames: []string{"__mtime_secs", stateContentsAttributeKey},
 	})
 	if err != nil {
 		errWithStatusCode, errHasStatusCode := err.(v3ioerrors.ErrorWithStatusCode)
@@ -313,11 +313,11 @@ func (sh *streamConsumerGroupStateHandler) getStateFromPersistency() (*State, *t
 		return nil, nil, errors.Wrap(err, "Failed unmarshaling state contents")
 	}
 
-	mtimeInterface, foundMtimeAttribute := getItemOutput.Item["__mtime"]
+	mtimeInterface, foundMtimeAttribute := getItemOutput.Item["__mtime_secs"]
 	if !foundMtimeAttribute {
 		return nil, nil, errors.New("Failed getting mtime attribute")
 	}
-	mtime, ok := mtimeInterface.(time.Time)
+	mtime, ok := mtimeInterface.(int)
 	if !ok {
 		return nil, nil, errors.Errorf("Unexpected type for mtime attribute: %s", reflect.TypeOf(mtimeInterface))
 	}
