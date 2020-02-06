@@ -5,6 +5,7 @@ import (
 
 	"github.com/v3io/v3io-go/pkg/dataplane"
 	"github.com/v3io/v3io-go/pkg/dataplane/http"
+	"github.com/v3io/v3io-go/pkg/errors"
 
 	"github.com/nuclio/logger"
 	"github.com/nuclio/zap"
@@ -71,4 +72,59 @@ func (suite *testSuite) createContainer() {
 		ContainerName: "bigdata",
 	})
 	suite.Require().NoError(err)
+}
+
+type StreamTestSuite struct { // nolint: deadcode
+	testSuite
+	testPath string
+}
+
+func (suite *StreamTestSuite) SetupTest() {
+	suite.testPath = "/stream-test"
+	err := suite.deleteAllStreamsInPath(suite.testPath)
+	// get the underlying root error
+	if err != nil {
+		errWithStatusCode, errHasStatusCode := err.(v3ioerrors.ErrorWithStatusCode)
+		suite.Require().True(errHasStatusCode)
+		// File not found is OK
+		suite.Require().Equal(404, errWithStatusCode.StatusCode(), "Failed to setup test suite")
+	}
+}
+
+func (suite *StreamTestSuite) TearDownTest() {
+	err := suite.deleteAllStreamsInPath(suite.testPath)
+	suite.Require().NoError(err, "Failed to tear down test suite")
+}
+
+func (suite *StreamTestSuite) deleteAllStreamsInPath(path string) error {
+
+	getContainerContentsInput := v3io.GetContainerContentsInput{
+		Path: path,
+	}
+
+	suite.populateDataPlaneInput(&getContainerContentsInput.DataPlaneInput)
+
+	// get all streams in the test path
+	response, err := suite.container.GetContainerContentsSync(&getContainerContentsInput)
+
+	if err != nil {
+		return err
+	}
+	response.Release()
+
+	// iterate over streams (prefixes) and delete them
+	for _, commonPrefix := range response.Output.(*v3io.GetContainerContentsOutput).CommonPrefixes {
+		deleteStreamInput := v3io.DeleteStreamInput{
+			Path: "/" + commonPrefix.Prefix,
+		}
+
+		suite.populateDataPlaneInput(&deleteStreamInput.DataPlaneInput)
+
+		err := suite.container.DeleteStreamSync(&deleteStreamInput)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

@@ -632,28 +632,22 @@ func (suite *syncContainerKVTestSuite) SetupSuite() {
 
 type syncStreamTestSuite struct {
 	syncTestSuite
-	testPath string
+	StreamTestSuite StreamTestSuite
 }
 
 func (suite *syncStreamTestSuite) SetupTest() {
-	suite.testPath = "/stream-test"
-	err := suite.deleteAllStreamsInPath(suite.testPath)
-	// get the underlying root error
-	if err != nil {
-		errWithStatusCode, errHasStatusCode := err.(v3ioerrors.ErrorWithStatusCode)
-		suite.Require().True(errHasStatusCode)
-		// File not found is OK
-		suite.Require().Equal(404, errWithStatusCode.StatusCode(), "Failed to setup test suite")
+	suite.StreamTestSuite = StreamTestSuite{
+		testSuite: suite.syncTestSuite.testSuite,
 	}
+	suite.StreamTestSuite.SetupTest()
 }
 
 func (suite *syncStreamTestSuite) TearDownTest() {
-	err := suite.deleteAllStreamsInPath(suite.testPath)
-	suite.Require().NoError(err, "Failed to tear down test suite")
+	suite.StreamTestSuite.TearDownTest()
 }
 
 func (suite *syncStreamTestSuite) TestStream() {
-	streamPath := fmt.Sprintf("%s/mystream/", suite.testPath)
+	streamPath := fmt.Sprintf("%s/mystream/", suite.StreamTestSuite.testPath)
 
 	//
 	// Create the stream
@@ -770,39 +764,6 @@ func (suite *syncStreamTestSuite) TestStream() {
 
 	err = suite.container.DeleteStreamSync(&deleteStreamInput)
 	suite.Require().NoError(err, "Failed to delete stream")
-}
-
-func (suite *syncStreamTestSuite) deleteAllStreamsInPath(path string) error {
-
-	getContainerContentsInput := v3io.GetContainerContentsInput{
-		Path: path,
-	}
-
-	suite.populateDataPlaneInput(&getContainerContentsInput.DataPlaneInput)
-
-	// get all streams in the test path
-	response, err := suite.container.GetContainerContentsSync(&getContainerContentsInput)
-
-	if err != nil {
-		return err
-	}
-	response.Release()
-
-	// iterate over streams (prefixes) and delete them
-	for _, commonPrefix := range response.Output.(*v3io.GetContainerContentsOutput).CommonPrefixes {
-		deleteStreamInput := v3io.DeleteStreamInput{
-			Path: "/" + commonPrefix.Prefix,
-		}
-
-		suite.populateDataPlaneInput(&deleteStreamInput.DataPlaneInput)
-
-		err := suite.container.DeleteStreamSync(&deleteStreamInput)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 type syncContextStreamTestSuite struct {
