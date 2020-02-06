@@ -258,7 +258,7 @@ func (sh *streamConsumerGroupStateHandler) setStateInPersistency(state *State, m
 		DataPlaneInput: sh.streamConsumerGroup.dataPlaneInput,
 		Path:           stateFilePath,
 		Attributes: map[string]interface{}{
-			stateContentsAttributeKey: stateContents,
+			stateContentsAttributeKey: string(stateContents),
 		},
 		Condition: condition,
 	})
@@ -298,14 +298,14 @@ func (sh *streamConsumerGroupStateHandler) getStateFromPersistency() (*State, *i
 	if !foundStateAttribute {
 		return nil, nil, errors.New("Failed getting state attribute")
 	}
-	stateContents, ok := stateContentsInterface.([]byte)
+	stateContents, ok := stateContentsInterface.(string)
 	if !ok {
 		return nil, nil, errors.Errorf("Unexpected type for state attribute: %s", reflect.TypeOf(stateContentsInterface))
 	}
 
 	var state State
 
-	err = json.Unmarshal(stateContents, state)
+	err = json.Unmarshal([]byte(stateContents), &state)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "Failed unmarshaling state contents: %s", string(stateContents))
 	}
