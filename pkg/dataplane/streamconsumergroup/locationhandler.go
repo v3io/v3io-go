@@ -55,7 +55,7 @@ func (lh *streamConsumerGroupLocationHandler) getShardLocationFromPersistency(sh
 		AttributeNames: []string{shardLocationAttribute},
 	})
 	if err != nil {
-		return "", errors.Wrap(err, "Failed getting shard location item")
+		return "", errors.Wrap(err, "Failed getting shard location item from persistency")
 	}
 	getItemOutput := response.Output.(*v3io.GetItemOutput)
 
@@ -81,7 +81,21 @@ func (lh *streamConsumerGroupLocationHandler) getShardLocationAttributeName() (s
 }
 
 func (lh *streamConsumerGroupLocationHandler) setSharedLocationInPersistency(shardID int, location string) error {
-	// TODO: implement (understand how to only update an item's attribute)
+	shardPath, err := lh.streamConsumerGroup.getShardPath(shardID)
+	if err != nil {
+		return errors.Wrapf(err, "Failed getting shard path: %v", shardID)
+	}
+	shardLocationAttribute, err := lh.getShardLocationAttributeName()
+	if err != nil {
+		return errors.Wrapf(err, "Failed getting shard location attribute")
+	}
+	err = lh.streamConsumerGroup.container.UpdateItemSync(&v3io.UpdateItemInput{
+		DataPlaneInput: lh.streamConsumerGroup.dataPlaneInput,
+		Path:           shardPath,
+		Attributes: map[string]interface{}{
+			shardLocationAttribute: location,
+		},
+	})
 	return nil
 }
 
