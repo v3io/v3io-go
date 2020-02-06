@@ -27,6 +27,22 @@ func newStreamConsumerGroupLocationHandler(streamConsumerGroup *streamConsumerGr
 	}, nil
 }
 
+func (lh *streamConsumerGroupLocationHandler) Start() error {
+	commitCacheInterval := lh.streamConsumerGroup.config.Location.CommitCache.Interval
+	go lh.commitCachePeriodically(lh.stopCacheCommittingChannel, commitCacheInterval)
+	return nil
+}
+
+func (lh *streamConsumerGroupLocationHandler) Stop() error {
+	lh.stopCacheCommittingChannel <- true
+	return nil
+}
+
+func (lh *streamConsumerGroupLocationHandler) MarkLocation(shardID int, location string) error {
+	lh.shardLocationsCache[shardID] = location
+	return nil
+}
+
 func (lh *streamConsumerGroupLocationHandler) GetLocation(shardID int) (string, error) {
 	location, found := lh.shardLocationsCache[shardID]
 	if !found {
@@ -97,22 +113,6 @@ func (lh *streamConsumerGroupLocationHandler) setSharedLocationInPersistency(sha
 			shardLocationAttribute: location,
 		},
 	})
-	return nil
-}
-
-func (lh *streamConsumerGroupLocationHandler) MarkLocation(shardID int, location string) error {
-	lh.shardLocationsCache[shardID] = location
-	return nil
-}
-
-func (lh *streamConsumerGroupLocationHandler) Start() error {
-	commitCacheInterval := lh.streamConsumerGroup.config.Location.CommitCache.Interval
-	go lh.commitCachePeriodically(lh.stopCacheCommittingChannel, commitCacheInterval)
-	return nil
-}
-
-func (lh *streamConsumerGroupLocationHandler) Stop() error {
-	lh.stopCacheCommittingChannel <- true
 	return nil
 }
 

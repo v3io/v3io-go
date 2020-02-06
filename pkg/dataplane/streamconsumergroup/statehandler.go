@@ -50,6 +50,15 @@ func (sh *streamConsumerGroupStateHandler) Stop() error {
 	return nil
 }
 
+func (sh *streamConsumerGroupStateHandler) GetMemberState(memberID string) (*SessionState, error) {
+	for index, sessionState := range sh.lastState.Sessions {
+		if sessionState.MemberID == memberID {
+			return &sh.lastState.Sessions[index], nil
+		}
+	}
+	return nil, errors.Errorf("Member state not found: %s", memberID)
+}
+
 func (sh *streamConsumerGroupStateHandler) refreshStatePeriodically(stopStateRefreshingChannel chan bool,
 	heartbeatInterval time.Duration) {
 	ticker := time.NewTicker(heartbeatInterval)
@@ -314,13 +323,4 @@ func (sh *streamConsumerGroupStateHandler) getStateFromPersistency() (*State, *t
 	}
 
 	return &state, &mtime, nil
-}
-
-func (sh *streamConsumerGroupStateHandler) GetMemberState(memberID string) (*SessionState, error) {
-	for index, sessionState := range sh.lastState.Sessions {
-		if sessionState.MemberID == memberID {
-			return &sh.lastState.Sessions[index], nil
-		}
-	}
-	return nil, errors.Errorf("Member state not found: %s", memberID)
 }
