@@ -101,6 +101,12 @@ type Container interface {
 	// CreateStreamSync
 	CreateStreamSync(*CreateStreamInput) error
 
+	// DescribeStream
+	DescribeStream(*DescribeStreamInput, interface{}, chan *Response) (*Request, error)
+
+	// DescribeStreamSync
+	DescribeStreamSync(*DescribeStreamInput) (*Response, error)
+
 	// DeleteStream
 	DeleteStream(*DeleteStreamInput, interface{}, chan *Response) (*Request, error)
 

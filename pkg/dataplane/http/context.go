@@ -518,6 +518,40 @@ func (c *context) CreateStreamSync(createStreamInput *v3io.CreateStreamInput) er
 	return err
 }
 
+// DescribeStream
+func (c *context) DescribeStream(describeStreamInput *v3io.DescribeStreamInput,
+	context interface{},
+	responseChan chan *v3io.Response) (*v3io.Request, error) {
+	return c.sendRequestToWorker(describeStreamInput, context, responseChan)
+}
+
+// DescribeStreamSync
+func (c *context) DescribeStreamSync(describeStreamInput *v3io.DescribeStreamInput) (*v3io.Response, error) {
+	response, err := c.sendRequest(&describeStreamInput.DataPlaneInput,
+		http.MethodPut,
+		describeStreamInput.Path,
+		"",
+		describeStreamHeaders,
+		nil,
+		false)
+	if err != nil {
+		return nil, err
+	}
+
+	describeStreamOutput := v3io.DescribeStreamOutput{}
+
+	// unmarshal the body into an ad hoc structure
+	err = json.Unmarshal(response.Body(), &describeStreamOutput)
+	if err != nil {
+		return nil, err
+	}
+
+	// set the output in the response
+	response.Output = &describeStreamOutput
+
+	return response, nil
+}
+
 // DeleteStream
 func (c *context) DeleteStream(deleteStreamInput *v3io.DeleteStreamInput,
 	context interface{},
@@ -1116,6 +1150,8 @@ func (c *context) workerEntry(workerIndex int) {
 			err = c.UpdateItemSync(typedInput)
 		case *v3io.CreateStreamInput:
 			err = c.CreateStreamSync(typedInput)
+		case *v3io.DescribeStreamInput:
+			response, err = c.DescribeStreamSync(typedInput)
 		case *v3io.DeleteStreamInput:
 			err = c.DeleteStreamSync(typedInput)
 		case *v3io.GetRecordsInput:

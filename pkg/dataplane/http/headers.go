@@ -2,14 +2,15 @@ package v3iohttp
 
 // function names
 const (
-	putItemFunctionName      = "PutItem"
-	updateItemFunctionName   = "UpdateItem"
-	getItemFunctionName      = "GetItem"
-	getItemsFunctionName     = "GetItems"
-	createStreamFunctionName = "CreateStream"
-	putRecordsFunctionName   = "PutRecords"
-	getRecordsFunctionName   = "GetRecords"
-	seekShardsFunctionName   = "SeekShard"
+	putItemFunctionName        = "PutItem"
+	updateItemFunctionName     = "UpdateItem"
+	getItemFunctionName        = "GetItem"
+	getItemsFunctionName       = "GetItems"
+	createStreamFunctionName   = "CreateStream"
+	describeStreamFunctionName = "DescribeStream"
+	putRecordsFunctionName     = "PutRecords"
+	getRecordsFunctionName     = "GetRecords"
+	seekShardsFunctionName     = "SeekShard"
 )
 
 // headers for put item
@@ -47,6 +48,12 @@ var getItemsHeadersCapnp = map[string]string{
 var createStreamHeaders = map[string]string{
 	"Content-Type":    "application/json",
 	"X-v3io-function": createStreamFunctionName,
+}
+
+// headers for get records
+var describeStreamHeaders = map[string]string{
+	"Content-Type":    "application/json",
+	"X-v3io-function": describeStreamFunctionName,
 }
 
 // headers for put records

@@ -297,6 +297,17 @@ type CreateStreamInput struct {
 	RetentionPeriodHours int
 }
 
+type DescribeStreamInput struct {
+	DataPlaneInput
+	Path string
+}
+
+type DescribeStreamOutput struct {
+	DataPlaneOutput
+	ShardCount           int
+	RetentionPeriodHours int
+}
+
 type DeleteStreamInput struct {
 	DataPlaneInput
 	Path string
