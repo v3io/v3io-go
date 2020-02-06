@@ -374,7 +374,7 @@ type StreamConsumerGroupHandler interface {
 }
 
 type StreamConsumerGroup interface {
-	Consume(string, StreamConsumerGroupHandler) error
+	Consume(memberID string, streamConsumerGroupHandler StreamConsumerGroupHandler) error
 	Close() error
 }
 

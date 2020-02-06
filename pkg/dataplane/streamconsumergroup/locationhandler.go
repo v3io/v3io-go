@@ -147,7 +147,7 @@ func (lh *streamConsumerGroupLocationHandler) commitCache() error {
 		}
 	}
 	if len(failedShardIDs) > 0 {
-		return errors.Errorf("Failed committing cache in shards: %s", failedShardIDs)
+		return errors.Errorf("Failed committing cache in shards: %v", failedShardIDs)
 	}
 	return nil
 }
