@@ -122,8 +122,9 @@ func (sh *streamConsumerGroupStateHandler) refreshState() (*State, error) {
 					LastHeartbeat: &now,
 					Shards:        shards,
 				})
+			} else {
+				sessionState.LastHeartbeat = &now
 			}
-			sessionState.LastHeartbeat = &now
 		}
 
 		return state, nil
@@ -187,19 +188,15 @@ func (sh *streamConsumerGroupStateHandler) resolveMaxNumberOfShardsPerSession(nu
 }
 
 func (sh *streamConsumerGroupStateHandler) resolveNumberOfShards() (int, error) {
-	// get all shards in the stream
-	response, err := sh.streamConsumerGroup.container.GetContainerContentsSync(&v3io.GetContainerContentsInput{
+	response, err := sh.streamConsumerGroup.container.DescribeStreamSync(&v3io.DescribeStreamInput{
 		DataPlaneInput: sh.streamConsumerGroup.dataPlaneInput,
 		Path:           sh.streamConsumerGroup.streamPath,
 	})
-
 	if err != nil {
-		return 0, errors.Wrapf(err, "Failed getting stream shards: %s", sh.streamConsumerGroup.streamPath)
+		return 0, errors.Wrapf(err, "Failed describing stream: %s", sh.streamConsumerGroup.streamPath)
 	}
-
 	defer response.Release()
-
-	return len(response.Output.(*v3io.GetContainerContentsOutput).Contents), nil
+	return response.Output.(*v3io.DescribeStreamOutput).ShardCount, nil
 }
 
 func (sh *streamConsumerGroupStateHandler) modifyState(modifier stateModifier) (*State, error) {
@@ -301,16 +298,16 @@ func (sh *streamConsumerGroupStateHandler) getStateFromPersistency() (*State, *i
 	if !foundStateAttribute {
 		return nil, nil, errors.New("Failed getting state attribute")
 	}
-	stateContents, ok := stateContentsInterface.(string)
+	stateContents, ok := stateContentsInterface.([]byte)
 	if !ok {
 		return nil, nil, errors.Errorf("Unexpected type for state attribute: %s", reflect.TypeOf(stateContentsInterface))
 	}
 
 	var state State
 
-	err = json.Unmarshal([]byte(stateContents), state)
+	err = json.Unmarshal(stateContents, state)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "Failed unmarshaling state contents")
+		return nil, nil, errors.Wrapf(err, "Failed unmarshaling state contents: %s", string(stateContents))
 	}
 
 	mtimeInterface, foundMtimeAttribute := getItemOutput.Item["__mtime_secs"]

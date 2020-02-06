@@ -2,6 +2,7 @@ package streamconsumergroup
 
 import (
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/v3io/v3io-go/pkg/dataplane"
@@ -46,13 +47,12 @@ func (lh *streamConsumerGroupLocationHandler) MarkLocation(shardID int, location
 func (lh *streamConsumerGroupLocationHandler) GetLocation(shardID int) (string, error) {
 	location, found := lh.shardLocationsCache[shardID]
 	if !found {
-		return "", errors.New("Shard location not found")
+		location, err := lh.getShardLocationFromPersistency(shardID)
+		if err != nil {
+			return "", errors.Wrap(err, "Failed getting shard location from persistency")
+		}
+		lh.shardLocationsCache[shardID] = location
 	}
-	location, err := lh.getShardLocationFromPersistency(shardID)
-	if err != nil {
-		return "", errors.Wrap(err, "Failed getting shard location from persistency")
-	}
-	lh.shardLocationsCache[shardID] = location
 	return location, nil
 }
 
@@ -87,7 +87,7 @@ func (lh *streamConsumerGroupLocationHandler) getShardLocationFromPersistency(sh
 	}
 	shardLocation, ok := shardLocationInterface.(string)
 	if !ok {
-		return "", errors.New("Unknown type for shard location attribute")
+		return "", errors.Errorf("Unexpected type for state attribute: %s", reflect.TypeOf(shardLocationInterface))
 	}
 
 	return shardLocation, nil
