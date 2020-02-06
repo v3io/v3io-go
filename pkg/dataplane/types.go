@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The v3io Authors.
+Copyright 2018 The C Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -350,4 +350,34 @@ type GetRecordsOutput struct {
 	MSecBehindLatest    int
 	RecordsBehindLatest int
 	Records             []GetRecordsResult
+}
+
+type StreamConsumerGroupHandler interface {
+
+	// Setup is run at the beginning of a new session, before ConsumeClaim.
+	Setup(StreamConsumerGroupSession) error
+
+	// Cleanup is run at the end of a session, once all ConsumeClaim goroutines have exited
+	// but before the locations are committed for the very last time.
+	Cleanup(StreamConsumerGroupSession) error
+
+	// ConsumeClaim must start a consumer loop of ConsumerGroupClaim's Messages().
+	// Once the Messages() channel is closed, the Handler must finish its processing
+	// loop and exit.
+	ConsumeClaim(StreamConsumerGroupClaim) error
+}
+
+type StreamConsumerGroup interface {
+	Consume(string, StreamConsumerGroupHandler) error
+	Close() error
+}
+
+type StreamConsumerGroupSession interface {
+	Start() error
+	Stop() error
+}
+
+type StreamConsumerGroupClaim interface {
+	Start() error
+	Stop() error
 }
