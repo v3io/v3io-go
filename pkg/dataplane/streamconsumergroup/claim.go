@@ -3,6 +3,7 @@ package streamconsumergroup
 import (
 	"fmt"
 	"path"
+	"strconv"
 	"time"
 
 	"github.com/v3io/v3io-go/pkg/dataplane"
@@ -80,9 +81,8 @@ func (c *streamConsumerGroupClaim) pollRecordsPeriodically(stopChannel chan bool
 	location, err := c.streamConsumerGroup.locationHandler.GetLocation(c.shardID)
 	if err != nil {
 
-		// TODO: Ideally use errors.Is(ErrNotFound) and only ignore on not found - might be problematic cause we can't
-		// ensure we're running on Go 1.13 or above (in which errors.Is added)
-		c.logger.DebugWith("Location not found, It is ok")
+		//TODO: some kind of errors.Is that will explode on anything other than not found exception
+		c.logger.DebugWith("Location not found, it is ok")
 		location = ""
 	}
 
@@ -112,10 +112,10 @@ func (c *streamConsumerGroupClaim) pollRecords(location string) (string, error) 
 		location, err = c.streamConsumerGroup.seekShard(c.shardID, inputType)
 		if err != nil {
 
-			//TODO: something smarter that will ignore only the right errors
+			//TODO: some kind of errors.Is that will explode on anything other than not found exception
 			// shards to lazy initialization meaning no shard exists until first record arriving, therefore seeking the
 			// shard fails with resource not found
-			c.logger.DebugWith("Shard does not exist yet, skipping records polling")
+			c.logger.DebugWith("Shard does not exist yet, skipping records polling, it is ok")
 			return "", nil
 			//return "", errors.Wrapf(err, "Failed seeking shard: %v", c.shardID)
 		}
@@ -127,7 +127,7 @@ func (c *streamConsumerGroupClaim) pollRecords(location string) (string, error) 
 
 	getRecordsInput := v3io.GetRecordsInput{
 		DataPlaneInput: c.streamConsumerGroup.dataPlaneInput,
-		Path:           path.Join(c.streamConsumerGroup.streamPath, string(c.shardID)),
+		Path:           path.Join(c.streamConsumerGroup.streamPath, strconv.Itoa(c.shardID)),
 		Location:       location,
 		Limit:          chunkSize,
 	}

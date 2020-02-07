@@ -84,6 +84,9 @@ func (lh *streamConsumerGroupLocationHandler) getShardLocationFromPersistency(sh
 		if errWithStatusCode.StatusCode() != 404 {
 			return "", errors.Wrap(err, "Failed getting shard item")
 		}
+
+		// TODO: remove after errors.Is support added
+		lh.logger.DebugWith("Get item (shard) failed on not found, it is ok")
 		return "", common.ErrNotFound
 	}
 	defer response.Release()

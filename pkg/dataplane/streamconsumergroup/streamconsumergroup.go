@@ -5,7 +5,9 @@ import (
 	"path"
 	"strconv"
 
+	"github.com/v3io/v3io-go/pkg/common"
 	"github.com/v3io/v3io-go/pkg/dataplane"
+	"github.com/v3io/v3io-go/pkg/errors"
 
 	"github.com/nuclio/errors"
 	"github.com/nuclio/logger"
@@ -144,17 +146,26 @@ func (scg *streamConsumerGroup) seekShard(shardID int, seekShardType v3io.SeekSh
 		Type:           seekShardType,
 	}
 
-	scg.logger.DebugWith("Seeking shard", "shardPath", shardPath, "seekShardType", seekShardType)
+	scg.logger.DebugWith("Seeking shard", "shardID", shardID, "seekShardType", seekShardType)
 
 	response, err := scg.container.SeekShardSync(&seekShardInput)
 	if err != nil {
-		return "", errors.Wrapf(err, "Failed seeking shard: %v", shardID)
+		//TODO: understand why it is failing with bad request (instead of not found) when shard does not exist
+		errWithStatusCode, errHasStatusCode := err.(v3ioerrors.ErrorWithStatusCode)
+		if !errHasStatusCode {
+			return "", errors.Wrap(err, "Got error without status code")
+		}
+		if errWithStatusCode.StatusCode() != 404 {
+			return "", errors.Wrapf(err, "Failed seeking shard: %v", shardID)
+		}
+		scg.logger.DebugWith("Seeking shard failed on not found, it is ok")
+		return "", common.ErrNotFound
 	}
 	defer response.Release()
 
 	location := response.Output.(*v3io.SeekShardOutput).Location
 
-	scg.logger.DebugWith("Seek shard succeeded", "location", location)
+	scg.logger.DebugWith("Seek shard succeeded", "shardID", shardID, "location", location)
 
 	return location, nil
 }

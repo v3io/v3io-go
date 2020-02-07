@@ -42,7 +42,7 @@ func (suite *streamConsumerGroupTestSuite) TestShardsAssignment() {
 		nil,
 		dataPlaneInput,
 		streamPath,
-		1,
+		3,
 		suite.container)
 	suite.Require().NoError(err, "Failed creating stream consumer group")
 
@@ -53,7 +53,33 @@ func (suite *streamConsumerGroupTestSuite) TestShardsAssignment() {
 	err = streamConsumerGroup.Consume(memberID, streamConsumerGroupHandler)
 	suite.Require().NoError(err, "Failed consuming stream consumer group")
 
-	time.Sleep(500 * time.Second)
+	time.Sleep(5 * time.Second)
+
+	// Put some records
+	firstShardID := 1
+	secondShardID := 2
+
+	records := []*v3io.StreamRecord{
+		{ShardID: &firstShardID, Data: []byte("first shard record #1")},
+		{ShardID: &firstShardID, Data: []byte("first shard record #2")},
+		{ShardID: &secondShardID, Data: []byte("second shard record #1")},
+		{Data: []byte("some shard (will have ID=0) record #1")},
+	}
+
+	putRecordsInput := v3io.PutRecordsInput{
+		Path:    streamPath,
+		Records: records,
+	}
+
+	suite.populateDataPlaneInput(&putRecordsInput.DataPlaneInput)
+
+	response, err := suite.container.PutRecordsSync(&putRecordsInput)
+	suite.Require().NoError(err, "Failed to put records")
+
+	putRecordsResponse := response.Output.(*v3io.PutRecordsOutput)
+	suite.Require().Equal(0, putRecordsResponse.FailedRecordCount)
+
+	time.Sleep(10 * time.Second)
 
 	streamConsumerGroup.Close()
 }
