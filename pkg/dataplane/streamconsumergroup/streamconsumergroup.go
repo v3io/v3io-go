@@ -1,6 +1,7 @@
 package streamconsumergroup
 
 import (
+	"fmt"
 	"path"
 
 	"github.com/v3io/v3io-go/pkg/dataplane"
@@ -42,7 +43,7 @@ func NewStreamConsumerGroup(id string,
 
 	return &streamConsumerGroup{
 		ID:             id,
-		logger:         parentLogger.GetChild("streamConsumerGroup"),
+		logger:         parentLogger.GetChild(fmt.Sprintf("streamConsumerGroup-%s", id)),
 		config:         config,
 		dataPlaneInput: dataPlaneInput,
 		members:        make(map[string]streamConsumerGroupMember, 0),
@@ -53,6 +54,7 @@ func NewStreamConsumerGroup(id string,
 }
 
 func (scg *streamConsumerGroup) Consume(memberID string, streamConsumerGroupHandler v3io.StreamConsumerGroupHandler) error {
+	scg.logger.DebugWith("Member requesting to consume", "memberID", memberID)
 
 	scg.members[memberID] = streamConsumerGroupMember{
 		ID:      memberID,
@@ -111,6 +113,17 @@ func (scg *streamConsumerGroup) Consume(memberID string, streamConsumerGroupHand
 }
 
 func (scg *streamConsumerGroup) Close() error {
+	scg.logger.DebugWith("Closing consumer group")
+	if scg.stateHandler != nil {
+		if err := scg.stateHandler.Stop(); err != nil {
+			return errors.Wrapf(err, "Failed stopping state handler")
+		}
+	}
+	if scg.locationHandler != nil {
+		if err := scg.locationHandler.Stop(); err != nil {
+			return errors.Wrapf(err, "Failed stopping location handler")
+		}
+	}
 	for _, member := range scg.members {
 		if err := member.session.Stop(); err != nil {
 			return errors.Wrapf(err, "Failed stopping member session: %s", member.ID)
@@ -136,7 +149,11 @@ func (scg *streamConsumerGroup) seekShard(shardID int, inputType v3io.SeekShardI
 	}
 	defer response.Release()
 
-	return response.Output.(*v3io.SeekShardOutput).Location, nil
+	location := response.Output.(*v3io.SeekShardOutput).Location
+
+	scg.logger.DebugWith("Seek shard succeeded", "location", location)
+
+	return location, nil
 }
 
 func (scg *streamConsumerGroup) getShardPath(shardID int) (string, error) {

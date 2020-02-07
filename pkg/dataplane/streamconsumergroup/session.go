@@ -31,7 +31,7 @@ func newStreamConsumerGroupSession(streamConsumerGroup *streamConsumerGroup,
 }
 
 func (sh *streamConsumerGroupStateSession) Start() error {
-
+	sh.logger.DebugWith("Starting session")
 	// for each shard we need handle, create a StreamConsumerGroupClaim object and start it
 	for _, shardID := range sh.state.Shards {
 		streamConsumerGroupClaim, err := newStreamConsumerGroupClaim(sh.streamConsumerGroup, shardID, sh.member)
@@ -44,9 +44,10 @@ func (sh *streamConsumerGroupStateSession) Start() error {
 	}
 
 	// tell the consumer group handler to set up
+	sh.logger.DebugWith("Triggering given handler Setup")
 	sh.member.handler.Setup(sh)
 
-	// start the claims
+	sh.logger.DebugWith("Starting claims")
 	for _, claim := range sh.claims {
 		err := claim.Start()
 		if err != nil {
@@ -58,10 +59,11 @@ func (sh *streamConsumerGroupStateSession) Start() error {
 }
 
 func (sh *streamConsumerGroupStateSession) Stop() error {
+	sh.logger.DebugWith("Stopping session, triggering given handler cleanup")
 	// tell the consumer group handler to set up
 	sh.member.handler.Cleanup(sh)
 
-	// stop the claims
+	sh.logger.DebugWith("Stopping claims")
 	for _, claim := range sh.claims {
 		err := claim.Stop()
 		if err != nil {
@@ -89,6 +91,7 @@ func (sh *streamConsumerGroupStateSession) MemberID() (string, error) {
 }
 
 func (sh *streamConsumerGroupStateSession) MarkChunk(streamChunk *v3io.StreamChunk) error {
+	sh.logger.DebugWith("Marking chunk as consumed")
 	err := sh.streamConsumerGroup.locationHandler.MarkLocation(streamChunk.ShardID, streamChunk.NextLocation)
 	if err != nil {
 		errors.Wrap(err, "Failed marking chunk as consumed")

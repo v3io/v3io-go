@@ -27,7 +27,7 @@ func newStreamConsumerGroupClaim(streamConsumerGroup *streamConsumerGroup,
 	chunksChannelSize := streamConsumerGroup.config.Claim.ChunksChannelSize
 
 	return &streamConsumerGroupClaim{
-		logger:              streamConsumerGroup.logger.GetChild(fmt.Sprintf("claim-%v", shardID)),
+		logger:              streamConsumerGroup.logger.GetChild(fmt.Sprintf("claim-%s-%v", member.ID, shardID)),
 		streamConsumerGroup: streamConsumerGroup,
 		shardID:             shardID,
 		member:              member,
@@ -37,11 +37,14 @@ func newStreamConsumerGroupClaim(streamConsumerGroup *streamConsumerGroup,
 }
 
 func (c *streamConsumerGroupClaim) Start() error {
+	c.logger.DebugWith("Starting claim", "shardID", c.shardID, "memberID", c.member.ID)
 	pollingInterval := c.streamConsumerGroup.config.Claim.Polling.Interval
-	go c.pollMessagesPeriodically(c.stopPollingChannel, pollingInterval)
+	go c.pollRecordsPeriodically(c.stopPollingChannel, pollingInterval)
 
 	// tell the consumer group handler to consume the claim
+	c.logger.DebugWith("Triggering given handler ConsumeClaim")
 	c.member.handler.ConsumeClaim(c.member.session, c)
+	c.logger.DebugWith("Handler consuming claims")
 	return nil
 }
 
@@ -70,13 +73,16 @@ func (c *streamConsumerGroupClaim) Chunks() <-chan *v3io.StreamChunk {
 	return c.chunksChannel
 }
 
-func (c *streamConsumerGroupClaim) pollMessagesPeriodically(stopChannel chan bool, pollingInterval time.Duration) {
+func (c *streamConsumerGroupClaim) pollRecordsPeriodically(stopChannel chan bool, pollingInterval time.Duration) {
 	ticker := time.NewTicker(pollingInterval)
 
 	// read initial location. use config if error
 	location, err := c.streamConsumerGroup.locationHandler.GetLocation(c.shardID)
 	if err != nil {
-		c.logger.DebugWith("Failed getting location", "err", errors.GetErrorStackString(err, 10))
+
+		// TODO: Ideally use errors.Is(ErrNotFound) and only ignore on not found - might be problematic cause we can't
+		// ensure we're running on Go 1.13 or above (in which errors.Is added)
+		c.logger.DebugWith("Location not found, It is ok")
 		location = ""
 	}
 
@@ -87,9 +93,10 @@ func (c *streamConsumerGroupClaim) pollMessagesPeriodically(stopChannel chan boo
 			return
 		case <-ticker.C:
 			if c.initialLocation == "" && location != "" {
+				c.logger.DebugWith("Found initial location", "initialLocation", location)
 				c.initialLocation = location
 			}
-			location, err = c.pollMessages(location)
+			location, err = c.pollRecords(location)
 			if err != nil {
 				c.logger.WarnWith("Failed polling messages", "err", errors.GetErrorStackString(err, 10))
 				continue
@@ -98,7 +105,7 @@ func (c *streamConsumerGroupClaim) pollMessagesPeriodically(stopChannel chan boo
 	}
 }
 
-func (c *streamConsumerGroupClaim) pollMessages(location string) (string, error) {
+func (c *streamConsumerGroupClaim) pollRecords(location string) (string, error) {
 	if location == "" {
 		inputType := c.streamConsumerGroup.config.Shard.InputType
 		var err error
@@ -107,6 +114,8 @@ func (c *streamConsumerGroupClaim) pollMessages(location string) (string, error)
 			return "", errors.Wrapf(err, "Failed seeking shard: %v", c.shardID)
 		}
 	}
+
+	c.logger.DebugWith("Polling records", "location", location)
 
 	chunkSize := c.streamConsumerGroup.config.Claim.Polling.ChunkSize
 
@@ -124,6 +133,10 @@ func (c *streamConsumerGroupClaim) pollMessages(location string) (string, error)
 	defer response.Release()
 
 	getRecordsOutput := response.Output.(*v3io.GetRecordsOutput)
+
+	if len(getRecordsOutput.Records) == 0 {
+		return getRecordsOutput.NextLocation, nil
+	}
 
 	records := make([]v3io.StreamRecord, len(getRecordsOutput.Records))
 

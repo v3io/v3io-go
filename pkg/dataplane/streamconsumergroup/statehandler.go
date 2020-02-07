@@ -34,6 +34,7 @@ func newStreamConsumerGroupStateHandler(streamConsumerGroup *streamConsumerGroup
 }
 
 func (sh *streamConsumerGroupStateHandler) Start() error {
+	sh.logger.DebugWith("Starting state handler")
 	state, err := sh.refreshState()
 	if err != nil {
 		return errors.Wrap(err, "Failed first refreshing state")
@@ -80,6 +81,7 @@ func (sh *streamConsumerGroupStateHandler) refreshStatePeriodically(stopStateRef
 }
 
 func (sh *streamConsumerGroupStateHandler) refreshState() (*State, error) {
+	sh.logger.DebugWith("Refreshing state")
 	newState, err := sh.modifyState(func(state *State) (*State, error) {
 		now := time.Now()
 		if state == nil {
@@ -91,14 +93,20 @@ func (sh *streamConsumerGroupStateHandler) refreshState() (*State, error) {
 
 		// remove stale sessions
 		validSessions := make([]SessionState, 0)
+		staleSessions := make([]SessionState, 0)
 		for index, sessionState := range state.Sessions {
 
 			sessionTimeout := sh.streamConsumerGroup.config.Session.Timeout
 			if !now.After(sessionState.LastHeartbeat.Add(sessionTimeout)) {
 				validSessions = append(validSessions, state.Sessions[index])
+			} else {
+				staleSessions = append(staleSessions, state.Sessions[index])
 			}
 		}
-		state.Sessions = validSessions
+		if len(staleSessions) > 0 {
+			sh.logger.DebugWith("Removing stale sessions", "staleSessions", staleSessions)
+			state.Sessions = validSessions
+		}
 
 		// create or update sessions in the state
 		for memberID := range sh.streamConsumerGroup.members {
@@ -122,7 +130,9 @@ func (sh *streamConsumerGroupStateHandler) refreshState() (*State, error) {
 					LastHeartbeat: &now,
 					Shards:        shards,
 				})
+				sh.logger.DebugWith("Creating session", "memberID", memberID, "shards", shards)
 			} else {
+				sh.logger.DebugWith("Updating liveness", "memberID", sessionState.MemberID)
 				sessionState.LastHeartbeat = &now
 			}
 		}
@@ -172,8 +182,8 @@ func (sh *streamConsumerGroupStateHandler) resolveShardsToAssign(state *State) (
 		}
 	}
 
-	// all shards are assigned
 	if len(shardsToAssign) == 0 {
+		sh.logger.DebugWith("All shards assigned")
 		// TODO: decide what to do
 	}
 
@@ -202,6 +212,8 @@ func (sh *streamConsumerGroupStateHandler) resolveNumberOfShards() (int, error) 
 func (sh *streamConsumerGroupStateHandler) modifyState(modifier stateModifier) (*State, error) {
 	var modifiedState *State
 
+	sh.logger.DebugWith("Modifying state with retries")
+
 	backoff := sh.streamConsumerGroup.config.State.ModifyRetry.Backoff
 	attempts := sh.streamConsumerGroup.config.State.ModifyRetry.Attempts
 	ctx := context.TODO()
@@ -216,10 +228,16 @@ func (sh *streamConsumerGroupStateHandler) modifyState(modifier stateModifier) (
 			mtime = nil
 		}
 
+		if state != nil {
+			sh.logger.DebugWith("Got current state, modifying", "state", *state)
+		}
+
 		modifiedState, err = modifier(state)
 		if err != nil {
 			return true, errors.Wrap(err, "Failed modifying state")
 		}
+
+		sh.logger.DebugWith("Modified state, saving", "modifiedState", modifiedState)
 
 		err = sh.setStateInPersistency(modifiedState, mtime)
 		if err != nil {
@@ -231,6 +249,7 @@ func (sh *streamConsumerGroupStateHandler) modifyState(modifier stateModifier) (
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed modifying state, attempts exhausted")
 	}
+	sh.logger.DebugWith("State modified successfully")
 	return modifiedState, nil
 }
 

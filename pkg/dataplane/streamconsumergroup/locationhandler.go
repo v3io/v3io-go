@@ -5,7 +5,9 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/v3io/v3io-go/pkg/common"
 	"github.com/v3io/v3io-go/pkg/dataplane"
+	"github.com/v3io/v3io-go/pkg/errors"
 
 	"github.com/nuclio/errors"
 	"github.com/nuclio/logger"
@@ -29,17 +31,20 @@ func newStreamConsumerGroupLocationHandler(streamConsumerGroup *streamConsumerGr
 }
 
 func (lh *streamConsumerGroupLocationHandler) Start() error {
+	lh.logger.DebugWith("Starting location handler")
 	commitCacheInterval := lh.streamConsumerGroup.config.Location.CommitCache.Interval
 	go lh.commitCachePeriodically(lh.stopCacheCommittingChannel, commitCacheInterval)
 	return nil
 }
 
 func (lh *streamConsumerGroupLocationHandler) Stop() error {
+	lh.logger.DebugWith("Stopping location handler")
 	lh.stopCacheCommittingChannel <- true
 	return nil
 }
 
 func (lh *streamConsumerGroupLocationHandler) MarkLocation(shardID int, location string) error {
+	lh.logger.DebugWith("Marking location", "shardID", shardID, "location", location)
 	lh.shardLocationsCache[shardID] = location
 	return nil
 }
@@ -57,6 +62,7 @@ func (lh *streamConsumerGroupLocationHandler) GetLocation(shardID int) (string, 
 }
 
 func (lh *streamConsumerGroupLocationHandler) getShardLocationFromPersistency(shardID int) (string, error) {
+	lh.logger.DebugWith("Getting shard location from persistency", "shardID", shardID)
 	shardPath, err := lh.streamConsumerGroup.getShardPath(shardID)
 	if err != nil {
 		return "", errors.Wrapf(err, "Failed getting shard path: %v", shardID)
@@ -71,15 +77,25 @@ func (lh *streamConsumerGroupLocationHandler) getShardLocationFromPersistency(sh
 		AttributeNames: []string{shardLocationAttribute},
 	})
 	if err != nil {
-		return "", errors.Wrap(err, "Failed getting shard location item from persistency")
+		errWithStatusCode, errHasStatusCode := err.(v3ioerrors.ErrorWithStatusCode)
+		if !errHasStatusCode {
+			return "", errors.Wrap(err, "Got error without status code")
+		}
+		if errWithStatusCode.StatusCode() != 404 {
+			return "", errors.Wrap(err, "Failed getting shard item")
+		}
+		return "", common.ErrNotFound
 	}
 	defer response.Release()
 	getItemOutput := response.Output.(*v3io.GetItemOutput)
 
 	shardLocationInterface, foundShardLocationAttribute := getItemOutput.Item[shardLocationAttribute]
 	if !foundShardLocationAttribute {
-		inputType := lh.streamConsumerGroup.config.Shard.InputType
-		shardLocation, err := lh.streamConsumerGroup.seekShard(shardID, inputType)
+		seekShardInputType := lh.streamConsumerGroup.config.Shard.InputType
+		lh.logger.DebugWith("Location attribute was not found on shard, seeking shard to get location",
+			"shardID", shardID,
+			"seekShardInputType", seekShardInputType)
+		shardLocation, err := lh.streamConsumerGroup.seekShard(shardID, seekShardInputType)
 		if err != nil {
 			return "", errors.Wrapf(err, "Failed seeking shard: %v", shardID)
 		}
@@ -98,6 +114,7 @@ func (lh *streamConsumerGroupLocationHandler) getShardLocationAttributeName() (s
 }
 
 func (lh *streamConsumerGroupLocationHandler) setSharedLocationInPersistency(shardID int, location string) error {
+	lh.logger.DebugWith("Setting shard location in persistency", "shardID", shardID, "location", location)
 	shardPath, err := lh.streamConsumerGroup.getShardPath(shardID)
 	if err != nil {
 		return errors.Wrapf(err, "Failed getting shard path: %v", shardID)
@@ -136,6 +153,7 @@ func (lh *streamConsumerGroupLocationHandler) commitCachePeriodically(stopCacheC
 }
 
 func (lh *streamConsumerGroupLocationHandler) commitCache() error {
+	lh.logger.DebugWith("Committing location cache")
 	failedShardIDs := make([]int, 0)
 	for shardID, location := range lh.shardLocationsCache {
 		err := lh.setSharedLocationInPersistency(shardID, location)
