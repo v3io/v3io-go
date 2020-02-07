@@ -38,7 +38,7 @@ func newStreamConsumerGroupClaim(streamConsumerGroup *streamConsumerGroup,
 }
 
 func (c *streamConsumerGroupClaim) Start() error {
-	c.logger.DebugWith("Starting claim", "shardID", c.shardID, "memberID", c.member.ID)
+	c.logger.DebugWith("Starting claim")
 	pollingInterval := c.streamConsumerGroup.config.Claim.Polling.Interval
 	go c.pollRecordsPeriodically(c.stopPollingChannel, pollingInterval)
 
@@ -50,6 +50,7 @@ func (c *streamConsumerGroupClaim) Start() error {
 }
 
 func (c *streamConsumerGroupClaim) Stop() error {
+	c.logger.DebugWith("Stopping claim")
 	c.stopPollingChannel <- true
 	return nil
 }

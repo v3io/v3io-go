@@ -18,7 +18,7 @@ type streamConsumerGroup struct {
 	logger          logger.Logger
 	config          *Config
 	dataPlaneInput  v3io.DataPlaneInput
-	members         map[string]streamConsumerGroupMember
+	members         map[string]*streamConsumerGroupMember
 	streamPath      string
 	maxWorkers      int
 	stateHandler    StateHandler
@@ -49,7 +49,7 @@ func NewStreamConsumerGroup(id string,
 		logger:         parentLogger.GetChild(fmt.Sprintf("streamConsumerGroup-%s", id)),
 		config:         config,
 		dataPlaneInput: dataPlaneInput,
-		members:        make(map[string]streamConsumerGroupMember, 0),
+		members:        make(map[string]*streamConsumerGroupMember, 0),
 		streamPath:     streamPath,
 		maxWorkers:     maxWorkers,
 		container:      container,
@@ -59,10 +59,12 @@ func NewStreamConsumerGroup(id string,
 func (scg *streamConsumerGroup) Consume(memberID string, streamConsumerGroupHandler v3io.StreamConsumerGroupHandler) error {
 	scg.logger.DebugWith("Member requesting to consume", "memberID", memberID)
 
-	scg.members[memberID] = streamConsumerGroupMember{
+	member := streamConsumerGroupMember{
 		ID:      memberID,
 		handler: streamConsumerGroupHandler,
 	}
+
+	scg.members[memberID] = &member
 
 	if scg.stateHandler == nil {
 
@@ -99,8 +101,6 @@ func (scg *streamConsumerGroup) Consume(memberID string, streamConsumerGroupHand
 		return errors.Wrap(err, "Failed getting stream consumer group state")
 	}
 
-	member := scg.members[memberID]
-
 	// create a session object from our state
 	streamConsumerGroupSession, err := newStreamConsumerGroupSession(scg, state, &member)
 	if err != nil {
@@ -128,8 +128,10 @@ func (scg *streamConsumerGroup) Close() error {
 		}
 	}
 	for _, member := range scg.members {
-		if err := member.session.Stop(); err != nil {
-			return errors.Wrapf(err, "Failed stopping member session: %s", member.ID)
+		if member.session != nil {
+			if err := member.session.Stop(); err != nil {
+				return errors.Wrapf(err, "Failed stopping member session: %s", member.ID)
+			}
 		}
 	}
 	return nil

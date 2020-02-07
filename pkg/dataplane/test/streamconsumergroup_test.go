@@ -3,7 +3,6 @@ package test
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/v3io/v3io-go/pkg/dataplane"
 	"github.com/v3io/v3io-go/pkg/dataplane/streamconsumergroup"
@@ -53,8 +52,6 @@ func (suite *streamConsumerGroupTestSuite) TestShardsAssignment() {
 	err = streamConsumerGroup.Consume(memberID, streamConsumerGroupHandler)
 	suite.Require().NoError(err, "Failed consuming stream consumer group")
 
-	time.Sleep(5 * time.Second)
-
 	// Put some records
 	firstShardID := 1
 	secondShardID := 2
@@ -79,7 +76,7 @@ func (suite *streamConsumerGroupTestSuite) TestShardsAssignment() {
 	putRecordsResponse := response.Output.(*v3io.PutRecordsOutput)
 	suite.Require().Equal(0, putRecordsResponse.FailedRecordCount)
 
-	time.Sleep(10 * time.Second)
+	//time.Sleep(10 * time.Second)
 
 	streamConsumerGroup.Close()
 }
