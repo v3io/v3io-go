@@ -3,6 +3,7 @@ package streamconsumergroup
 import (
 	"fmt"
 	"path"
+	"strconv"
 
 	"github.com/v3io/v3io-go/pkg/dataplane"
 
@@ -132,7 +133,7 @@ func (scg *streamConsumerGroup) Close() error {
 	return nil
 }
 
-func (scg *streamConsumerGroup) seekShard(shardID int, inputType v3io.SeekShardInputType) (string, error) {
+func (scg *streamConsumerGroup) seekShard(shardID int, seekShardType v3io.SeekShardInputType) (string, error) {
 	shardPath, err := scg.getShardPath(shardID)
 	if err != nil {
 		return "", errors.Wrapf(err, "Failed getting shard path: %v", shardID)
@@ -140,8 +141,10 @@ func (scg *streamConsumerGroup) seekShard(shardID int, inputType v3io.SeekShardI
 	seekShardInput := v3io.SeekShardInput{
 		DataPlaneInput: scg.dataPlaneInput,
 		Path:           shardPath,
-		Type:           inputType,
+		Type:           seekShardType,
 	}
+
+	scg.logger.DebugWith("Seeking shard", "shardPath", shardPath, "seekShardType", seekShardType)
 
 	response, err := scg.container.SeekShardSync(&seekShardInput)
 	if err != nil {
@@ -157,5 +160,5 @@ func (scg *streamConsumerGroup) seekShard(shardID int, inputType v3io.SeekShardI
 }
 
 func (scg *streamConsumerGroup) getShardPath(shardID int) (string, error) {
-	return path.Join(scg.streamPath, string(shardID)), nil
+	return path.Join(scg.streamPath, strconv.Itoa(shardID)), nil
 }

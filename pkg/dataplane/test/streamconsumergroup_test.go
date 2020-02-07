@@ -21,14 +21,6 @@ func (suite *streamConsumerGroupTestSuite) SetupSuite() {
 	suite.createContext()
 }
 
-func (suite *streamConsumerGroupTestSuite) SetupTest() {
-	suite.StreamTestSuite.SetupTest()
-}
-
-func (suite *streamConsumerGroupTestSuite) TearDownTest() {
-	suite.StreamTestSuite.TearDownTest()
-}
-
 func (suite *streamConsumerGroupTestSuite) TestShardsAssignment() {
 	streamPath := fmt.Sprintf("%s/mystream/", suite.testPath)
 	var dataPlaneInput v3io.DataPlaneInput

@@ -111,7 +111,13 @@ func (c *streamConsumerGroupClaim) pollRecords(location string) (string, error) 
 		var err error
 		location, err = c.streamConsumerGroup.seekShard(c.shardID, inputType)
 		if err != nil {
-			return "", errors.Wrapf(err, "Failed seeking shard: %v", c.shardID)
+
+			//TODO: something smarter that will ignore only the right errors
+			// shards to lazy initialization meaning no shard exists until first record arriving, therefore seeking the
+			// shard fails with resource not found
+			c.logger.DebugWith("Shard does not exist yet, skipping records polling")
+			return "", nil
+			//return "", errors.Wrapf(err, "Failed seeking shard: %v", c.shardID)
 		}
 	}
 
