@@ -41,15 +41,29 @@ func (suite *streamConsumerGroupTestSuite) TestShardsAssignment() {
 		nil,
 		dataPlaneInput,
 		streamPath,
-		3,
+		8,
 		suite.container)
 	suite.Require().NoError(err, "Failed creating stream consumer group")
 
-	memberID := "member1"
-	streamConsumerGroupHandler, err := newStreamConsumerGroupHandler(suite, memberID)
+	memberID1 := "member1"
+	streamConsumerGroupHandler1, err := newStreamConsumerGroupHandler(suite, memberID1)
 	suite.Require().NoError(err, "Failed creating stream consumer group handler")
 
-	err = streamConsumerGroup.Consume(memberID, streamConsumerGroupHandler)
+	err = streamConsumerGroup.Consume(memberID1, streamConsumerGroupHandler1)
+	suite.Require().NoError(err, "Failed consuming stream consumer group")
+
+	memberID2 := "member2"
+	streamConsumerGroupHandler2, err := newStreamConsumerGroupHandler(suite, memberID2)
+	suite.Require().NoError(err, "Failed creating stream consumer group handler")
+
+	err = streamConsumerGroup.Consume(memberID2, streamConsumerGroupHandler2)
+	suite.Require().NoError(err, "Failed consuming stream consumer group")
+
+	memberID3 := "member3"
+	streamConsumerGroupHandler3, err := newStreamConsumerGroupHandler(suite, memberID3)
+	suite.Require().NoError(err, "Failed creating stream consumer group handler")
+
+	err = streamConsumerGroup.Consume(memberID3, streamConsumerGroupHandler3)
 	suite.Require().NoError(err, "Failed consuming stream consumer group")
 
 	// Put some records

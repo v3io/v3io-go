@@ -96,7 +96,7 @@ func (scg *streamConsumerGroup) Consume(memberID string, streamConsumerGroupHand
 	}
 
 	// get the state (holding our shards)
-	state, err := scg.stateHandler.GetMemberState(memberID)
+	state, err := scg.stateHandler.GetOrCreateMemberState(memberID)
 	if err != nil {
 		return errors.Wrap(err, "Failed getting stream consumer group state")
 	}

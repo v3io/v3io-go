@@ -51,7 +51,26 @@ func (sh *streamConsumerGroupStateHandler) Stop() error {
 	return nil
 }
 
-func (sh *streamConsumerGroupStateHandler) GetMemberState(memberID string) (*SessionState, error) {
+func (sh *streamConsumerGroupStateHandler) GetOrCreateMemberState(memberID string) (*SessionState, error) {
+	sessionState, err := sh.getMemberState(memberID)
+	if err != nil {
+
+		// refreshing state will create the state for the member
+		sh.lastState, err = sh.refreshState()
+		if err != nil {
+			return nil, errors.Wrapf(err, "Failed creating state for member: %s", memberID)
+		}
+
+		sessionState, err := sh.getMemberState(memberID)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Failed getting or creating state for member: %s", memberID)
+		}
+		return sessionState, nil
+	}
+	return sessionState, nil
+}
+
+func (sh *streamConsumerGroupStateHandler) getMemberState(memberID string) (*SessionState, error) {
 	for index, sessionState := range sh.lastState.Sessions {
 		if sessionState.MemberID == memberID {
 			return &sh.lastState.Sessions[index], nil

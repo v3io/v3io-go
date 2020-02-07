@@ -14,7 +14,7 @@ type stateModifier func(*State) (*State, error)
 type StateHandler interface {
 	Start() error
 	Stop() error
-	GetMemberState(string) (*SessionState, error)
+	GetOrCreateMemberState(string) (*SessionState, error)
 }
 
 type State struct {
