@@ -203,8 +203,8 @@ type PutItemInput struct {
 
 type PutItemOutput struct {
 	DataPlaneInput
-	MtimeSecs int64
-	MtimeNSecs int64
+	MtimeSecs int
+	MtimeNSecs int
 }
 
 type PutItemsInput struct {
@@ -231,8 +231,8 @@ type UpdateItemInput struct {
 
 type UpdateItemOutput struct {
 	DataPlaneInput
-	MtimeSecs int64
-	MtimeNSecs int64
+	MtimeSecs int
+	MtimeNSecs int
 }
 
 type GetItemInput struct {
