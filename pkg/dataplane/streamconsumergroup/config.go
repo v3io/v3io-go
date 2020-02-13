@@ -8,9 +8,6 @@ import (
 )
 
 type Config struct {
-	Shard struct {
-		InputType v3io.SeekShardInputType
-	}
 	Session struct {
 		Timeout time.Duration
 	}
@@ -29,10 +26,11 @@ type Config struct {
 		}
 	}
 	Claim struct {
-		ChunksChannelSize int
-		Polling           struct {
-			Interval  time.Duration
-			ChunkSize int
+		RecordBatchChanSize int
+		RecordBatchFetch    struct {
+			Interval          time.Duration
+			NumRecordsInBatch int
+			InitialLocation   v3io.SeekShardInputType
 		}
 	}
 }
@@ -40,7 +38,6 @@ type Config struct {
 // NewConfig returns a new configuration instance with sane defaults.
 func NewConfig() *Config {
 	c := &Config{}
-	c.Shard.InputType = v3io.SeekShardInputTypeEarliest
 	c.Session.Timeout = 30 * time.Second
 	c.State.ModifyRetry.Attempts = 5
 	c.State.ModifyRetry.Backoff = common.Backoff{
@@ -49,9 +46,10 @@ func NewConfig() *Config {
 	}
 	c.State.Heartbeat.Interval = 3 * time.Second
 	c.Location.CommitCache.Interval = 10 * time.Second
-	c.Claim.ChunksChannelSize = 100
-	c.Claim.Polling.Interval = 3 * time.Second
-	c.Claim.Polling.ChunkSize = 5
+	c.Claim.RecordBatchChanSize = 100
+	c.Claim.RecordBatchFetch.Interval = 3 * time.Second
+	c.Claim.RecordBatchFetch.NumRecordsInBatch = 5
+	c.Claim.RecordBatchFetch.InitialLocation = v3io.SeekShardInputTypeEarliest
 
 	return c
 }

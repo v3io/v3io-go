@@ -2,6 +2,7 @@ package streamconsumergroup
 
 import (
 	"fmt"
+	v3ioerrors "github.com/v3io/v3io-go/pkg/errors"
 	"path"
 	"strconv"
 	"time"
@@ -12,131 +13,96 @@ import (
 	"github.com/nuclio/logger"
 )
 
-type streamConsumerGroupClaim struct {
-	logger              logger.Logger
-	streamConsumerGroup *streamConsumerGroup
-	shardID             int
-	initialLocation     string
-	member              *streamConsumerGroupMember
-	chunksChannel       chan *v3io.StreamChunk
-	stopPollingChannel  chan bool
+type claim struct {
+	logger                   logger.Logger
+	streamConsumerGroup      *streamConsumerGroup
+	shardID                  int
+	recordBatchChan          chan *RecordBatch
+	stopRecordBatchFetchChan chan struct{}
+	currentShardLocation     string
 }
 
-func newStreamConsumerGroupClaim(streamConsumerGroup *streamConsumerGroup,
-	shardID int, member *streamConsumerGroupMember) (v3io.StreamConsumerGroupClaim, error) {
-
-	chunksChannelSize := streamConsumerGroup.config.Claim.ChunksChannelSize
-
-	return &streamConsumerGroupClaim{
-		logger:              streamConsumerGroup.logger.GetChild(fmt.Sprintf("claim-%s-%v", member.ID, shardID)),
-		streamConsumerGroup: streamConsumerGroup,
-		shardID:             shardID,
-		member:              member,
-		chunksChannel:       make(chan *v3io.StreamChunk, chunksChannelSize),
-		stopPollingChannel:  make(chan bool),
+func newClaim(streamConsumerGroup *streamConsumerGroup, shardID int) (*claim, error) {
+	return &claim{
+		logger:                   streamConsumerGroup.logger.GetChild(fmt.Sprintf("claim-%d", shardID)),
+		streamConsumerGroup:      streamConsumerGroup,
+		shardID:                  shardID,
+		recordBatchChan:          make(chan *RecordBatch, streamConsumerGroup.config.Claim.RecordBatchChanSize),
+		stopRecordBatchFetchChan: make(chan struct{}),
 	}, nil
 }
 
-func (c *streamConsumerGroupClaim) Start() error {
+func (c *claim) Start() error {
 	c.logger.DebugWith("Starting claim")
-	pollingInterval := c.streamConsumerGroup.config.Claim.Polling.Interval
-	go c.pollRecordsPeriodically(c.stopPollingChannel, pollingInterval)
+
+	go c.fetchRecordBatches(c.stopRecordBatchFetchChan,
+		c.streamConsumerGroup.config.Claim.RecordBatchFetch.Interval)
 
 	// tell the consumer group handler to consume the claim
 	c.logger.DebugWith("Triggering given handler ConsumeClaim")
-	c.member.handler.ConsumeClaim(c.member.session, c)
-	c.logger.DebugWith("Handler consuming claims")
-	return nil
+	return c.streamConsumerGroup.handler.ConsumeClaim(c.streamConsumerGroup.session, c)
 }
 
-func (c *streamConsumerGroupClaim) Stop() error {
+func (c *claim) Stop() error {
 	c.logger.DebugWith("Stopping claim")
-	c.stopPollingChannel <- true
+	c.stopRecordBatchFetchChan <- struct{}{}
 	return nil
 }
 
-func (c *streamConsumerGroupClaim) Stream() (string, error) {
-	// TODO: maybe differentiate between stream and stream path
-	return c.streamConsumerGroup.streamPath, nil
+func (c *claim) GetStreamPath() string {
+	return c.streamConsumerGroup.streamPath
 }
 
-func (c *streamConsumerGroupClaim) Shard() (int, error) {
-	return c.shardID, nil
+func (c *claim) GetShardID() int {
+	return c.shardID
 }
 
-func (c *streamConsumerGroupClaim) InitialLocation() (string, error) {
-	if c.initialLocation == "" {
-		return "", errors.New("Initial location has not been populated yet")
-	}
-	return c.initialLocation, nil
+func (c *claim) GetCurrentLocation() string {
+	return c.currentShardLocation
 }
 
-func (c *streamConsumerGroupClaim) Chunks() <-chan *v3io.StreamChunk {
-	return c.chunksChannel
+func (c *claim) GetRecordBatchChan() <-chan *RecordBatch {
+	return c.recordBatchChan
 }
 
-func (c *streamConsumerGroupClaim) pollRecordsPeriodically(stopChannel chan bool, pollingInterval time.Duration) {
-	ticker := time.NewTicker(pollingInterval)
+func (c *claim) fetchRecordBatches(stopChannel chan struct{}, fetchInterval time.Duration) error {
+	var err error
 
-	// read initial location. use config if error
-	location, err := c.streamConsumerGroup.locationHandler.GetLocation(c.shardID)
+	// read initial location. use config if error. might need to wait until shard actually exists
+	c.currentShardLocation, err = c.getCurrentShardLocation(c.shardID)
 	if err != nil {
-
-		//TODO: some kind of errors.Is that will explode on anything other than not found exception
-		c.logger.DebugWith("Location not found, it is ok")
-		location = ""
+		return errors.Wrap(err, "Failed to get shard location")
 	}
 
 	for {
 		select {
-		case <-stopChannel:
-			ticker.Stop()
-			return
-		case <-ticker.C:
-			if c.initialLocation == "" && location != "" {
-				c.logger.DebugWith("Found initial location", "initialLocation", location)
-				c.initialLocation = location
-			}
-			location, err = c.pollRecords(location)
+		case <-time.After(fetchInterval):
+			c.currentShardLocation, err = c.fetchRecordBatch(c.currentShardLocation)
 			if err != nil {
-				c.logger.WarnWith("Failed polling messages", "err", errors.GetErrorStackString(err, 10))
+				c.logger.WarnWith("Failed fetching record batch", "err", errors.GetErrorStackString(err, 10))
 				continue
 			}
+
+		case <-stopChannel:
+			return nil
 		}
 	}
 }
 
-func (c *streamConsumerGroupClaim) pollRecords(location string) (string, error) {
-	if location == "" {
-		inputType := c.streamConsumerGroup.config.Shard.InputType
-		var err error
-		location, err = c.streamConsumerGroup.seekShard(c.shardID, inputType)
-		if err != nil {
-
-			//TODO: some kind of errors.Is that will explode on anything other than not found exception
-			// shards to lazy initialization meaning no shard exists until first record arriving, therefore seeking the
-			// shard fails with resource not found
-			c.logger.DebugWith("Shard does not exist yet, skipping records polling, it is ok")
-			return "", nil
-			//return "", errors.Wrapf(err, "Failed seeking shard: %v", c.shardID)
-		}
-	}
-
-	c.logger.DebugWith("Polling records", "location", location)
-
-	chunkSize := c.streamConsumerGroup.config.Claim.Polling.ChunkSize
+func (c *claim) fetchRecordBatch(location string) (string, error) {
+	c.logger.DebugWith("Fetching record batch", "location", location)
 
 	getRecordsInput := v3io.GetRecordsInput{
-		DataPlaneInput: c.streamConsumerGroup.dataPlaneInput,
-		Path:           path.Join(c.streamConsumerGroup.streamPath, strconv.Itoa(c.shardID)),
-		Location:       location,
-		Limit:          chunkSize,
+		Path:     path.Join(c.streamConsumerGroup.streamPath, strconv.Itoa(c.shardID)),
+		Location: location,
+		Limit:    c.streamConsumerGroup.config.Claim.RecordBatchFetch.NumRecordsInBatch,
 	}
 
 	response, err := c.streamConsumerGroup.container.GetRecordsSync(&getRecordsInput)
 	if err != nil {
-		return "", errors.Wrapf(err, "Failed getting records: %s", location)
+		return "", errors.Wrapf(err, "Failed fetching record batch: %s", location)
 	}
+
 	defer response.Release()
 
 	getRecordsOutput := response.Output.(*v3io.GetRecordsOutput)
@@ -158,14 +124,52 @@ func (c *streamConsumerGroupClaim) pollRecords(location string) (string, error) 
 		records = append(records, record)
 	}
 
-	chunk := v3io.StreamChunk{
+	recordBatch := RecordBatch{
 		Records:      records,
 		NextLocation: getRecordsOutput.NextLocation,
 		ShardID:      c.shardID,
 	}
 
 	// write into chunks channel, blocking if there's no space
-	c.chunksChannel <- &chunk
+	c.recordBatchChan <- &recordBatch
 
 	return getRecordsOutput.NextLocation, nil
+}
+
+func (c *claim) getCurrentShardLocation(shardID int) (string, error) {
+
+	// get the location from persistency
+	currentShardLocation, err := c.streamConsumerGroup.locationHandler.getShardLocationFromPersistency(shardID)
+	if err != nil {
+		return "", errors.Wrap(err, "Failed to get shard location")
+	}
+
+	// if shard wasn't found, try again periodically
+	if err == errShardNotFound {
+		for {
+			select {
+
+			// TODO: from configuration
+			case <-time.After(1 * time.Second):
+
+				// get the location from persistency
+				currentShardLocation, err = c.streamConsumerGroup.locationHandler.getShardLocationFromPersistency(shardID)
+				if err != nil {
+					if err == errShardNotFound {
+
+						// shard doesn't exist yet, try again
+						continue
+					}
+
+					return "", errors.Wrap(err, "Failed to get shard location")
+				}
+
+				return currentShardLocation, nil
+			case <-c.stopRecordBatchFetchChan:
+				return "", v3ioerrors.ErrStopped
+			}
+		}
+	}
+
+	return currentShardLocation, nil
 }

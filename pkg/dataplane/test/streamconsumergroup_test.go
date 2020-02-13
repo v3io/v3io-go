@@ -22,11 +22,8 @@ func (suite *streamConsumerGroupTestSuite) SetupSuite() {
 
 func (suite *streamConsumerGroupTestSuite) TestShardsAssignment() {
 	streamPath := fmt.Sprintf("%s/mystream/", suite.testPath)
-	var dataPlaneInput v3io.DataPlaneInput
-	suite.populateDataPlaneInput(&dataPlaneInput)
 
 	createStreamInput := v3io.CreateStreamInput{
-		DataPlaneInput:       dataPlaneInput,
 		Path:                 streamPath,
 		ShardCount:           8,
 		RetentionPeriodHours: 1,
@@ -37,9 +34,9 @@ func (suite *streamConsumerGroupTestSuite) TestShardsAssignment() {
 
 	streamConsumerGroup, err := streamconsumergroup.NewStreamConsumerGroup(
 		"1",
+		"member1",
 		suite.logger,
 		nil,
-		dataPlaneInput,
 		streamPath,
 		8,
 		suite.container)
@@ -49,21 +46,21 @@ func (suite *streamConsumerGroupTestSuite) TestShardsAssignment() {
 	streamConsumerGroupHandler1, err := newStreamConsumerGroupHandler(suite, memberID1)
 	suite.Require().NoError(err, "Failed creating stream consumer group handler")
 
-	err = streamConsumerGroup.Consume(memberID1, streamConsumerGroupHandler1)
+	err = streamConsumerGroup.Consume(streamConsumerGroupHandler1)
 	suite.Require().NoError(err, "Failed consuming stream consumer group")
 
 	memberID2 := "member2"
 	streamConsumerGroupHandler2, err := newStreamConsumerGroupHandler(suite, memberID2)
 	suite.Require().NoError(err, "Failed creating stream consumer group handler")
 
-	err = streamConsumerGroup.Consume(memberID2, streamConsumerGroupHandler2)
+	err = streamConsumerGroup.Consume(streamConsumerGroupHandler2)
 	suite.Require().NoError(err, "Failed consuming stream consumer group")
 
 	memberID3 := "member3"
 	streamConsumerGroupHandler3, err := newStreamConsumerGroupHandler(suite, memberID3)
 	suite.Require().NoError(err, "Failed creating stream consumer group handler")
 
-	err = streamConsumerGroup.Consume(memberID3, streamConsumerGroupHandler3)
+	err = streamConsumerGroup.Consume(streamConsumerGroupHandler3)
 	suite.Require().NoError(err, "Failed consuming stream consumer group")
 
 	// Put some records
@@ -101,7 +98,7 @@ type streamConsumerGroupHandler struct {
 	memberID string
 }
 
-func newStreamConsumerGroupHandler(suite *streamConsumerGroupTestSuite, memberID string) (v3io.StreamConsumerGroupHandler, error) {
+func newStreamConsumerGroupHandler(suite *streamConsumerGroupTestSuite, memberID string) (streamconsumergroup.Handler, error) {
 	return &streamConsumerGroupHandler{
 		suite:    suite,
 		logger:   suite.logger.GetChild(fmt.Sprintf("streamConsumerGroupHandler-%s", memberID)),
@@ -109,19 +106,17 @@ func newStreamConsumerGroupHandler(suite *streamConsumerGroupTestSuite, memberID
 	}, nil
 }
 
-func (h *streamConsumerGroupHandler) Setup(session v3io.StreamConsumerGroupSession) error {
-	assignedShardIDs, err := session.Claims()
-	h.suite.Require().NoError(err, "Failed getting assigned claims")
-	h.logger.DebugWith("Setup called", "assignedShardIDs", assignedShardIDs)
+func (h *streamConsumerGroupHandler) Setup(session streamconsumergroup.Session) error {
+	h.logger.DebugWith("Setup called", "assignedShardIDs", session.GetClaims())
 	return nil
 }
 
-func (h *streamConsumerGroupHandler) Cleanup(session v3io.StreamConsumerGroupSession) error {
+func (h *streamConsumerGroupHandler) Cleanup(session streamconsumergroup.Session) error {
 	h.logger.DebugWith("Cleanup called")
 	return nil
 }
 
-func (h *streamConsumerGroupHandler) ConsumeClaim(session v3io.StreamConsumerGroupSession, claim v3io.StreamConsumerGroupClaim) error {
+func (h *streamConsumerGroupHandler) ConsumeClaim(session streamconsumergroup.Session, claim streamconsumergroup.Claim) error {
 	h.logger.DebugWith("Consume Claims called")
 	return nil
 }

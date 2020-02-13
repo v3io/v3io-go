@@ -275,12 +275,6 @@ type StreamRecord struct {
 	PartitionKey string
 }
 
-type StreamChunk struct {
-	Records      []StreamRecord
-	NextLocation string
-	ShardID      int
-}
-
 type SeekShardInputType int
 
 const (
@@ -367,44 +361,4 @@ type GetRecordsOutput struct {
 	MSecBehindLatest    int
 	RecordsBehindLatest int
 	Records             []GetRecordsResult
-}
-
-type StreamConsumerGroupHandler interface {
-
-	// Setup is run at the beginning of a new session, before ConsumeClaim.
-	Setup(StreamConsumerGroupSession) error
-
-	// Cleanup is run at the end of a session, once all ConsumeClaim goroutines have exited
-	// but before the locations are committed for the very last time.
-	Cleanup(StreamConsumerGroupSession) error
-
-	// ConsumeClaim must start a consumer loop of ConsumerGroupClaim's Messages().
-	// Once the Messages() channel is closed, the Handler must finish its processing
-	// loop and exit.
-	ConsumeClaim(StreamConsumerGroupSession, StreamConsumerGroupClaim) error
-}
-
-type StreamConsumerGroup interface {
-	Consume(memberID string, streamConsumerGroupHandler StreamConsumerGroupHandler) error
-	Close() error
-}
-
-type StreamConsumerGroupSession interface {
-	Start() error
-	Stop() error
-
-	// Claims returns information about the claimed shards.
-	Claims() ([]int, error)
-	MemberID() (string, error)
-	MarkChunk(*StreamChunk) error
-}
-
-type StreamConsumerGroupClaim interface {
-	Start() error
-	Stop() error
-
-	Stream() (string, error)
-	Shard() (int, error)
-	InitialLocation() (string, error)
-	Chunks() <-chan *StreamChunk
 }

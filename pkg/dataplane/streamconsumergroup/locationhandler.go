@@ -2,10 +2,10 @@ package streamconsumergroup
 
 import (
 	"fmt"
-	"reflect"
+	"net/http"
+	"sync"
 	"time"
 
-	"github.com/v3io/v3io-go/pkg/common"
 	"github.com/v3io/v3io-go/pkg/dataplane"
 	"github.com/v3io/v3io-go/pkg/errors"
 
@@ -13,162 +13,203 @@ import (
 	"github.com/nuclio/logger"
 )
 
-type streamConsumerGroupLocationHandler struct {
-	logger                     logger.Logger
-	streamConsumerGroup        *streamConsumerGroup
-	shardLocationsCache        map[int]string
-	stopCacheCommittingChannel chan bool
+var errShardNotFound = errors.New("Shard not found")
+var errShardLocationAttributeNotFound = errors.New("Shard location attribute")
+
+type locationHandler struct {
+	logger                               logger.Logger
+	streamConsumerGroup                  *streamConsumerGroup
+	markedShardLocations                 []string
+	markedShardLocationsLock             sync.RWMutex
+	stopMarkedShardLocationCommitterChan chan struct{}
 }
 
-func newStreamConsumerGroupLocationHandler(streamConsumerGroup *streamConsumerGroup) (LocationHandler, error) {
+func newLocationHandler(streamConsumerGroup *streamConsumerGroup) (*locationHandler, error) {
 
-	return &streamConsumerGroupLocationHandler{
-		logger:                     streamConsumerGroup.logger.GetChild("locationHandler"),
-		streamConsumerGroup:        streamConsumerGroup,
-		shardLocationsCache:        make(map[int]string, 0),
-		stopCacheCommittingChannel: make(chan bool),
+	return &locationHandler{
+		logger:                               streamConsumerGroup.logger.GetChild("locationHandler"),
+		streamConsumerGroup:                  streamConsumerGroup,
+		markedShardLocations:                 make([]string, streamConsumerGroup.totalNumShards),
+		stopMarkedShardLocationCommitterChan: make(chan struct{}),
 	}, nil
 }
 
-func (lh *streamConsumerGroupLocationHandler) Start() error {
+func (lh *locationHandler) start() error {
 	lh.logger.DebugWith("Starting location handler")
-	commitCacheInterval := lh.streamConsumerGroup.config.Location.CommitCache.Interval
-	go lh.commitCachePeriodically(lh.stopCacheCommittingChannel, commitCacheInterval)
+
+	go lh.markedShardLocationsCommitter(lh.streamConsumerGroup.config.Location.CommitCache.Interval,
+		lh.stopMarkedShardLocationCommitterChan)
+
 	return nil
 }
 
-func (lh *streamConsumerGroupLocationHandler) Stop() error {
+func (lh *locationHandler) stop() error {
 	lh.logger.DebugWith("Stopping location handler")
-	lh.stopCacheCommittingChannel <- true
+	lh.stopMarkedShardLocationCommitterChan <- struct{}{}
 	return nil
 }
 
-func (lh *streamConsumerGroupLocationHandler) MarkLocation(shardID int, location string) error {
+func (lh *locationHandler) markShardLocation(shardID int, location string) error {
 	lh.logger.DebugWith("Marking location", "shardID", shardID, "location", location)
-	lh.shardLocationsCache[shardID] = location
+
+	// lock semantics are reverse - it's OK to write in parallel since each write goes
+	// to a different cell in the array, but once a read is happening we need to stop the world
+	lh.markedShardLocationsLock.RLock()
+	lh.markedShardLocations[shardID] = location
+	lh.markedShardLocationsLock.RUnlock()
+
 	return nil
 }
 
-func (lh *streamConsumerGroupLocationHandler) GetLocation(shardID int) (string, error) {
-	location, found := lh.shardLocationsCache[shardID]
-	if !found {
-		location, err := lh.getShardLocationFromPersistency(shardID)
-		if err != nil {
-			return "", errors.Wrap(err, "Failed getting shard location from persistency")
-		}
-		lh.shardLocationsCache[shardID] = location
-	}
-	return location, nil
-}
-
-func (lh *streamConsumerGroupLocationHandler) getShardLocationFromPersistency(shardID int) (string, error) {
+func (lh *locationHandler) getShardLocationFromPersistency(shardID int) (string, error) {
 	lh.logger.DebugWith("Getting shard location from persistency", "shardID", shardID)
+
 	shardPath, err := lh.streamConsumerGroup.getShardPath(shardID)
 	if err != nil {
 		return "", errors.Wrapf(err, "Failed getting shard path: %v", shardID)
 	}
-	shardLocationAttribute, err := lh.getShardLocationAttributeName()
+
+	// get the shard location from the item
+	shardLocation, err := lh.getShardLocationFromItemAttributes(shardPath)
 	if err != nil {
-		return "", errors.Wrapf(err, "Failed getting shard location attribute")
-	}
-	response, err := lh.streamConsumerGroup.container.GetItemSync(&v3io.GetItemInput{
-		DataPlaneInput: lh.streamConsumerGroup.dataPlaneInput,
-		Path:           shardPath,
-		AttributeNames: []string{shardLocationAttribute},
-	})
-	if err != nil {
-		errWithStatusCode, errHasStatusCode := err.(v3ioerrors.ErrorWithStatusCode)
-		if !errHasStatusCode {
-			return "", errors.Wrap(err, "Got error without status code")
-		}
-		if errWithStatusCode.StatusCode() != 404 {
-			return "", errors.Wrap(err, "Failed getting shard item")
+
+		// if the error is that the attribute wasn't found, but the shard was found - seek the shard
+		// according to the configuration
+		if err == errShardLocationAttributeNotFound {
+			return lh.getShardLocationWithSeek(shardPath, lh.streamConsumerGroup.config.Claim.RecordBatchFetch.InitialLocation)
 		}
 
-		// TODO: remove after errors.Is support added
-		lh.logger.DebugWith("Get item (shard) failed on not found, it is ok")
-		return "", common.ErrNotFound
-	}
-	defer response.Release()
-	getItemOutput := response.Output.(*v3io.GetItemOutput)
-
-	shardLocationInterface, foundShardLocationAttribute := getItemOutput.Item[shardLocationAttribute]
-	if !foundShardLocationAttribute {
-		seekShardInputType := lh.streamConsumerGroup.config.Shard.InputType
-		lh.logger.DebugWith("Location attribute was not found on shard, seeking shard to get location",
-			"shardID", shardID,
-			"seekShardInputType", seekShardInputType)
-		shardLocation, err := lh.streamConsumerGroup.seekShard(shardID, seekShardInputType)
-		if err != nil {
-			return "", errors.Wrapf(err, "Failed seeking shard: %v", shardID)
-		}
-		return shardLocation, nil
-	}
-	shardLocation, ok := shardLocationInterface.(string)
-	if !ok {
-		return "", errors.Errorf("Unexpected type for state attribute: %s", reflect.TypeOf(shardLocationInterface))
+		return "", errors.Wrap(err, "Failed to get shard location from item attributes")
 	}
 
 	return shardLocation, nil
 }
 
-func (lh *streamConsumerGroupLocationHandler) getShardLocationAttributeName() (string, error) {
-	return fmt.Sprintf("__%s_location", lh.streamConsumerGroup.ID), nil
+// returns the location, an error re: the shard itself and an error re: the attribute in the shard
+func (lh *locationHandler) getShardLocationFromItemAttributes(shardPath string) (string, error) {
+	response, err := lh.streamConsumerGroup.container.GetItemSync(&v3io.GetItemInput{
+		Path:           shardPath,
+		AttributeNames: []string{lh.getShardLocationAttributeName()},
+	})
+
+	if err != nil {
+		errWithStatusCode, errHasStatusCode := err.(v3ioerrors.ErrorWithStatusCode)
+		if !errHasStatusCode {
+			return "", errors.Wrap(err, "Got error without status code")
+		}
+
+		if errWithStatusCode.StatusCode() != http.StatusNotFound {
+			return "", errors.Wrap(err, "Failed getting shard item")
+		}
+
+		// TODO: remove after errors.Is support added
+		lh.logger.DebugWith("Could not find shard, probably doesn't exist yet")
+
+		return "", errShardNotFound
+	}
+
+	defer response.Release()
+
+	getItemOutput := response.Output.(*v3io.GetItemOutput)
+
+	// return the attribute name
+	location, err := getItemOutput.Item.GetFieldString(lh.getShardLocationAttributeName())
+	if err != nil && err == v3ioerrors.ErrNotFound {
+		return "", errShardLocationAttributeNotFound
+	}
+
+	// return the location we found
+	return location, nil
 }
 
-func (lh *streamConsumerGroupLocationHandler) setSharedLocationInPersistency(shardID int, location string) error {
+func (lh *locationHandler) getShardLocationWithSeek(shardPath string, seekType v3io.SeekShardInputType) (string, error) {
+	seekShardInput := v3io.SeekShardInput{
+		Path: shardPath,
+		Type: seekType,
+	}
+
+	lh.logger.DebugWith("Seeking shard", "shardPath", shardPath, "seekShardType", seekType)
+
+	response, err := lh.streamConsumerGroup.container.SeekShardSync(&seekShardInput)
+	if err != nil {
+		return "", errors.Wrap(err, "Failed to seek shard")
+	}
+	defer response.Release()
+
+	location := response.Output.(*v3io.SeekShardOutput).Location
+
+	lh.logger.DebugWith("Seek shard succeeded", "shardPath", shardPath, "location", location)
+
+	return location, nil
+}
+
+func (lh *locationHandler) getShardLocationAttributeName() string {
+	return fmt.Sprintf("__%s_location", lh.streamConsumerGroup.name)
+}
+
+func (lh *locationHandler) setShardLocationInPersistency(shardID int, location string) error {
 	lh.logger.DebugWith("Setting shard location in persistency", "shardID", shardID, "location", location)
 	shardPath, err := lh.streamConsumerGroup.getShardPath(shardID)
 	if err != nil {
 		return errors.Wrapf(err, "Failed getting shard path: %v", shardID)
 	}
-	shardLocationAttribute, err := lh.getShardLocationAttributeName()
-	if err != nil {
-		return errors.Wrapf(err, "Failed getting shard location attribute")
-	}
-	err = lh.streamConsumerGroup.container.UpdateItemSync(&v3io.UpdateItemInput{
-		DataPlaneInput: lh.streamConsumerGroup.dataPlaneInput,
-		Path:           shardPath,
+
+	return lh.streamConsumerGroup.container.UpdateItemSync(&v3io.UpdateItemInput{
+		Path: shardPath,
 		Attributes: map[string]interface{}{
-			shardLocationAttribute: location,
+			lh.getShardLocationAttributeName(): location,
 		},
 	})
-	return nil
 }
 
-func (lh *streamConsumerGroupLocationHandler) commitCachePeriodically(stopCacheCommittingChannel chan bool,
-	commitCacheInterval time.Duration) {
-	ticker := time.NewTicker(commitCacheInterval)
-
+func (lh *locationHandler) markedShardLocationsCommitter(interval time.Duration, stopChan chan struct{}) {
 	for {
 		select {
-		case <-stopCacheCommittingChannel:
-			ticker.Stop()
-			return
-		case <-ticker.C:
-			err := lh.commitCache()
-			if err != nil {
+		case <-time.After(interval):
+			if err := lh.commitMarkedShardLocations(); err != nil {
 				lh.logger.WarnWith("Failed committing cache", "err", errors.GetErrorStackString(err, 10))
 				continue
 			}
+		case <-stopChan:
+			lh.logger.Debug("Stopped committing marked shard locations")
+			return
 		}
 	}
 }
 
-func (lh *streamConsumerGroupLocationHandler) commitCache() error {
-	lh.logger.DebugWith("Committing location cache")
-	failedShardIDs := make([]int, 0)
-	for shardID, location := range lh.shardLocationsCache {
-		err := lh.setSharedLocationInPersistency(shardID, location)
-		if err != nil {
+func (lh *locationHandler) commitMarkedShardLocations() error {
+	var markedShardLocationsCopy []string
+
+	// create a copy of the marked shard locations
+	lh.markedShardLocationsLock.Lock()
+	for _, markedShardLocation := range lh.markedShardLocations {
+		markedShardLocationsCopy = append(markedShardLocationsCopy, markedShardLocation)
+	}
+	lh.markedShardLocationsLock.Unlock()
+
+	lh.logger.DebugWith("Committing marked shard locations", "markedShardLocationsCopy", markedShardLocationsCopy)
+
+	var failedShardIDs []int
+	for shardID, location := range markedShardLocationsCopy {
+
+		// the location array holds a location for all partitions, indexed by their id to allow for
+		// faster writes (using a rw lock) only the relevant shards ever get populated
+		if location == "" {
+			continue
+		}
+
+		if err := lh.setShardLocationInPersistency(shardID, location); err != nil {
 			lh.logger.WarnWith("Failed committing shard location", "shardID", shardID,
 				"location", location,
 				"err", errors.GetErrorStackString(err, 10))
+
 			failedShardIDs = append(failedShardIDs, shardID)
 		}
 	}
+
 	if len(failedShardIDs) > 0 {
 		return errors.Errorf("Failed committing cache in shards: %v", failedShardIDs)
 	}
+
 	return nil
 }
