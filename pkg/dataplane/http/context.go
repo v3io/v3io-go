@@ -1157,11 +1157,11 @@ func (c *context) handleRequest(workerIndex int, request *v3io.Request) error {
 	case *v3io.GetItemsInput:
 		response, err = c.GetItemsSync(typedInput)
 	case *v3io.PutItemInput:
-		err = c.PutItemSync(typedInput)
+		response, err = c.PutItemSync(typedInput)
 	case *v3io.PutItemsInput:
 		response, err = c.PutItemsSync(typedInput)
 	case *v3io.UpdateItemInput:
-		err = c.UpdateItemSync(typedInput)
+		response, err = c.UpdateItemSync(typedInput)
 	case *v3io.CreateStreamInput:
 		err = c.CreateStreamSync(typedInput)
 	case *v3io.DeleteStreamInput:
