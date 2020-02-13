@@ -342,7 +342,7 @@ func (c *context) PutItem(putItemInput *v3io.PutItemInput,
 }
 
 // PutItemSync
-func (c *context) PutItemSync(putItemInput *v3io.PutItemInput) error {
+func (c *context) PutItemSync(putItemInput *v3io.PutItemInput) (*v3io.Response, error) {
 	var body map[string]interface{}
 	if putItemInput.UpdateMode != "" {
 		body = map[string]interface{}{
@@ -351,7 +351,7 @@ func (c *context) PutItemSync(putItemInput *v3io.PutItemInput) error {
 	}
 
 	// prepare the query path
-	_, err := c.putItem(&putItemInput.DataPlaneInput,
+	response, err := c.putItem(&putItemInput.DataPlaneInput,
 		putItemInput.Path,
 		putItemFunctionName,
 		putItemInput.Attributes,
@@ -359,7 +359,11 @@ func (c *context) PutItemSync(putItemInput *v3io.PutItemInput) error {
 		putItemHeaders,
 		body)
 
-	return err
+	mtimeSecs, mtimeNSecs := parseMtimeHeader(response)
+	output := &v3io.PutItemOutput{MtimeSecs: mtimeSecs, MtimeNSecs: mtimeNSecs}
+	response.Output = output
+
+	return response, err
 }
 
 // PutItems
@@ -420,8 +424,9 @@ func (c *context) UpdateItem(updateItemInput *v3io.UpdateItemInput,
 }
 
 // UpdateItemSync
-func (c *context) UpdateItemSync(updateItemInput *v3io.UpdateItemInput) error {
+func (c *context) UpdateItemSync(updateItemInput *v3io.UpdateItemInput) (*v3io.Response, error) {
 	var err error
+	var response *v3io.Response
 
 	if updateItemInput.Attributes != nil {
 
@@ -434,7 +439,7 @@ func (c *context) UpdateItemSync(updateItemInput *v3io.UpdateItemInput) error {
 			body["UpdateMode"] = updateItemInput.UpdateMode
 		}
 
-		_, err = c.putItem(&updateItemInput.DataPlaneInput,
+		response, err = c.putItem(&updateItemInput.DataPlaneInput,
 			updateItemInput.Path,
 			putItemFunctionName,
 			updateItemInput.Attributes,
@@ -442,18 +447,30 @@ func (c *context) UpdateItemSync(updateItemInput *v3io.UpdateItemInput) error {
 			putItemHeaders,
 			body)
 
+
+		mtimeSecs, mtimeNSecs := parseMtimeHeader(response)
+		output := &v3io.UpdateItemOutput{MtimeSecs: mtimeSecs, MtimeNSecs: mtimeNSecs}
+		response.Output = output
+
+
 	} else if updateItemInput.Expression != nil {
 
-		_, err = c.updateItemWithExpression(&updateItemInput.DataPlaneInput,
+		response, err = c.updateItemWithExpression(&updateItemInput.DataPlaneInput,
 			updateItemInput.Path,
 			updateItemFunctionName,
 			*updateItemInput.Expression,
 			updateItemInput.Condition,
 			updateItemHeaders,
 			updateItemInput.UpdateMode)
+
+
+		mtimeSecs, mtimeNSecs := parseMtimeHeader(response)
+		output := &v3io.UpdateItemOutput{MtimeSecs: mtimeSecs, MtimeNSecs: mtimeNSecs}
+		response.Output = output
+
 	}
 
-	return err
+	return response, err
 }
 
 // GetObject
@@ -1262,7 +1279,7 @@ func decodeCapnpAttributes(keyValues node_common_capnp.VnObjectItemsGetMappedKey
 func (c *context) getItemsParseJSONResponse(response *v3io.Response, getItemsInput *v3io.GetItemsInput) (*v3io.GetItemsOutput, error) {
 
 	getItemsResponse := struct {
-		Items            []map[string]map[string]interface{}
+		Items []map[string]map[string]interface{}
 		NextMarker       string
 		LastItemIncluded string
 	}{}
@@ -1475,4 +1492,31 @@ func (c *context) stop(reason string, timeout *time.Duration) error {
 	c.logger.DebugWith("Context stopped")
 
 	return nil
+}
+
+// parsing the mtime from a header of the form `__mtime_secs==1581605100 and __mtime_nsecs==498349956`
+func parseMtimeHeader(response *v3io.Response) (int64, int64) {
+	var mtimeSecs, mtimeNSecs int64
+	var err error
+
+	mtimeHeader := string(response.HeaderPeek("X-v3io-transaction-verifier"))
+	for _, expression := range strings.Split(mtimeHeader, "and") {
+		mtimeParts := strings.Split(expression, "==")
+		mtimeType := strings.TrimSpace(mtimeParts[0])
+		if mtimeType == "__mtime_secs" {
+			mtimeSecsStr := strings.TrimSpace(mtimeParts[1])
+			mtimeSecs, err = strconv.ParseInt(mtimeSecsStr, 10, 64)
+			if err != nil {
+				return 0, 0
+			}
+		} else if mtimeType == "__mtime_nsecs" {
+			mtimeNSecsStr := strings.TrimSpace(mtimeParts[1])
+			mtimeNSecs, err = strconv.ParseInt(mtimeNSecsStr, 10, 64)
+			if err != nil {
+				return 0, 0
+			}
+		}
+	}
+
+	return mtimeSecs, mtimeNSecs
 }
