@@ -123,3 +123,17 @@ func IntSlicesEqual(slice1 []int, slice2 []int) bool {
 
 	return true
 }
+
+func StringSlicesEqual(slice1 []string, slice2 []string) bool {
+	if len(slice1) != len(slice2) {
+		return false
+	}
+
+	for stringIndex := 0; stringIndex < len(slice1); stringIndex++ {
+		if slice1[stringIndex] != slice2[stringIndex] {
+			return false
+		}
+	}
+
+	return true
+}

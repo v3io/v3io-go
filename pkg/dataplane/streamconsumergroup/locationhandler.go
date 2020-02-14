@@ -2,6 +2,7 @@ package streamconsumergroup
 
 import (
 	"fmt"
+	"github.com/v3io/v3io-go/pkg/common"
 	"net/http"
 	"sync"
 	"time"
@@ -22,6 +23,7 @@ type locationHandler struct {
 	markedShardLocations                 []string
 	markedShardLocationsLock             sync.RWMutex
 	stopMarkedShardLocationCommitterChan chan struct{}
+	lastCommittedShardLocations []string
 }
 
 func newLocationHandler(streamConsumerGroup *streamConsumerGroup) (*locationHandler, error) {
@@ -103,7 +105,7 @@ func (lh *locationHandler) getShardLocationFromItemAttributes(shardPath string) 
 		}
 
 		// TODO: remove after errors.Is support added
-		lh.logger.DebugWith("Could not find shard, probably doesn't exist yet")
+		lh.logger.DebugWith("Could not find shard, probably doesn't exist yet", "path", shardPath)
 
 		return "", errShardNotFound
 	}
@@ -187,6 +189,11 @@ func (lh *locationHandler) commitMarkedShardLocations() error {
 	}
 	lh.markedShardLocationsLock.Unlock()
 
+	//
+	if common.StringSlicesEqual(lh.lastCommittedShardLocations, markedShardLocationsCopy) {
+		return nil
+	}
+
 	lh.logger.DebugWith("Committing marked shard locations", "markedShardLocationsCopy", markedShardLocationsCopy)
 
 	var failedShardIDs []int
@@ -208,8 +215,10 @@ func (lh *locationHandler) commitMarkedShardLocations() error {
 	}
 
 	if len(failedShardIDs) > 0 {
-		return errors.Errorf("Failed committing cache in shards: %v", failedShardIDs)
+		return errors.Errorf("Failed committing marked shard locations in shards: %v", failedShardIDs)
 	}
+
+	lh.lastCommittedShardLocations = markedShardLocationsCopy
 
 	return nil
 }

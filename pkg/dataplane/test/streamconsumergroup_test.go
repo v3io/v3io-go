@@ -36,9 +36,9 @@ func (suite *streamConsumerGroupTestSuite) TestShardsAssignment() {
 
 	memberGroup := newMemberGroup(suite,
 		consumerGroupName,
-		4,
+		2,
 		numShards,
-		4,
+		2,
 		[]int{0, 0, 0, 0, 0, 0, 0, 0},
 		[]int{5, 10, 10, 10, 15, 10, 10, 20})
 
@@ -47,7 +47,17 @@ func (suite *streamConsumerGroupTestSuite) TestShardsAssignment() {
 	time.Sleep(3 * time.Second)
 
 	// must have exactly 2 shards each, must all be consuming, must all have not processed any messages
-	memberGroup.verifyClaimShards(numShards, []int{2})
+	memberGroup.verifyClaimShards(numShards, []int{4})
+	memberGroup.verifyNumActiveClaimConsumptions(numShards)
+	memberGroup.verifyNumRecordsConsumed([]int{0, 0, 0, 0, 0, 0, 0, 0})
+
+	suite.writeRecords([]int{30, 30, 30, 30, 30, 30, 30, 30})
+
+	// wait a bit for things to happen - the members should read data from the shards up to the amount they were
+	// told to read, verifying that each message is in order and the expected
+	time.Sleep(30 * time.Second)
+
+	memberGroup.verifyClaimShards(numShards, []int{4})
 	memberGroup.verifyNumActiveClaimConsumptions(numShards)
 	memberGroup.verifyNumRecordsConsumed([]int{0, 0, 0, 0, 0, 0, 0, 0})
 
@@ -69,10 +79,16 @@ func (suite *streamConsumerGroupTestSuite) createStream(streamPath string, numSh
 func (suite *streamConsumerGroupTestSuite) writeRecords(numRecordsPerShard []int) {
 	var records []*v3io.StreamRecord
 
+	suite.logger.DebugWith("Writing records", "numRecordsPerShard", numRecordsPerShard)
+
 	for shardID, numRecordsPerShard := range numRecordsPerShard {
+
+		// we're taking address
+		shardIDCopy := shardID
+
 		for recordIndex := 0; recordIndex < numRecordsPerShard; recordIndex++ {
 			recordDataInstance := recordData{
-				ShardID: shardID,
+				ShardID: shardIDCopy,
 				Index:   recordIndex,
 			}
 
@@ -80,7 +96,7 @@ func (suite *streamConsumerGroupTestSuite) writeRecords(numRecordsPerShard []int
 			suite.Require().NoError(err)
 
 			records = append(records, &v3io.StreamRecord{
-				ShardID: &shardID,
+				ShardID: &shardIDCopy,
 				Data:    marshalledRecordDataInstance,
 			})
 		}
@@ -96,6 +112,8 @@ func (suite *streamConsumerGroupTestSuite) writeRecords(numRecordsPerShard []int
 
 	putRecordsResponse := response.Output.(*v3io.PutRecordsOutput)
 	suite.Require().Equal(0, putRecordsResponse.FailedRecordCount)
+
+	suite.logger.DebugWith("Done writing records", "numRecordsPerShard", numRecordsPerShard)
 }
 
 //
@@ -198,6 +216,9 @@ func newMember(suite *streamConsumerGroupTestSuite,
 	index int,
 	numberOfRecordsConsumed []int) *member {
 	id := fmt.Sprintf("m%d", index)
+
+	streamConsumerGroupConfig := streamconsumergroup.NewConfig()
+	streamConsumerGroupConfig.Claim.RecordBatchFetch.NumRecordsInBatch = 30
 
 	streamConsumerGroup, err := streamconsumergroup.NewStreamConsumerGroup(
 		consumerGroupName,

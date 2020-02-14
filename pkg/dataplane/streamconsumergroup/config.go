@@ -48,7 +48,7 @@ func NewConfig() *Config {
 	c.Location.CommitCache.Interval = 10 * time.Second
 	c.Claim.RecordBatchChanSize = 100
 	c.Claim.RecordBatchFetch.Interval = 3 * time.Second
-	c.Claim.RecordBatchFetch.NumRecordsInBatch = 5
+	c.Claim.RecordBatchFetch.NumRecordsInBatch = 10
 	c.Claim.RecordBatchFetch.InitialLocation = v3io.SeekShardInputTypeEarliest
 
 	return c

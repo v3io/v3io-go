@@ -35,17 +35,38 @@ func newClaim(streamConsumerGroup *streamConsumerGroup, shardID int) (*claim, er
 func (c *claim) Start() error {
 	c.logger.DebugWith("Starting claim")
 
-	go c.fetchRecordBatches(c.stopRecordBatchFetchChan,
-		c.streamConsumerGroup.config.Claim.RecordBatchFetch.Interval)
+	go func() {
+		err := c.fetchRecordBatches(c.stopRecordBatchFetchChan,
+			c.streamConsumerGroup.config.Claim.RecordBatchFetch.Interval)
 
-	// tell the consumer group handler to consume the claim
-	c.logger.DebugWith("Calling ConsumeClaim on handler")
-	return c.streamConsumerGroup.handler.ConsumeClaim(c.streamConsumerGroup.session, c)
+		if err != nil {
+			c.logger.WarnWith("Failed to fetch record batches", "err", errors.GetErrorStackString(err, 10))
+		}
+	}()
+
+	go func() {
+
+		// tell the consumer group handler to consume the claim
+		c.logger.DebugWith("Calling ConsumeClaim on handler")
+		c.streamConsumerGroup.handler.ConsumeClaim(c.streamConsumerGroup.session, c)
+
+		if err := c.Stop(); err != nil {
+			c.logger.WarnWith("Failed to stop claim after consumption", "err", errors.GetErrorStackString(err, 10))
+		}
+	}()
+
+	return nil
 }
 
 func (c *claim) Stop() error {
 	c.logger.DebugWith("Stopping claim")
-	c.stopRecordBatchFetchChan <- struct{}{}
+
+	// don't block
+	select {
+		case c.stopRecordBatchFetchChan <- struct{}{}:
+		default:
+	}
+
 	return nil
 }
 
@@ -114,15 +135,15 @@ func (c *claim) fetchRecordBatch(location string) (string, error) {
 
 	records := make([]v3io.StreamRecord, len(getRecordsOutput.Records))
 
-	for _, getRecordResult := range getRecordsOutput.Records {
+	for receivedRecordIndex, receivedRecord := range getRecordsOutput.Records {
 		record := v3io.StreamRecord{
 			ShardID:      &c.shardID,
-			Data:         getRecordResult.Data,
-			ClientInfo:   getRecordResult.ClientInfo,
-			PartitionKey: getRecordResult.PartitionKey,
+			Data:         receivedRecord.Data,
+			ClientInfo:   receivedRecord.ClientInfo,
+			PartitionKey: receivedRecord.PartitionKey,
 		}
 
-		records = append(records, record)
+		records[receivedRecordIndex] = record
 	}
 
 	recordBatch := RecordBatch{
@@ -142,12 +163,12 @@ func (c *claim) getCurrentShardLocation(shardID int) (string, error) {
 
 	// get the location from persistency
 	currentShardLocation, err := c.streamConsumerGroup.locationHandler.getShardLocationFromPersistency(shardID)
-	if err != nil {
+	if errors.RootCause(err) != errShardNotFound {
 		return "", errors.Wrap(err, "Failed to get shard location")
 	}
 
 	// if shard wasn't found, try again periodically
-	if err == errShardNotFound {
+	if errors.RootCause(err) == errShardNotFound {
 		for {
 			select {
 
@@ -157,7 +178,7 @@ func (c *claim) getCurrentShardLocation(shardID int) (string, error) {
 				// get the location from persistency
 				currentShardLocation, err = c.streamConsumerGroup.locationHandler.getShardLocationFromPersistency(shardID)
 				if err != nil {
-					if err == errShardNotFound {
+					if errors.RootCause(err) == errShardNotFound {
 
 						// shard doesn't exist yet, try again
 						continue

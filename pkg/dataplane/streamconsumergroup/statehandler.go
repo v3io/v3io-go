@@ -113,8 +113,6 @@ func (sh *stateHandler) refreshStatePeriodically() {
 }
 
 func (sh *stateHandler) refreshState() (*State, error) {
-	sh.logger.DebugWith("Refreshing state")
-
 	return sh.modifyState(func(state *State) (*State, error) {
 
 		// remove stale sessions from state
@@ -153,7 +151,9 @@ func (sh *stateHandler) createSessionState(state *State) error {
 		return errors.Wrap(err, "Failed resolving shards for session")
 	}
 
-	sh.logger.DebugWith("Assigned shards", "shards", shards)
+	sh.logger.DebugWith("Assigned shards",
+		"shards", shards,
+		"state", state)
 
 	state.SessionStates = append(state.SessionStates, &SessionState{
 		MemberID:      sh.streamConsumerGroup.memberID,
@@ -165,6 +165,7 @@ func (sh *stateHandler) createSessionState(state *State) error {
 }
 
 func (sh *stateHandler) assignShards(maxReplicas int, numShards int, state *State) ([]int, error) {
+
 
 	// per replica index, holds which shards it should handle
 	replicaShardGroups, err := sh.getReplicaShardGroups(maxReplicas, numShards)
@@ -243,8 +244,6 @@ func (sh *stateHandler) getAssignEmptyShardGroup(replicaShardGroups [][]int, sta
 func (sh *stateHandler) modifyState(modifier stateModifier) (*State, error) {
 	var modifiedState *State
 
-	sh.logger.DebugWith("Modifying state with retries")
-
 	backoff := sh.streamConsumerGroup.config.State.ModifyRetry.Backoff
 	attempts := sh.streamConsumerGroup.config.State.ModifyRetry.Attempts
 
@@ -254,9 +253,7 @@ func (sh *stateHandler) modifyState(modifier stateModifier) (*State, error) {
 			return true, errors.Wrap(err, "Failed getting current state from persistency")
 		}
 
-		if state != nil {
-			sh.logger.DebugWith("Got current state, modifying", "state", *state)
-		} else {
+		if state == nil {
 			state, err = newState()
 			if err != nil {
 				return true, errors.Wrap(err, "Failed to create state")
@@ -268,7 +265,9 @@ func (sh *stateHandler) modifyState(modifier stateModifier) (*State, error) {
 			return true, errors.Wrap(err, "Failed modifying state")
 		}
 
-		sh.logger.DebugWith("Modified state, saving", "modifiedState", modifiedState)
+		sh.logger.DebugWith("Modified state, saving",
+			"previousState", state,
+			"modifiedState", modifiedState)
 
 		err = sh.setStateInPersistency(modifiedState, mtime)
 		if err != nil {
@@ -281,7 +280,7 @@ func (sh *stateHandler) modifyState(modifier stateModifier) (*State, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed modifying state, attempts exhausted")
 	}
-	sh.logger.DebugWith("State modified successfully")
+
 	return modifiedState, nil
 }
 
@@ -370,15 +369,17 @@ func (sh *stateHandler) getStateFromPersistency() (*State, *int, error) {
 func (sh *stateHandler) removeStaleSessionStates(state *State) error {
 
 	// clear out the sessions since we only want the valid sessions
-	state.SessionStates = []*SessionState{}
+	var activeSessionStates []*SessionState
 
 	for _, sessionState := range state.SessionStates {
 
 		// check if the last heartbeat happened prior to the session timeout
 		if time.Since(sessionState.LastHeartbeat) < sh.streamConsumerGroup.config.Session.Timeout {
-			state.SessionStates = append(state.SessionStates, sessionState)
+			activeSessionStates = append(activeSessionStates, sessionState)
 		}
 	}
+
+	state.SessionStates = activeSessionStates
 
 	return nil
 }
