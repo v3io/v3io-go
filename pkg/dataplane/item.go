@@ -63,3 +63,20 @@ func (i Item) GetFieldString(name string) (string, error) {
 		return "", v3ioerrors.ErrInvalidTypeConversion
 	}
 }
+
+func (i Item) GetFieldUint64(name string) (uint64, error) {
+	fieldValue, fieldFound := i[name]
+	if !fieldFound {
+		return 0, v3ioerrors.ErrNotFound
+	}
+
+	switch typedField := fieldValue.(type) {
+	// TODO: properly handle uint64
+	case int:
+		return uint64(typedField), nil
+	case uint64:
+		return typedField, nil
+	default:
+		return 0, v3ioerrors.ErrInvalidTypeConversion
+	}
+}

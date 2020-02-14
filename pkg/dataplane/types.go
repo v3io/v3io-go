@@ -275,7 +275,7 @@ type StreamRecord struct {
 	Data           []byte
 	ClientInfo     []byte
 	PartitionKey   string
-	SequenceNumber int
+	SequenceNumber uint64
 }
 
 type SeekShardInputType int
@@ -317,7 +317,7 @@ type PutRecordsInput struct {
 }
 
 type PutRecordResult struct {
-	SequenceNumber int
+	SequenceNumber uint64
 	ShardID        int `json:"ShardId"`
 	ErrorCode      int
 	ErrorMessage   string
@@ -333,7 +333,7 @@ type SeekShardInput struct {
 	DataPlaneInput
 	Path                   string
 	Type                   SeekShardInputType
-	StartingSequenceNumber int
+	StartingSequenceNumber uint64
 	Timestamp              int
 }
 
@@ -352,7 +352,7 @@ type GetRecordsInput struct {
 type GetRecordsResult struct {
 	ArrivalTimeSec  int
 	ArrivalTimeNSec int
-	SequenceNumber  int
+	SequenceNumber  uint64
 	ClientInfo      []byte
 	PartitionKey    string
 	Data            []byte

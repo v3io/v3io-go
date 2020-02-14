@@ -20,10 +20,10 @@ var errShardSequenceNumberAttributeNotFound = errors.New("Shard sequenceNumber a
 type sequenceNumberHandler struct {
 	logger                                     logger.Logger
 	streamConsumerGroup                        *streamConsumerGroup
-	markedShardSequenceNumbers                 []int
+	markedShardSequenceNumbers                 []uint64
 	markedShardSequenceNumbersLock             sync.RWMutex
 	stopMarkedShardSequenceNumberCommitterChan chan struct{}
-	lastCommittedShardSequenceNumbers          []int
+	lastCommittedShardSequenceNumbers          []uint64
 }
 
 func newSequenceNumberHandler(streamConsumerGroup *streamConsumerGroup) (*sequenceNumberHandler, error) {
@@ -31,7 +31,7 @@ func newSequenceNumberHandler(streamConsumerGroup *streamConsumerGroup) (*sequen
 	return &sequenceNumberHandler{
 		logger:                     streamConsumerGroup.logger.GetChild("sequenceNumberHandler"),
 		streamConsumerGroup:        streamConsumerGroup,
-		markedShardSequenceNumbers: make([]int, streamConsumerGroup.totalNumShards),
+		markedShardSequenceNumbers: make([]uint64, streamConsumerGroup.totalNumShards),
 		stopMarkedShardSequenceNumberCommitterChan: make(chan struct{}, 1),
 	}, nil
 }
@@ -57,7 +57,7 @@ func (snh *sequenceNumberHandler) stop() error {
 	return nil
 }
 
-func (snh *sequenceNumberHandler) markShardSequenceNumber(shardID int, sequenceNumber int) error {
+func (snh *sequenceNumberHandler) markShardSequenceNumber(shardID int, sequenceNumber uint64) error {
 
 	// lock semantics are reverse - it's OK to write in parallel since each write goes
 	// to a different cell in the array, but once a read is happening we need to stop the world
@@ -102,7 +102,7 @@ func (snh *sequenceNumberHandler) getShardLocationFromPersistency(shardID int) (
 }
 
 // returns the sequenceNumber, an error re: the shard itself and an error re: the attribute in the shard
-func (snh *sequenceNumberHandler) getShardSequenceNumberFromItemAttributes(shardPath string) (int, error) {
+func (snh *sequenceNumberHandler) getShardSequenceNumberFromItemAttributes(shardPath string) (uint64, error) {
 	response, err := snh.streamConsumerGroup.container.GetItemSync(&v3io.GetItemInput{
 		Path:           shardPath,
 		AttributeNames: []string{snh.getShardCommittedSequenceNumberAttributeName()},
@@ -111,17 +111,17 @@ func (snh *sequenceNumberHandler) getShardSequenceNumberFromItemAttributes(shard
 	if err != nil {
 		errWithStatusCode, errHasStatusCode := err.(v3ioerrors.ErrorWithStatusCode)
 		if !errHasStatusCode {
-			return -1, errors.Wrap(err, "Got error without status code")
+			return 0, errors.Wrap(err, "Got error without status code")
 		}
 
 		if errWithStatusCode.StatusCode() != http.StatusNotFound {
-			return -1, errors.Wrap(err, "Failed getting shard item")
+			return 0, errors.Wrap(err, "Failed getting shard item")
 		}
 
 		// TODO: remove after errors.Is support added
 		snh.logger.DebugWith("Could not find shard, probably doesn't exist yet", "path", shardPath)
 
-		return -1, errShardNotFound
+		return 0, errShardNotFound
 	}
 
 	defer response.Release()
@@ -129,9 +129,9 @@ func (snh *sequenceNumberHandler) getShardSequenceNumberFromItemAttributes(shard
 	getItemOutput := response.Output.(*v3io.GetItemOutput)
 
 	// return the attribute name
-	sequenceNumber, err := getItemOutput.Item.GetFieldInt(snh.getShardCommittedSequenceNumberAttributeName())
+	sequenceNumber, err := getItemOutput.Item.GetFieldUint64(snh.getShardCommittedSequenceNumberAttributeName())
 	if err != nil && err == v3ioerrors.ErrNotFound {
-		return -1, errShardSequenceNumberAttributeNotFound
+		return 0, errShardSequenceNumberAttributeNotFound
 	}
 
 	// return the sequenceNumber we found
@@ -159,7 +159,7 @@ func (snh *sequenceNumberHandler) getShardCommittedSequenceNumberAttributeName()
 	return fmt.Sprintf("__%s_committed_sequence_number", snh.streamConsumerGroup.name)
 }
 
-func (snh *sequenceNumberHandler) setShardSequenceNumberInPersistency(shardID int, sequenceNumber int) error {
+func (snh *sequenceNumberHandler) setShardSequenceNumberInPersistency(shardID int, sequenceNumber uint64) error {
 	snh.logger.DebugWith("Setting shard sequenceNumber in persistency", "shardID", shardID, "sequenceNumber", sequenceNumber)
 	shardPath, err := snh.streamConsumerGroup.getShardPath(shardID)
 	if err != nil {
@@ -195,7 +195,7 @@ func (snh *sequenceNumberHandler) markedShardSequenceNumbersCommitter(interval t
 }
 
 func (snh *sequenceNumberHandler) commitMarkedShardSequenceNumbers() error {
-	var markedShardSequenceNumbersCopy []int
+	var markedShardSequenceNumbersCopy []uint64
 
 	// create a copy of the marked shard sequenceNumbers
 	snh.markedShardSequenceNumbersLock.Lock()
@@ -203,7 +203,7 @@ func (snh *sequenceNumberHandler) commitMarkedShardSequenceNumbers() error {
 	snh.markedShardSequenceNumbersLock.Unlock()
 
 	// if there was no chance since last, do nothing
-	if common.IntSlicesEqual(snh.lastCommittedShardSequenceNumbers, markedShardSequenceNumbersCopy) {
+	if common.Uint64SlicesEqual(snh.lastCommittedShardSequenceNumbers, markedShardSequenceNumbersCopy) {
 		return nil
 	}
 

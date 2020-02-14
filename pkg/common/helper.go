@@ -113,6 +113,20 @@ func IntSlicesEqual(slice1 []int, slice2 []int) bool {
 	return true
 }
 
+func Uint64SlicesEqual(slice1 []uint64, slice2 []uint64) bool {
+	if len(slice1) != len(slice2) {
+		return false
+	}
+
+	for intIndex := 0; intIndex < len(slice1); intIndex++ {
+		if slice1[intIndex] != slice2[intIndex] {
+			return false
+		}
+	}
+
+	return true
+}
+
 func StringSlicesEqual(slice1 []string, slice2 []string) bool {
 	if len(slice1) != len(slice2) {
 		return false

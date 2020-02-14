@@ -607,7 +607,7 @@ func (c *context) SeekShardSync(seekShardInput *v3io.SeekShardInput) (*v3io.Resp
 
 	if seekShardInput.Type == v3io.SeekShardInputTypeSequence {
 		buffer.WriteString(`, "StartingSequenceNumber": `)
-		buffer.WriteString(strconv.Itoa(seekShardInput.StartingSequenceNumber))
+		buffer.WriteString(strconv.FormatUint(seekShardInput.StartingSequenceNumber, 10))
 	} else if seekShardInput.Type == v3io.SeekShardInputTypeTime {
 		buffer.WriteString(`, "TimestampSec": `)
 		buffer.WriteString(strconv.Itoa(seekShardInput.Timestamp))
@@ -991,6 +991,8 @@ func (c *context) encodeTypedAttributes(attributes map[string]interface{}) (map[
 			return nil, fmt.Errorf("unexpected attribute type for %s: %T", attributeName, reflect.TypeOf(attributeValue))
 		case int:
 			typedAttributes[attributeName]["N"] = strconv.Itoa(value)
+		case uint64:
+			typedAttributes[attributeName]["N"] = strconv.FormatUint(value, 10)
 		case int64:
 			typedAttributes[attributeName]["N"] = strconv.FormatInt(value, 10)
 			// this is a tmp bypass to the fact Go maps Json numbers to float64
