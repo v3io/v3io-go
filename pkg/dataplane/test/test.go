@@ -79,13 +79,19 @@ type StreamTestSuite struct { // nolint: deadcode
 	testPath string
 }
 
-func (suite *StreamTestSuite) SetupTest() {
+func (suite *StreamTestSuite) SetupSuite() {
+	suite.testSuite.SetupSuite()
 	suite.testPath = "/stream-test"
+}
+
+func (suite *StreamTestSuite) SetupTest() {
 	err := suite.deleteAllStreamsInPath(suite.testPath)
+
 	// get the underlying root error
 	if err != nil {
 		errWithStatusCode, errHasStatusCode := err.(v3ioerrors.ErrorWithStatusCode)
 		suite.Require().True(errHasStatusCode)
+
 		// File not found is OK
 		suite.Require().Equal(404, errWithStatusCode.StatusCode(), "Failed to setup test suite")
 	}
@@ -97,7 +103,6 @@ func (suite *StreamTestSuite) TearDownTest() {
 }
 
 func (suite *StreamTestSuite) deleteAllStreamsInPath(path string) error {
-
 	getContainerContentsInput := v3io.GetContainerContentsInput{
 		Path: path,
 	}

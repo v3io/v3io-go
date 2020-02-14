@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"path"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 )
 
 const stateContentsAttributeKey string = "state"
+var errNoFreeShardGroups = errors.New("No free shard groups")
 
 type stateHandler struct {
 	logger              logger.Logger
@@ -145,10 +147,13 @@ func (sh *stateHandler) createSessionState(state *State) error {
 		state.SessionStates = []*SessionState{}
 	}
 
-	shards, err := sh.assignShards(state)
+	// assign shards
+	shards, err := sh.assignShards(sh.streamConsumerGroup.maxReplicas, sh.streamConsumerGroup.totalNumShards, state)
 	if err != nil {
 		return errors.Wrap(err, "Failed resolving shards for session")
 	}
+
+	sh.logger.DebugWith("Assigned shards", "shards", shards)
 
 	state.SessionStates = append(state.SessionStates, &SessionState{
 		MemberID:      sh.streamConsumerGroup.memberID,
@@ -156,55 +161,83 @@ func (sh *stateHandler) createSessionState(state *State) error {
 		Shards:        shards,
 	})
 
-	sh.logger.DebugWith("Session state added to state", "shards", shards)
-
 	return nil
 }
 
-func (sh *stateHandler) assignShards(state *State) ([]int, error) {
-	numberOfShardsPerReplica, err := sh.getNumberOfShardsPerReplica(sh.streamConsumerGroup.totalNumShards, sh.streamConsumerGroup.maxReplicas)
+func (sh *stateHandler) assignShards(maxReplicas int, numShards int, state *State) ([]int, error) {
+
+	// per replica index, holds which shards it should handle
+	replicaShardGroups, err := sh.getReplicaShardGroups(maxReplicas, numShards)
 	if err != nil {
-		return nil, errors.Wrap(err, "Failed resolving max number of shards per session")
+		return nil, errors.Wrap(err, "Failed to get replica shard group")
 	}
 
-	shardIDs := common.MakeRange(0, sh.streamConsumerGroup.totalNumShards-1)
-	shardsToAssign := make([]int, 0)
-	for _, shardID := range shardIDs {
-		found := false
-		for _, session := range state.SessionStates {
-			if common.IntSliceContainsInt(session.Shards, shardID) {
-				found = true
+	// empty shard groups are not unique - therefore simply check whether the number of
+	// empty shard groups allocated to sessions is equal to the number of empty shard groups
+	// required. if not, allocate an empty shard group
+	if sh.getAssignEmptyShardGroup(replicaShardGroups, state) {
+		return []int{}, nil
+	}
+
+	// simply look for the first non-assigned replica shard group which isn't empty
+	for _, replicaShardGroup := range replicaShardGroups {
+
+		// we already checked if we need to allocate an empty shard group
+		if len(replicaShardGroup) == 0 {
+			continue
+		}
+
+		foundReplicaShardGroup := false
+
+		for _, sessionState := range state.SessionStates {
+			if common.IntSlicesEqual(replicaShardGroup, sessionState.Shards) {
+				foundReplicaShardGroup = true
 				break
 			}
 		}
-		if found {
 
-			// sanity - it gets inside when there was unassigned shard but an assigned shard found filling the shards
-			// list for the session or reaching end of shards list
-			if len(shardsToAssign) > 0 {
-				return nil, errors.New("Shards assignment out of order")
-			}
-			continue
-		}
-		shardsToAssign = append(shardsToAssign, shardID)
-		if len(shardsToAssign) == numberOfShardsPerReplica {
-			return shardsToAssign, nil
+		if !foundReplicaShardGroup {
+			return replicaShardGroup, nil
 		}
 	}
 
-	if len(shardsToAssign) == 0 {
-		sh.logger.DebugWith("All shards assigned")
-		// TODO: decide what to do
-	}
-
-	return shardsToAssign, nil
+	return nil, errNoFreeShardGroups
 }
 
-func (sh *stateHandler) getNumberOfShardsPerReplica(numberOfShards int, maxReplicas int) (int, error) {
-	if numberOfShards%maxReplicas != 0 {
-		return numberOfShards/maxReplicas + 1, nil
+func (sh *stateHandler) getReplicaShardGroups(maxReplicas int, numShards int) ([][]int, error) {
+	var replicaShardGroups [][]int
+	shards := common.MakeRange(0, numShards)
+
+	step := float64(numShards) / float64(maxReplicas)
+
+	for replicaIndex := 0; replicaIndex < maxReplicas; replicaIndex++ {
+		replicaIndexFloat := float64(replicaIndex)
+		startShard := int(math.Floor(replicaIndexFloat*step + 0.5))
+		endShard := int(math.Floor((replicaIndexFloat+1)*step + 0.5))
+
+		replicaShardGroups = append(replicaShardGroups, shards[startShard:endShard])
 	}
-	return numberOfShards / maxReplicas, nil
+
+	return replicaShardGroups, nil
+}
+
+func (sh *stateHandler) getAssignEmptyShardGroup(replicaShardGroups [][]int, state *State) bool {
+	numEmptyShardGroupRequired := 0
+	for _, replicaShardGroup := range replicaShardGroups {
+		if len(replicaShardGroup) == 0 {
+			numEmptyShardGroupRequired++
+		}
+	}
+
+	numEmptyShardGroupAssigned := 0
+	for _, sessionState := range state.SessionStates {
+		if len(sessionState.Shards) == 0 {
+			numEmptyShardGroupAssigned++
+		}
+	}
+
+	return numEmptyShardGroupRequired != numEmptyShardGroupAssigned
+
 }
 
 func (sh *stateHandler) modifyState(modifier stateModifier) (*State, error) {

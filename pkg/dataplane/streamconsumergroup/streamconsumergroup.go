@@ -41,7 +41,7 @@ func NewStreamConsumerGroup(name string,
 	newStreamConsumerGroup := streamConsumerGroup{
 		name:        name,
 		memberID:    memberID,
-		logger:      parentLogger.GetChild(fmt.Sprintf("streamConsumerGroup-%s", name)),
+		logger:      parentLogger.GetChild(fmt.Sprintf("%s-%s", name, memberID)),
 		config:      config,
 		streamPath:  streamPath,
 		maxReplicas: maxReplicas,
@@ -80,7 +80,7 @@ func NewStreamConsumerGroup(name string,
 }
 
 func (scg *streamConsumerGroup) Consume(handler Handler) error {
-	scg.logger.DebugWith("Member requesting to consume")
+	scg.logger.DebugWith("Starting consumption of consumer group")
 
 	scg.handler = handler
 

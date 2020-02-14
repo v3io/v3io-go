@@ -109,3 +109,17 @@ func IntSliceContainsInt(slice []int, number int) bool {
 
 	return false
 }
+
+func IntSlicesEqual(slice1 []int, slice2 []int) bool {
+	if len(slice1) != len(slice2) {
+		return false
+	}
+
+	for intIndex := 0; intIndex < len(slice1); intIndex++ {
+		if slice1[intIndex] != slice2[intIndex] {
+			return false
+		}
+	}
+
+	return true
+}

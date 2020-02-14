@@ -39,7 +39,7 @@ func (c *claim) Start() error {
 		c.streamConsumerGroup.config.Claim.RecordBatchFetch.Interval)
 
 	// tell the consumer group handler to consume the claim
-	c.logger.DebugWith("Triggering given handler ConsumeClaim")
+	c.logger.DebugWith("Calling ConsumeClaim on handler")
 	return c.streamConsumerGroup.handler.ConsumeClaim(c.streamConsumerGroup.session, c)
 }
 
@@ -84,6 +84,7 @@ func (c *claim) fetchRecordBatches(stopChannel chan struct{}, fetchInterval time
 			}
 
 		case <-stopChannel:
+			close(c.recordBatchChan)
 			return nil
 		}
 	}
@@ -125,6 +126,7 @@ func (c *claim) fetchRecordBatch(location string) (string, error) {
 	}
 
 	recordBatch := RecordBatch{
+		Location:     location,
 		Records:      records,
 		NextLocation: getRecordsOutput.NextLocation,
 		ShardID:      c.shardID,

@@ -31,6 +31,7 @@ type Handler interface {
 
 type RecordBatch struct {
 	Records      []v3io.StreamRecord
+	Location     string
 	NextLocation string
 	ShardID      int
 }

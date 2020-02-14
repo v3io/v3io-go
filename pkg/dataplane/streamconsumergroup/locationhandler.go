@@ -167,7 +167,7 @@ func (lh *locationHandler) markedShardLocationsCommitter(interval time.Duration,
 		select {
 		case <-time.After(interval):
 			if err := lh.commitMarkedShardLocations(); err != nil {
-				lh.logger.WarnWith("Failed committing cache", "err", errors.GetErrorStackString(err, 10))
+				lh.logger.WarnWith("Failed committing marked shard locations", "err", errors.GetErrorStackString(err, 10))
 				continue
 			}
 		case <-stopChan:
