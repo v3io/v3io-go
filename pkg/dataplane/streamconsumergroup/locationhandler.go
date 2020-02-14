@@ -2,11 +2,11 @@ package streamconsumergroup
 
 import (
 	"fmt"
-	"github.com/v3io/v3io-go/pkg/common"
 	"net/http"
 	"sync"
 	"time"
 
+	"github.com/v3io/v3io-go/pkg/common"
 	"github.com/v3io/v3io-go/pkg/dataplane"
 	"github.com/v3io/v3io-go/pkg/errors"
 
@@ -23,7 +23,7 @@ type locationHandler struct {
 	markedShardLocations                 []string
 	markedShardLocationsLock             sync.RWMutex
 	stopMarkedShardLocationCommitterChan chan struct{}
-	lastCommittedShardLocations []string
+	lastCommittedShardLocations          []string
 }
 
 func newLocationHandler(streamConsumerGroup *streamConsumerGroup) (*locationHandler, error) {
@@ -32,14 +32,15 @@ func newLocationHandler(streamConsumerGroup *streamConsumerGroup) (*locationHand
 		logger:                               streamConsumerGroup.logger.GetChild("locationHandler"),
 		streamConsumerGroup:                  streamConsumerGroup,
 		markedShardLocations:                 make([]string, streamConsumerGroup.totalNumShards),
-		stopMarkedShardLocationCommitterChan: make(chan struct{}),
+		stopMarkedShardLocationCommitterChan: make(chan struct{}, 1),
 	}, nil
 }
 
 func (lh *locationHandler) start() error {
 	lh.logger.DebugWith("Starting location handler")
 
-	go lh.markedShardLocationsCommitter(lh.streamConsumerGroup.config.Location.CommitCache.Interval,
+	// stopped on stop()
+	go lh.markedShardLocationsCommitter(lh.streamConsumerGroup.config.Location.Commit.Interval,
 		lh.stopMarkedShardLocationCommitterChan)
 
 	return nil
@@ -47,12 +48,16 @@ func (lh *locationHandler) start() error {
 
 func (lh *locationHandler) stop() error {
 	lh.logger.DebugWith("Stopping location handler")
-	lh.stopMarkedShardLocationCommitterChan <- struct{}{}
+
+	select {
+	case lh.stopMarkedShardLocationCommitterChan <- struct{}{}:
+	default:
+	}
+
 	return nil
 }
 
 func (lh *locationHandler) markShardLocation(shardID int, location string) error {
-	lh.logger.DebugWith("Marking location", "shardID", shardID, "location", location)
 
 	// lock semantics are reverse - it's OK to write in parallel since each write goes
 	// to a different cell in the array, but once a read is happening we need to stop the world
@@ -174,6 +179,11 @@ func (lh *locationHandler) markedShardLocationsCommitter(interval time.Duration,
 			}
 		case <-stopChan:
 			lh.logger.Debug("Stopped committing marked shard locations")
+
+			// do the last commit
+			if err := lh.commitMarkedShardLocations(); err != nil {
+				lh.logger.WarnWith("Failed committing marked shard locations on stop", "err", errors.GetErrorStackString(err, 10))
+			}
 			return
 		}
 	}
@@ -184,12 +194,10 @@ func (lh *locationHandler) commitMarkedShardLocations() error {
 
 	// create a copy of the marked shard locations
 	lh.markedShardLocationsLock.Lock()
-	for _, markedShardLocation := range lh.markedShardLocations {
-		markedShardLocationsCopy = append(markedShardLocationsCopy, markedShardLocation)
-	}
+	markedShardLocationsCopy = append(markedShardLocationsCopy, lh.markedShardLocations...)
 	lh.markedShardLocationsLock.Unlock()
 
-	//
+	// if there was no chance since last, do nothing
 	if common.StringSlicesEqual(lh.lastCommittedShardLocations, markedShardLocationsCopy) {
 		return nil
 	}

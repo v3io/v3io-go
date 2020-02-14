@@ -2,12 +2,12 @@ package streamconsumergroup
 
 import (
 	"fmt"
-	v3ioerrors "github.com/v3io/v3io-go/pkg/errors"
 	"path"
 	"strconv"
 	"time"
 
 	"github.com/v3io/v3io-go/pkg/dataplane"
+	v3ioerrors "github.com/v3io/v3io-go/pkg/errors"
 
 	"github.com/nuclio/errors"
 	"github.com/nuclio/logger"
@@ -28,11 +28,11 @@ func newClaim(streamConsumerGroup *streamConsumerGroup, shardID int) (*claim, er
 		streamConsumerGroup:      streamConsumerGroup,
 		shardID:                  shardID,
 		recordBatchChan:          make(chan *RecordBatch, streamConsumerGroup.config.Claim.RecordBatchChanSize),
-		stopRecordBatchFetchChan: make(chan struct{}),
+		stopRecordBatchFetchChan: make(chan struct{}, 1),
 	}, nil
 }
 
-func (c *claim) Start() error {
+func (c *claim) start() error {
 	c.logger.DebugWith("Starting claim")
 
 	go func() {
@@ -48,9 +48,11 @@ func (c *claim) Start() error {
 
 		// tell the consumer group handler to consume the claim
 		c.logger.DebugWith("Calling ConsumeClaim on handler")
-		c.streamConsumerGroup.handler.ConsumeClaim(c.streamConsumerGroup.session, c)
+		if err := c.streamConsumerGroup.handler.ConsumeClaim(c.streamConsumerGroup.session, c); err != nil {
+			c.logger.WarnWith("ConsumeClaim returned with error", "err", errors.GetErrorStackString(err, 10))
+		}
 
-		if err := c.Stop(); err != nil {
+		if err := c.stop(); err != nil {
 			c.logger.WarnWith("Failed to stop claim after consumption", "err", errors.GetErrorStackString(err, 10))
 		}
 	}()
@@ -58,13 +60,13 @@ func (c *claim) Start() error {
 	return nil
 }
 
-func (c *claim) Stop() error {
+func (c *claim) stop() error {
 	c.logger.DebugWith("Stopping claim")
 
 	// don't block
 	select {
-		case c.stopRecordBatchFetchChan <- struct{}{}:
-		default:
+	case c.stopRecordBatchFetchChan <- struct{}{}:
+	default:
 	}
 
 	return nil
@@ -92,6 +94,10 @@ func (c *claim) fetchRecordBatches(stopChannel chan struct{}, fetchInterval time
 	// read initial location. use config if error. might need to wait until shard actually exists
 	c.currentShardLocation, err = c.getCurrentShardLocation(c.shardID)
 	if err != nil {
+		if err == v3ioerrors.ErrStopped {
+			return nil
+		}
+
 		return errors.Wrap(err, "Failed to get shard location")
 	}
 
@@ -106,14 +112,13 @@ func (c *claim) fetchRecordBatches(stopChannel chan struct{}, fetchInterval time
 
 		case <-stopChannel:
 			close(c.recordBatchChan)
+			c.logger.Debug("Stopping fetch")
 			return nil
 		}
 	}
 }
 
 func (c *claim) fetchRecordBatch(location string) (string, error) {
-	c.logger.DebugWith("Fetching record batch", "location", location)
-
 	getRecordsInput := v3io.GetRecordsInput{
 		Path:     path.Join(c.streamConsumerGroup.streamPath, strconv.Itoa(c.shardID)),
 		Location: location,
@@ -163,7 +168,7 @@ func (c *claim) getCurrentShardLocation(shardID int) (string, error) {
 
 	// get the location from persistency
 	currentShardLocation, err := c.streamConsumerGroup.locationHandler.getShardLocationFromPersistency(shardID)
-	if errors.RootCause(err) != errShardNotFound {
+	if err != nil && errors.RootCause(err) != errShardNotFound {
 		return "", errors.Wrap(err, "Failed to get shard location")
 	}
 

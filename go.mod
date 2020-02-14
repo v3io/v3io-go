@@ -12,6 +12,7 @@ require (
 	github.com/pavius/zap v1.4.2-0.20180228181622-8d52692529b8 // indirect
 	github.com/philhofer/fwd v1.0.0 // indirect
 	github.com/pkg/errors v0.8.1 // indirect
+	github.com/rs/xid v1.1.0
 	github.com/stretchr/testify v1.3.0
 	github.com/tinylib/msgp v1.1.1 // indirect
 	github.com/valyala/fasthttp v1.2.0

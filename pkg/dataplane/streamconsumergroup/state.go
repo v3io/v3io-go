@@ -12,6 +12,17 @@ func newState() (*State, error) {
 	}, nil
 }
 
+func (s *State) deepCopy() *State {
+	stateCopy := State{}
+	stateCopy.SchemasVersion = s.SchemasVersion
+	for _, stateSession := range s.SessionStates {
+		stateSessionCopy := stateSession
+		stateCopy.SessionStates = append(stateCopy.SessionStates, stateSessionCopy)
+	}
+
+	return &stateCopy
+}
+
 func (s *State) findSessionStateByMemberID(memberID string) *SessionState {
 	for _, sessionState := range s.SessionStates {
 		if sessionState.MemberID == memberID {

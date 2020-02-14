@@ -17,6 +17,7 @@ import (
 )
 
 const stateContentsAttributeKey string = "state"
+
 var errNoFreeShardGroups = errors.New("No free shard groups")
 
 type stateHandler struct {
@@ -30,19 +31,26 @@ func newStateHandler(streamConsumerGroup *streamConsumerGroup) (*stateHandler, e
 	return &stateHandler{
 		logger:              streamConsumerGroup.logger.GetChild("stateHandler"),
 		streamConsumerGroup: streamConsumerGroup,
-		stopChan:            make(chan struct{}),
+		stopChan:            make(chan struct{}, 1),
 		getStateChan:        make(chan chan *State),
 	}, nil
 }
 
 func (sh *stateHandler) start() error {
+
+	// stops on stop()
 	go sh.refreshStatePeriodically()
 
 	return nil
 }
 
 func (sh *stateHandler) stop() error {
-	sh.stopChan <- struct{}{}
+
+	select {
+	case sh.stopChan <- struct{}{}:
+	default:
+	}
+
 	return nil
 }
 
@@ -107,7 +115,6 @@ func (sh *stateHandler) refreshStatePeriodically() {
 		case <-sh.stopChan:
 			sh.logger.Debug("Stopping")
 			return
-
 		}
 	}
 }
@@ -165,7 +172,6 @@ func (sh *stateHandler) createSessionState(state *State) error {
 }
 
 func (sh *stateHandler) assignShards(maxReplicas int, numShards int, state *State) ([]int, error) {
-
 
 	// per replica index, holds which shards it should handle
 	replicaShardGroups, err := sh.getReplicaShardGroups(maxReplicas, numShards)
@@ -260,13 +266,16 @@ func (sh *stateHandler) modifyState(modifier stateModifier) (*State, error) {
 			}
 		}
 
+		// for logging
+		previousState := state.deepCopy()
+
 		modifiedState, err = modifier(state)
 		if err != nil {
 			return true, errors.Wrap(err, "Failed modifying state")
 		}
 
 		sh.logger.DebugWith("Modified state, saving",
-			"previousState", state,
+			"previousState", previousState,
 			"modifiedState", modifiedState)
 
 		err = sh.setStateInPersistency(modifiedState, mtime)
@@ -376,6 +385,10 @@ func (sh *stateHandler) removeStaleSessionStates(state *State) error {
 		// check if the last heartbeat happened prior to the session timeout
 		if time.Since(sessionState.LastHeartbeat) < sh.streamConsumerGroup.config.Session.Timeout {
 			activeSessionStates = append(activeSessionStates, sessionState)
+		} else {
+			sh.logger.DebugWith("Removing stale member",
+				"memberID", sessionState.MemberID,
+				"lastHeartbeat", time.Since(sessionState.LastHeartbeat))
 		}
 	}
 

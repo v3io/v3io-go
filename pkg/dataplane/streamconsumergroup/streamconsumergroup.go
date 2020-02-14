@@ -5,9 +5,11 @@ import (
 	"path"
 	"strconv"
 
+	"github.com/v3io/v3io-go/pkg/dataplane"
+
 	"github.com/nuclio/errors"
 	"github.com/nuclio/logger"
-	"github.com/v3io/v3io-go/pkg/dataplane"
+	"github.com/rs/xid"
 )
 
 type streamConsumerGroup struct {
@@ -26,13 +28,16 @@ type streamConsumerGroup struct {
 }
 
 func NewStreamConsumerGroup(name string,
-	memberID string,
+	memberName string,
 	parentLogger logger.Logger,
 	config *Config,
 	streamPath string,
 	maxReplicas int,
 	container v3io.Container) (StreamConsumerGroup, error) {
 	var err error
+
+	// add uniqueness
+	memberID := fmt.Sprintf("%s-%s", memberName, xid.New().String())
 
 	if config == nil {
 		config = NewConfig()
@@ -97,7 +102,7 @@ func (scg *streamConsumerGroup) Consume(handler Handler) error {
 	}
 
 	// start it
-	return scg.session.Start()
+	return scg.session.start()
 }
 
 func (scg *streamConsumerGroup) Close() error {
@@ -111,7 +116,7 @@ func (scg *streamConsumerGroup) Close() error {
 	}
 
 	if scg.session != nil {
-		if err := scg.session.Stop(); err != nil {
+		if err := scg.session.stop(); err != nil {
 			return errors.Wrap(err, "Failed stopping member session")
 		}
 	}

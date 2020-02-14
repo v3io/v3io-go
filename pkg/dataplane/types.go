@@ -125,20 +125,22 @@ func mode(v3ioFileMode FileMode) (os.FileMode, error) {
 	// For example Scan API returns file mode as decimal number (base 10) while ListDir as Octal (base 8)
 	var sFileMode = string(v3ioFileMode)
 	if strings.HasPrefix(sFileMode, "0") {
+
 		// Convert octal representation of V3IO into decimal representation of Go
-		if mode, err := strconv.ParseUint(sFileMode, 8, 32); err != nil {
-			return os.FileMode(S_IFMT), err
-		} else {
-			golangFileMode := ((mode & S_IFMT) << 17) | (mode & IP_OFFMASK)
-			return os.FileMode(golangFileMode), nil
-		}
-	} else {
-		mode, err := strconv.ParseUint(sFileMode, 10, 32)
+		mode, err := strconv.ParseUint(sFileMode, 8, 32)
 		if err != nil {
 			return os.FileMode(S_IFMT), err
 		}
-		return os.FileMode(mode), nil
+
+		golangFileMode := ((mode & S_IFMT) << 17) | (mode & IP_OFFMASK)
+		return os.FileMode(golangFileMode), nil
 	}
+
+	mode, err := strconv.ParseUint(sFileMode, 10, 32)
+	if err != nil {
+		return os.FileMode(S_IFMT), err
+	}
+	return os.FileMode(mode), nil
 }
 
 type GetContainerContentsOutput struct {
@@ -254,7 +256,7 @@ type GetItemsInput struct {
 	TotalSegments       int
 	SortKeyRangeStart   string
 	SortKeyRangeEnd     string
-	RequestJsonResponse bool
+	RequestJSONResponse bool `json:"RequestJsonResponse"`
 }
 
 type GetItemsOutput struct {

@@ -42,20 +42,20 @@ type StreamConsumerGroup interface {
 }
 
 type Session interface {
-	Start() error
-	Stop() error
-
 	GetClaims() []Claim
 	GetMemberID() string
 	MarkRecordBatch(*RecordBatch) error
+
+	start() error
+	stop() error
 }
 
 type Claim interface {
-	Start() error
-	Stop() error
-
 	GetStreamPath() string
 	GetShardID() int
 	GetCurrentLocation() string
 	GetRecordBatchChan() <-chan *RecordBatch
+
+	start() error
+	stop() error
 }

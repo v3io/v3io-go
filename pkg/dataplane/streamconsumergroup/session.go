@@ -21,11 +21,10 @@ func newSession(streamConsumerGroup *streamConsumerGroup,
 		logger:              streamConsumerGroup.logger.GetChild(fmt.Sprintf("session")),
 		streamConsumerGroup: streamConsumerGroup,
 		state:               sessionState,
-		claims:              make([]Claim, 0),
 	}, nil
 }
 
-func (s *session) Start() error {
+func (s *session) start() error {
 	s.logger.DebugWith("Starting session")
 
 	// for each shard we need handle, create a StreamConsumerGroupClaim object and start it
@@ -47,7 +46,7 @@ func (s *session) Start() error {
 
 	s.logger.DebugWith("Starting claim consumption")
 	for _, claim := range s.claims {
-		if err := claim.Start(); err != nil {
+		if err := claim.start(); err != nil {
 			return errors.Wrap(err, "Failed starting stream consumer group claim")
 		}
 	}
@@ -55,7 +54,7 @@ func (s *session) Start() error {
 	return nil
 }
 
-func (s *session) Stop() error {
+func (s *session) stop() error {
 	s.logger.DebugWith("Stopping session, triggering given handler cleanup")
 
 	// tell the consumer group handler to set up
@@ -66,7 +65,7 @@ func (s *session) Stop() error {
 	s.logger.DebugWith("Stopping claims")
 
 	for _, claim := range s.claims {
-		err := claim.Stop()
+		err := claim.stop()
 		if err != nil {
 			return errors.Wrap(err, "Failed starting stream consumer group claim")
 		}
@@ -84,7 +83,6 @@ func (s *session) GetMemberID() string {
 }
 
 func (s *session) MarkRecordBatch(recordBatch *RecordBatch) error {
-	s.logger.DebugWith("Marking record batch as consumed")
 	err := s.streamConsumerGroup.locationHandler.markShardLocation(recordBatch.ShardID, recordBatch.NextLocation)
 	if err != nil {
 		return errors.Wrap(err, "Failed marking record batch as consumed")

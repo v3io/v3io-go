@@ -3,13 +3,15 @@ package test
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/nuclio/logger"
-	"github.com/stretchr/testify/suite"
-	v3io "github.com/v3io/v3io-go/pkg/dataplane"
-	"github.com/v3io/v3io-go/pkg/dataplane/streamconsumergroup"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	v3io "github.com/v3io/v3io-go/pkg/dataplane"
+	"github.com/v3io/v3io-go/pkg/dataplane/streamconsumergroup"
+
+	"github.com/nuclio/logger"
+	"github.com/stretchr/testify/suite"
 )
 
 type recordData struct {
@@ -28,7 +30,7 @@ func (suite *streamConsumerGroupTestSuite) SetupSuite() {
 	suite.streamPath = fmt.Sprintf("%s/test-stream-0/", suite.testPath)
 }
 
-func (suite *streamConsumerGroupTestSuite) TestShardsAssignment() {
+func (suite *streamConsumerGroupTestSuite) TestLocationHandling() {
 	consumerGroupName := "cg0"
 	numShards := 8
 
@@ -55,14 +57,33 @@ func (suite *streamConsumerGroupTestSuite) TestShardsAssignment() {
 
 	// wait a bit for things to happen - the members should read data from the shards up to the amount they were
 	// told to read, verifying that each message is in order and the expected
-	time.Sleep(30 * time.Second)
+	time.Sleep(15 * time.Second)
 
 	memberGroup.verifyClaimShards(numShards, []int{4})
-	memberGroup.verifyNumActiveClaimConsumptions(numShards)
-	memberGroup.verifyNumRecordsConsumed([]int{0, 0, 0, 0, 0, 0, 0, 0})
+	memberGroup.verifyNumActiveClaimConsumptions(0)
+	memberGroup.verifyNumRecordsConsumed([]int{5, 10, 10, 10, 15, 10, 10, 20})
 
 	// stop the group
 	memberGroup.stop()
+	time.Sleep(3 * time.Second)
+
+	memberGroup = newMemberGroup(suite,
+		consumerGroupName,
+		4,
+		numShards,
+		4,
+		[]int{5, 10, 10, 10, 15, 10, 10, 20},
+		[]int{50, 50, 50, 50, 50, 50, 50, 50})
+
+	// wait a bit for things to happen
+	time.Sleep(30 * time.Second)
+
+	memberGroup.verifyClaimShards(numShards, []int{2})
+	memberGroup.verifyNumActiveClaimConsumptions(8)
+	memberGroup.verifyNumRecordsConsumed([]int{25, 20, 20, 20, 15, 20, 20, 10})
+
+	memberGroup.stop()
+	time.Sleep(3 * time.Second)
 }
 
 func (suite *streamConsumerGroupTestSuite) createStream(streamPath string, numShards int) {
@@ -121,8 +142,8 @@ func (suite *streamConsumerGroupTestSuite) writeRecords(numRecordsPerShard []int
 //
 
 type memberGroup struct {
-	suite   *streamConsumerGroupTestSuite
-	members []*member
+	suite                   *streamConsumerGroupTestSuite
+	members                 []*member
 	numberOfRecordsConsumed []int
 }
 
@@ -134,23 +155,34 @@ func newMemberGroup(suite *streamConsumerGroupTestSuite,
 	expectedInitialRecordIndex []int,
 	numberOfRecordToConsume []int) *memberGroup {
 	newMemberGroup := memberGroup{
-		suite: suite,
+		suite:                   suite,
 		numberOfRecordsConsumed: make([]int, numShards),
 	}
 
-	for memberIdx := 0; memberIdx < numMembers; memberIdx++ {
+	memberChan := make(chan *member, numMembers)
 
-		// create a member
-		newMemberGroup.members = append(newMemberGroup.members, newMember(suite,
-			consumerGroupName,
-			maxNumMembers,
-			numShards,
-			memberIdx,
-			newMemberGroup.numberOfRecordsConsumed))
+	for memberIdx := 0; memberIdx < numMembers; memberIdx++ {
+		go func() {
+			memberInstance := newMember(suite,
+				consumerGroupName,
+				maxNumMembers,
+				numShards,
+				memberIdx,
+				newMemberGroup.numberOfRecordsConsumed)
+
+			// start
+			memberInstance.start(expectedInitialRecordIndex, numberOfRecordToConsume)
+
+			// shove to member chan
+			memberChan <- memberInstance
+		}()
 	}
 
-	for _, member := range newMemberGroup.members {
-		member.startConsuming(expectedInitialRecordIndex, numberOfRecordToConsume)
+	for memberInstance := range memberChan {
+		newMemberGroup.members = append(newMemberGroup.members, memberInstance)
+		if len(newMemberGroup.members) >= numMembers {
+			break
+		}
 	}
 
 	return &newMemberGroup
@@ -190,7 +222,11 @@ func (mg *memberGroup) verifyNumRecordsConsumed(expectedNumRecordsConsumed []int
 }
 
 func (mg *memberGroup) stop() {
+	for _, member := range mg.members {
+		member.stop()
+	}
 
+	mg.suite.logger.Info("Member group stopped")
 }
 
 //
@@ -218,13 +254,14 @@ func newMember(suite *streamConsumerGroupTestSuite,
 	id := fmt.Sprintf("m%d", index)
 
 	streamConsumerGroupConfig := streamconsumergroup.NewConfig()
-	streamConsumerGroupConfig.Claim.RecordBatchFetch.NumRecordsInBatch = 30
+	streamConsumerGroupConfig.Claim.RecordBatchFetch.NumRecordsInBatch = 1
+	streamConsumerGroupConfig.Claim.RecordBatchFetch.Interval = 50 * time.Millisecond
 
 	streamConsumerGroup, err := streamconsumergroup.NewStreamConsumerGroup(
 		consumerGroupName,
 		id,
 		suite.logger,
-		nil,
+		streamConsumerGroupConfig,
 		suite.streamPath,
 		maxNumMembers,
 		suite.container)
@@ -237,7 +274,7 @@ func newMember(suite *streamConsumerGroupTestSuite,
 		streamConsumerGroup:      streamConsumerGroup,
 		expectedStartRecordIndex: make([]int, numShards),
 		numberOfRecordToConsume:  make([]int, numShards),
-		numberOfRecordsConsumed: numberOfRecordsConsumed,
+		numberOfRecordsConsumed:  numberOfRecordsConsumed,
 	}
 }
 
@@ -291,6 +328,9 @@ func (m *member) ConsumeClaim(session streamconsumergroup.Session, claim streamc
 			m.numberOfRecordsConsumed[claim.GetShardID()]++
 
 			if m.numberOfRecordsConsumed[claim.GetShardID()] >= m.numberOfRecordToConsume[claim.GetShardID()] {
+				err := session.MarkRecordBatch(recordBatch)
+				m.suite.Require().NoError(err)
+
 				return nil
 			}
 		}
@@ -302,12 +342,17 @@ func (m *member) ConsumeClaim(session streamconsumergroup.Session, claim streamc
 	return nil
 }
 
-func (m *member) startConsuming(expectedStartRecordIndex []int, numberOfRecordToConsume []int) {
+func (m *member) start(expectedStartRecordIndex []int, numberOfRecordToConsume []int) {
 	m.expectedStartRecordIndex = expectedStartRecordIndex
 	m.numberOfRecordToConsume = numberOfRecordToConsume
 
 	// start consuming
 	err := m.streamConsumerGroup.Consume(m)
+	m.suite.Require().NoError(err)
+}
+
+func (m *member) stop() {
+	err := m.streamConsumerGroup.Close()
 	m.suite.Require().NoError(err)
 }
 

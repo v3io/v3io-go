@@ -51,17 +51,6 @@ func RetryFunc(ctx context.Context,
 			return ctx.Err()
 		}
 
-		// not final attempt
-		if attempt < attempts {
-
-			// don't over log, no output
-			loggerInstance.DebugWithCtx(ctx,
-				"Failed an attempt to invoke function",
-				"function", getFunctionName(fn),
-				"err", err,
-				"attempt", attempt)
-		}
-
 		if backoff != nil {
 			time.Sleep(backoff.Duration())
 		} else {

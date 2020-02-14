@@ -21,7 +21,7 @@ type Config struct {
 		}
 	}
 	Location struct {
-		CommitCache struct {
+		Commit struct {
 			Interval time.Duration
 		}
 	}
@@ -38,16 +38,17 @@ type Config struct {
 // NewConfig returns a new configuration instance with sane defaults.
 func NewConfig() *Config {
 	c := &Config{}
-	c.Session.Timeout = 30 * time.Second
-	c.State.ModifyRetry.Attempts = 5
+	c.Session.Timeout = 10 * time.Second
+	c.State.ModifyRetry.Attempts = 100
 	c.State.ModifyRetry.Backoff = common.Backoff{
-		Min: 50 * time.Millisecond,
-		Max: 1 * time.Second,
+		Min:    50 * time.Millisecond,
+		Max:    1 * time.Second,
+		Factor: 4,
 	}
 	c.State.Heartbeat.Interval = 3 * time.Second
-	c.Location.CommitCache.Interval = 10 * time.Second
+	c.Location.Commit.Interval = 10 * time.Second
 	c.Claim.RecordBatchChanSize = 100
-	c.Claim.RecordBatchFetch.Interval = 3 * time.Second
+	c.Claim.RecordBatchFetch.Interval = 250 * time.Millisecond
 	c.Claim.RecordBatchFetch.NumRecordsInBatch = 10
 	c.Claim.RecordBatchFetch.InitialLocation = v3io.SeekShardInputTypeEarliest
 
