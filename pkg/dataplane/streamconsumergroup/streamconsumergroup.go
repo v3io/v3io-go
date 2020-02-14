@@ -13,18 +13,18 @@ import (
 )
 
 type streamConsumerGroup struct {
-	name            string
-	memberID        string
-	logger          logger.Logger
-	config          *Config
-	streamPath      string
-	maxReplicas     int
-	stateHandler    *stateHandler
-	locationHandler *locationHandler
-	container       v3io.Container
-	handler         Handler
-	session         Session
-	totalNumShards  int
+	name                  string
+	memberID              string
+	logger                logger.Logger
+	config                *Config
+	streamPath            string
+	maxReplicas           int
+	stateHandler          *stateHandler
+	sequenceNumberHandler *sequenceNumberHandler
+	container             v3io.Container
+	handler               Handler
+	session               Session
+	totalNumShards        int
 }
 
 func NewStreamConsumerGroup(name string,
@@ -71,12 +71,12 @@ func NewStreamConsumerGroup(name string,
 	}
 
 	// create & start an location handler for the stream
-	newStreamConsumerGroup.locationHandler, err = newLocationHandler(&newStreamConsumerGroup)
+	newStreamConsumerGroup.sequenceNumberHandler, err = newSequenceNumberHandler(&newStreamConsumerGroup)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed creating stream consumer group location handler")
 	}
 
-	err = newStreamConsumerGroup.locationHandler.start()
+	err = newStreamConsumerGroup.sequenceNumberHandler.start()
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed starting stream consumer group state handler")
 	}
@@ -111,7 +111,7 @@ func (scg *streamConsumerGroup) Close() error {
 	if err := scg.stateHandler.stop(); err != nil {
 		return errors.Wrapf(err, "Failed stopping state handler")
 	}
-	if err := scg.locationHandler.stop(); err != nil {
+	if err := scg.sequenceNumberHandler.stop(); err != nil {
 		return errors.Wrapf(err, "Failed stopping location handler")
 	}
 

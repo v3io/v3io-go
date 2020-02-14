@@ -142,10 +142,11 @@ func (c *claim) fetchRecordBatch(location string) (string, error) {
 
 	for receivedRecordIndex, receivedRecord := range getRecordsOutput.Records {
 		record := v3io.StreamRecord{
-			ShardID:      &c.shardID,
-			Data:         receivedRecord.Data,
-			ClientInfo:   receivedRecord.ClientInfo,
-			PartitionKey: receivedRecord.PartitionKey,
+			ShardID:        &c.shardID,
+			Data:           receivedRecord.Data,
+			ClientInfo:     receivedRecord.ClientInfo,
+			PartitionKey:   receivedRecord.PartitionKey,
+			SequenceNumber: receivedRecord.SequenceNumber,
 		}
 
 		records[receivedRecordIndex] = record
@@ -167,7 +168,7 @@ func (c *claim) fetchRecordBatch(location string) (string, error) {
 func (c *claim) getCurrentShardLocation(shardID int) (string, error) {
 
 	// get the location from persistency
-	currentShardLocation, err := c.streamConsumerGroup.locationHandler.getShardLocationFromPersistency(shardID)
+	currentShardLocation, err := c.streamConsumerGroup.sequenceNumberHandler.getShardLocationFromPersistency(shardID)
 	if err != nil && errors.RootCause(err) != errShardNotFound {
 		return "", errors.Wrap(err, "Failed to get shard location")
 	}
@@ -181,7 +182,7 @@ func (c *claim) getCurrentShardLocation(shardID int) (string, error) {
 			case <-time.After(1 * time.Second):
 
 				// get the location from persistency
-				currentShardLocation, err = c.streamConsumerGroup.locationHandler.getShardLocationFromPersistency(shardID)
+				currentShardLocation, err = c.streamConsumerGroup.sequenceNumberHandler.getShardLocationFromPersistency(shardID)
 				if err != nil {
 					if errors.RootCause(err) == errShardNotFound {
 

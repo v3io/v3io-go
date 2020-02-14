@@ -20,7 +20,7 @@ type Config struct {
 			Interval time.Duration
 		}
 	}
-	Location struct {
+	SequenceNumber struct {
 		Commit struct {
 			Interval time.Duration
 		}
@@ -46,7 +46,7 @@ func NewConfig() *Config {
 		Factor: 4,
 	}
 	c.State.Heartbeat.Interval = 3 * time.Second
-	c.Location.Commit.Interval = 10 * time.Second
+	c.SequenceNumber.Commit.Interval = 10 * time.Second
 	c.Claim.RecordBatchChanSize = 100
 	c.Claim.RecordBatchFetch.Interval = 250 * time.Millisecond
 	c.Claim.RecordBatchFetch.NumRecordsInBatch = 10

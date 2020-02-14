@@ -44,7 +44,7 @@ type StreamConsumerGroup interface {
 type Session interface {
 	GetClaims() []Claim
 	GetMemberID() string
-	MarkRecordBatch(*RecordBatch) error
+	MarkRecord(*v3io.StreamRecord) error
 
 	start() error
 	stop() error

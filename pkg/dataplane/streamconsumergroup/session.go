@@ -1,7 +1,7 @@
 package streamconsumergroup
 
 import (
-	"fmt"
+	v3io "github.com/v3io/v3io-go/pkg/dataplane"
 
 	"github.com/nuclio/errors"
 	"github.com/nuclio/logger"
@@ -18,7 +18,7 @@ func newSession(streamConsumerGroup *streamConsumerGroup,
 	sessionState *SessionState) (Session, error) {
 
 	return &session{
-		logger:              streamConsumerGroup.logger.GetChild(fmt.Sprintf("session")),
+		logger:              streamConsumerGroup.logger.GetChild("session"),
 		streamConsumerGroup: streamConsumerGroup,
 		state:               sessionState,
 	}, nil
@@ -82,10 +82,10 @@ func (s *session) GetMemberID() string {
 	return s.streamConsumerGroup.memberID
 }
 
-func (s *session) MarkRecordBatch(recordBatch *RecordBatch) error {
-	err := s.streamConsumerGroup.locationHandler.markShardLocation(recordBatch.ShardID, recordBatch.NextLocation)
+func (s *session) MarkRecord(record *v3io.StreamRecord) error {
+	err := s.streamConsumerGroup.sequenceNumberHandler.markShardSequenceNumber(*record.ShardID, record.SequenceNumber)
 	if err != nil {
-		return errors.Wrap(err, "Failed marking record batch as consumed")
+		return errors.Wrap(err, "Failed marking record")
 	}
 
 	return nil

@@ -254,7 +254,7 @@ func newMember(suite *streamConsumerGroupTestSuite,
 	id := fmt.Sprintf("m%d", index)
 
 	streamConsumerGroupConfig := streamconsumergroup.NewConfig()
-	streamConsumerGroupConfig.Claim.RecordBatchFetch.NumRecordsInBatch = 1
+	streamConsumerGroupConfig.Claim.RecordBatchFetch.NumRecordsInBatch = 10
 	streamConsumerGroupConfig.Claim.RecordBatchFetch.Interval = 50 * time.Millisecond
 
 	streamConsumerGroup, err := streamconsumergroup.NewStreamConsumerGroup(
@@ -327,16 +327,13 @@ func (m *member) ConsumeClaim(session streamconsumergroup.Session, claim streamc
 			expectedRecordIndex++
 			m.numberOfRecordsConsumed[claim.GetShardID()]++
 
-			if m.numberOfRecordsConsumed[claim.GetShardID()] >= m.numberOfRecordToConsume[claim.GetShardID()] {
-				err := session.MarkRecordBatch(recordBatch)
-				m.suite.Require().NoError(err)
+			err = session.MarkRecord(&record)
+			m.suite.Require().NoError(err)
 
+			if m.numberOfRecordsConsumed[claim.GetShardID()] >= m.numberOfRecordToConsume[claim.GetShardID()] {
 				return nil
 			}
 		}
-
-		err := session.MarkRecordBatch(recordBatch)
-		m.suite.Require().NoError(err)
 	}
 
 	return nil

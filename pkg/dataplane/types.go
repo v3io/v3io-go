@@ -271,10 +271,11 @@ type GetItemsOutput struct {
 //
 
 type StreamRecord struct {
-	ShardID      *int
-	Data         []byte
-	ClientInfo   []byte
-	PartitionKey string
+	ShardID        *int
+	Data           []byte
+	ClientInfo     []byte
+	PartitionKey   string
+	SequenceNumber int
 }
 
 type SeekShardInputType int
