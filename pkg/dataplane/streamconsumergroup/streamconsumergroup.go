@@ -27,9 +27,9 @@ type streamConsumerGroup struct {
 	totalNumShards        int
 }
 
-func NewStreamConsumerGroup(name string,
+func NewStreamConsumerGroup(parentLogger logger.Logger,
+	name string,
 	memberName string,
-	parentLogger logger.Logger,
 	config *Config,
 	streamPath string,
 	maxReplicas int,
