@@ -359,9 +359,11 @@ func (c *context) PutItemSync(putItemInput *v3io.PutItemInput) (*v3io.Response, 
 		putItemHeaders,
 		body)
 
-	mtimeSecs, mtimeNSecs := parseMtimeHeader(response)
-	output := &v3io.PutItemOutput{MtimeSecs: mtimeSecs, MtimeNSecs: mtimeNSecs}
-	response.Output = output
+	mtimeSecs, mtimeNSecs, err := parseMtimeHeader(response)
+	if err != nil {
+		return nil, err
+	}
+	response.Output = &v3io.PutItemOutput{MtimeSecs: mtimeSecs, MtimeNSecs: mtimeNSecs}
 
 	return response, err
 }
@@ -447,9 +449,11 @@ func (c *context) UpdateItemSync(updateItemInput *v3io.UpdateItemInput) (*v3io.R
 			putItemHeaders,
 			body)
 
-		mtimeSecs, mtimeNSecs := parseMtimeHeader(response)
-		output := &v3io.UpdateItemOutput{MtimeSecs: mtimeSecs, MtimeNSecs: mtimeNSecs}
-		response.Output = output
+		mtimeSecs, mtimeNSecs, err := parseMtimeHeader(response)
+		if err != nil {
+			return nil, err
+		}
+		response.Output = &v3io.UpdateItemOutput{MtimeSecs: mtimeSecs, MtimeNSecs: mtimeNSecs}
 
 	} else if updateItemInput.Expression != nil {
 
@@ -461,9 +465,11 @@ func (c *context) UpdateItemSync(updateItemInput *v3io.UpdateItemInput) (*v3io.R
 			updateItemHeaders,
 			updateItemInput.UpdateMode)
 
-		mtimeSecs, mtimeNSecs := parseMtimeHeader(response)
-		output := &v3io.UpdateItemOutput{MtimeSecs: mtimeSecs, MtimeNSecs: mtimeNSecs}
-		response.Output = output
+		mtimeSecs, mtimeNSecs, err := parseMtimeHeader(response)
+		if err != nil {
+			return nil, err
+		}
+		response.Output = &v3io.UpdateItemOutput{MtimeSecs: mtimeSecs, MtimeNSecs: mtimeNSecs}
 
 	}
 
@@ -1492,7 +1498,7 @@ func (c *context) stop(reason string, timeout *time.Duration) error {
 }
 
 // parsing the mtime from a header of the form `__mtime_secs==1581605100 and __mtime_nsecs==498349956`
-func parseMtimeHeader(response *v3io.Response) (int, int) {
+func parseMtimeHeader(response *v3io.Response) (int, int, error) {
 	var mtimeSecs, mtimeNSecs int
 	var err error
 
@@ -1501,19 +1507,24 @@ func parseMtimeHeader(response *v3io.Response) (int, int) {
 		mtimeParts := strings.Split(expression, "==")
 		mtimeType := strings.TrimSpace(mtimeParts[0])
 		if mtimeType == "__mtime_secs" {
-			mtimeSecsStr := strings.TrimSpace(mtimeParts[1])
-			mtimeSecs, err = strconv.Atoi(mtimeSecsStr)
+			mtimeSecs, err = trimAndParseInt(mtimeParts[1])
 			if err != nil {
-				return 0, 0
+				return 0, 0, err
 			}
 		} else if mtimeType == "__mtime_nsecs" {
-			mtimeNSecsStr := strings.TrimSpace(mtimeParts[1])
-			mtimeNSecs, err = strconv.Atoi(mtimeNSecsStr)
+			mtimeNSecs, err = trimAndParseInt(mtimeParts[1])
 			if err != nil {
-				return 0, 0
+				return 0, 0, err
 			}
+		} else {
+			return 0, 0, fmt.Errorf("failed to parse 'X-v3io-transaction-verifier', unexpected symbol '%v' ", mtimeType)
 		}
 	}
 
-	return mtimeSecs, mtimeNSecs
+	return mtimeSecs, mtimeNSecs, nil
+}
+
+func trimAndParseInt(str string) (int, error) {
+	trimmed := strings.TrimSpace(str)
+	return strconv.Atoi(trimmed)
 }
