@@ -1135,10 +1135,6 @@ func (c *context) workerEntry(workerIndex int) {
 			if err == ErrContextStopped {
 				return
 			}
-
-			c.logger.WarnWith("Failed handling request",
-				"workerIdx", workerIndex,
-				"err", err)
 		}
 	}
 }
