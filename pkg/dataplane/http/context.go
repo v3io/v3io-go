@@ -204,8 +204,6 @@ func (c *context) GetItemSync(getItemInput *v3io.GetItemInput) (*v3io.Response, 
 		Item map[string]map[string]interface{}
 	}{}
 
-	c.logger.DebugWithCtx(getItemInput.Ctx, "Body", "body", string(response.Body()))
-
 	// unmarshal the body
 	err = json.Unmarshal(response.Body(), &item)
 	if err != nil {
@@ -280,7 +278,7 @@ func (c *context) GetItemsSync(getItemsInput *v3io.GetItemsInput) (*v3io.Respons
 	}
 
 	headers := getItemsHeadersCapnp
-	if getItemsInput.RequestJsonResponse {
+	if getItemsInput.RequestJSONResponse {
 		headers = getItemsHeaders
 	}
 
@@ -518,6 +516,40 @@ func (c *context) CreateStreamSync(createStreamInput *v3io.CreateStreamInput) er
 	return err
 }
 
+// DescribeStream
+func (c *context) DescribeStream(describeStreamInput *v3io.DescribeStreamInput,
+	context interface{},
+	responseChan chan *v3io.Response) (*v3io.Request, error) {
+	return c.sendRequestToWorker(describeStreamInput, context, responseChan)
+}
+
+// DescribeStreamSync
+func (c *context) DescribeStreamSync(describeStreamInput *v3io.DescribeStreamInput) (*v3io.Response, error) {
+	response, err := c.sendRequest(&describeStreamInput.DataPlaneInput,
+		http.MethodPut,
+		describeStreamInput.Path,
+		"",
+		describeStreamHeaders,
+		nil,
+		false)
+	if err != nil {
+		return nil, err
+	}
+
+	describeStreamOutput := v3io.DescribeStreamOutput{}
+
+	// unmarshal the body into an ad hoc structure
+	err = json.Unmarshal(response.Body(), &describeStreamOutput)
+	if err != nil {
+		return nil, err
+	}
+
+	// set the output in the response
+	response.Output = &describeStreamOutput
+
+	return response, nil
+}
+
 // DeleteStream
 func (c *context) DeleteStream(deleteStreamInput *v3io.DeleteStreamInput,
 	context interface{},
@@ -575,7 +607,7 @@ func (c *context) SeekShardSync(seekShardInput *v3io.SeekShardInput) (*v3io.Resp
 
 	if seekShardInput.Type == v3io.SeekShardInputTypeSequence {
 		buffer.WriteString(`, "StartingSequenceNumber": `)
-		buffer.WriteString(strconv.Itoa(seekShardInput.StartingSequenceNumber))
+		buffer.WriteString(strconv.FormatUint(seekShardInput.StartingSequenceNumber, 10))
 	} else if seekShardInput.Type == v3io.SeekShardInputTypeTime {
 		buffer.WriteString(`, "TimestampSec": `)
 		buffer.WriteString(strconv.Itoa(seekShardInput.Timestamp))
@@ -866,11 +898,11 @@ func (c *context) sendRequest(dataPlaneInput *v3io.DataPlaneInput,
 		request.Header.Add(headerName, headerValue)
 	}
 
-	c.logger.DebugWithCtx(dataPlaneInput.Ctx,
-		"Tx",
-		"uri", uriStr,
-		"method", method,
-		"body-length", len(body))
+	//c.logger.DebugWithCtx(dataPlaneInput.Ctx,
+	//	"Tx",
+	//	"uri", uriStr,
+	//	"method", method,
+	//	"body-length", len(body))
 
 	if dataPlaneInput.Timeout <= 0 {
 		err = c.httpClient.Do(request, response.HTTPResponse)
@@ -885,14 +917,14 @@ func (c *context) sendRequest(dataPlaneInput *v3io.DataPlaneInput,
 	statusCode = response.HTTPResponse.StatusCode()
 
 	{
-		contentLength := response.HTTPResponse.Header.ContentLength()
-		if contentLength < 0 {
-			contentLength = 0
-		}
-		c.logger.DebugWithCtx(dataPlaneInput.Ctx,
-			"Rx",
-			"statusCode", statusCode,
-			"Content-Length", contentLength)
+		//contentLength := response.HTTPResponse.Header.ContentLength()
+		//if contentLength < 0 {
+		//	contentLength = 0
+		//}
+		//c.logger.DebugWithCtx(dataPlaneInput.Ctx,
+		//	"Rx",
+		//	"statusCode", statusCode,
+		//	"Content-Length", contentLength)
 	}
 
 	// did we get a 2xx response?
@@ -938,7 +970,7 @@ func (c *context) buildRequestURI(urlString string, containerName string, query 
 	if strings.HasSuffix(pathStr, "/") {
 		uri.Path += "/" // retain trailing slash
 	}
-	uri.RawQuery = strings.ReplaceAll(query, " ", "%20")
+	uri.RawQuery = strings.Replace(query, " ", "%20", -1)
 	return uri, nil
 }
 
@@ -959,6 +991,8 @@ func (c *context) encodeTypedAttributes(attributes map[string]interface{}) (map[
 			return nil, fmt.Errorf("unexpected attribute type for %s: %T", attributeName, reflect.TypeOf(attributeValue))
 		case int:
 			typedAttributes[attributeName]["N"] = strconv.Itoa(value)
+		case uint64:
+			typedAttributes[attributeName]["N"] = strconv.FormatUint(value, 10)
 		case int64:
 			typedAttributes[attributeName]["N"] = strconv.FormatInt(value, 10)
 			// this is a tmp bypass to the fact Go maps Json numbers to float64
@@ -1116,6 +1150,8 @@ func (c *context) workerEntry(workerIndex int) {
 			err = c.UpdateItemSync(typedInput)
 		case *v3io.CreateStreamInput:
 			err = c.CreateStreamSync(typedInput)
+		case *v3io.DescribeStreamInput:
+			response, err = c.DescribeStreamSync(typedInput)
 		case *v3io.DeleteStreamInput:
 			err = c.DeleteStreamSync(typedInput)
 		case *v3io.GetRecordsInput:

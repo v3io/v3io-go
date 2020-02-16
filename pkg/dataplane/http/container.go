@@ -178,6 +178,20 @@ func (c *container) CreateStreamSync(createStreamInput *v3io.CreateStreamInput) 
 	return c.session.context.CreateStreamSync(createStreamInput)
 }
 
+// DescribeStream
+func (c *container) DescribeStream(describeStreamInput *v3io.DescribeStreamInput,
+	context interface{},
+	responseChan chan *v3io.Response) (*v3io.Request, error) {
+	c.populateInputFields(&describeStreamInput.DataPlaneInput)
+	return c.session.context.DescribeStream(describeStreamInput, context, responseChan)
+}
+
+// DescribeStreamSync
+func (c *container) DescribeStreamSync(describeStreamInput *v3io.DescribeStreamInput) (*v3io.Response, error) {
+	c.populateInputFields(&describeStreamInput.DataPlaneInput)
+	return c.session.context.DescribeStreamSync(describeStreamInput)
+}
+
 // DeleteStream
 func (c *container) DeleteStream(deleteStreamInput *v3io.DeleteStreamInput, context interface{}, responseChan chan *v3io.Response) (*v3io.Request, error) {
 	c.populateInputFields(&deleteStreamInput.DataPlaneInput)
