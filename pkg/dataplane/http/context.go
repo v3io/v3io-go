@@ -1142,19 +1142,21 @@ func readAllCapnpMessages(reader io.Reader) []*capnp.Message {
 	return capnpMessages
 }
 
-func getSectionAndIndex(values []attributeValuesSection, idx int) (section int, resIdx int) {
+func getSectionAndIndex(values []attributeValuesSection, idx int, logger2 logger.Logger) (section int, resIdx int) {
 	if len(values) == 1 {
 		return 0, idx
 	}
 	for i := 1; i < len(values); i++ {
 		if values[i].accumulatedPreviousSectionsLength > idx {
+			logger2.Info("values[i].accumulatedPreviousSectionsLength ", values[i].accumulatedPreviousSectionsLength, " idx ", idx, " i ", i)
 			return i, idx - values[i-1].accumulatedPreviousSectionsLength
 		}
 	}
+	logger2.Info("returning 0 ", idx)
 	return 0, idx
 }
 
-func decodeCapnpAttributes(keyValues node_common_capnp.VnObjectItemsGetMappedKeyValuePair_List, values []attributeValuesSection, attributeNames []string) (map[string]interface{}, error) {
+func decodeCapnpAttributes(keyValues node_common_capnp.VnObjectItemsGetMappedKeyValuePair_List, values []attributeValuesSection, attributeNames []string, logger2 logger.Logger) (map[string]interface{}, error) {
 	attributes := map[string]interface{}{}
 	for j := 0; j < keyValues.Len(); j++ {
 		attrPtr := keyValues.At(j)
@@ -1162,7 +1164,8 @@ func decodeCapnpAttributes(keyValues node_common_capnp.VnObjectItemsGetMappedKey
 		attrIdx := int(attrPtr.KeyMapIndex())
 
 		attributeName := attributeNames[attrIdx]
-		sectIdx, valIdx := getSectionAndIndex(values, valIdx)
+		sectIdx, valIdx := getSectionAndIndex(values, valIdx, logger2)
+		logger2.Info("sectIdx ", sectIdx, " valIdx", valIdx, " values[sectIdx].data.Len()", values[sectIdx].data.Len(), " attrIdx ",attrIdx, " attributeName ", attributeName)
 		value, err := values[sectIdx].data.At(valIdx).Value()
 		if err != nil {
 			return attributes, errors.Wrapf(err, "values[%d].data.At(%d).Value", sectIdx, valIdx)
@@ -1330,7 +1333,7 @@ func (c *context) getItemsParseCAPNPResponse(response *v3io.Response, withWildca
 		if err != nil {
 			return nil, errors.Wrap(err, "item.Attrs")
 		}
-		ditem, err := decodeCapnpAttributes(itemAttributes, valuesSections, attributeNames)
+		ditem, err := decodeCapnpAttributes(itemAttributes, valuesSections, attributeNames, c.logger)
 		if err != nil {
 			return nil, errors.Wrap(err, "decodeCapnpAttributes")
 		}
