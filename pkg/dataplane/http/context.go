@@ -41,18 +41,18 @@ type context struct {
 }
 
 type NewClientInput struct {
-	tlsConfig       *tls.Config
-	dialTimeout     time.Duration
-	maxConnsPerHost int
+	TlsConfig       *tls.Config
+	DialTimeout     time.Duration
+	MaxConnsPerHost int
 }
 
 func NewClient(newClientInput *NewClientInput) *fasthttp.Client {
-	tlsConfig := newClientInput.tlsConfig
+	tlsConfig := newClientInput.TlsConfig
 	if tlsConfig == nil {
 		tlsConfig = &tls.Config{InsecureSkipVerify: true}
 	}
 
-	dialTimeout := newClientInput.dialTimeout
+	dialTimeout := newClientInput.DialTimeout
 	if dialTimeout == 0 {
 		dialTimeout = fasthttp.DefaultDialTimeout
 	}
@@ -63,7 +63,7 @@ func NewClient(newClientInput *NewClientInput) *fasthttp.Client {
 	return &fasthttp.Client{
 		TLSConfig:       tlsConfig,
 		Dial:            dialFunction,
-		MaxConnsPerHost: newClientInput.maxConnsPerHost,
+		MaxConnsPerHost: newClientInput.MaxConnsPerHost,
 	}
 }
 
