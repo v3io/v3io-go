@@ -1,7 +1,6 @@
 package streamconsumergroup
 
 import (
-	"sync"
 	"time"
 
 	"github.com/v3io/v3io-go/pkg/common"
@@ -17,7 +16,6 @@ type sequenceNumberHandler struct {
 	logger                                     logger.Logger
 	member                                     *member
 	markedShardSequenceNumbers                 []uint64
-	markedShardSequenceNumbersLock             sync.RWMutex
 	stopMarkedShardSequenceNumberCommitterChan chan struct{}
 	lastCommittedShardSequenceNumbers          []uint64
 }
@@ -54,12 +52,7 @@ func (snh *sequenceNumberHandler) stop() error {
 }
 
 func (snh *sequenceNumberHandler) markShardSequenceNumber(shardID int, sequenceNumber uint64) error {
-
-	// lock semantics are reverse - it's OK to write in parallel since each write goes
-	// to a different cell in the array, but once a read is happening we need to stop the world
-	snh.markedShardSequenceNumbersLock.RLock()
 	snh.markedShardSequenceNumbers[shardID] = sequenceNumber
-	snh.markedShardSequenceNumbersLock.RUnlock()
 
 	return nil
 }
@@ -88,9 +81,7 @@ func (snh *sequenceNumberHandler) commitMarkedShardSequenceNumbers() error {
 	var markedShardSequenceNumbersCopy []uint64
 
 	// create a copy of the marked shard sequenceNumbers
-	snh.markedShardSequenceNumbersLock.Lock()
 	markedShardSequenceNumbersCopy = append(markedShardSequenceNumbersCopy, snh.markedShardSequenceNumbers...)
-	snh.markedShardSequenceNumbersLock.Unlock()
 
 	// if there was no chance since last, do nothing
 	if common.Uint64SlicesEqual(snh.lastCommittedShardSequenceNumbers, markedShardSequenceNumbersCopy) {
