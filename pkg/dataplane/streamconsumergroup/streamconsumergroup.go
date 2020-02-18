@@ -114,9 +114,12 @@ func (scg *streamConsumerGroup) setState(modifier stateModifier) (*State, error)
 			return true, errors.Wrap(err, "Failed modifying state")
 		}
 
-		scg.logger.DebugWith("Modified state, saving",
-			"previousState", previousState,
-			"modifiedState", modifiedState)
+		// log only on change
+		if !scg.statesEqual(previousState, modifiedState) {
+			scg.logger.DebugWith("Modified state, saving",
+				"previousState", previousState,
+				"modifiedState", modifiedState)
+		}
 
 		err = scg.setStateInPersistency(modifiedState, mtime)
 		if err != nil {
@@ -311,4 +314,31 @@ func (scg *streamConsumerGroup) setShardSequenceNumberInPersistency(shardID int,
 			scg.getShardCommittedSequenceNumberAttributeName(): sequenceNumber,
 		},
 	})
+}
+
+// returns true if the states are equal, ignoring heartbeat times
+func (scg *streamConsumerGroup) statesEqual(state0 *State, state1 *State) bool {
+	if state0.SchemasVersion != state1.SchemasVersion {
+		return false
+	}
+
+	if len(state0.SessionStates) != len(state1.SessionStates) {
+		return false
+	}
+
+	// since we compared lengths, we can only do this from state0
+	for _, state0SessionState := range state0.SessionStates {
+		session1SessionState := state1.findSessionStateByMemberID(state0SessionState.MemberID)
+
+		// if couldn't find session state
+		if session1SessionState == nil {
+			return false
+		}
+
+		if !common.IntSlicesEqual(state0SessionState.Shards, session1SessionState.Shards) {
+			return false
+		}
+	}
+
+	return true
 }
