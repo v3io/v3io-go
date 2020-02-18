@@ -4,9 +4,10 @@ import (
 	"math"
 	"time"
 
+	"github.com/v3io/v3io-go/pkg/common"
+
 	"github.com/nuclio/errors"
 	"github.com/nuclio/logger"
-	"github.com/v3io/v3io-go/pkg/common"
 )
 
 const stateContentsAttributeKey string = "state"

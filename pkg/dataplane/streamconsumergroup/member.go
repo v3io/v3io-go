@@ -2,6 +2,7 @@ package streamconsumergroup
 
 import (
 	"fmt"
+
 	"github.com/nuclio/errors"
 	"github.com/nuclio/logger"
 	"github.com/rs/xid"

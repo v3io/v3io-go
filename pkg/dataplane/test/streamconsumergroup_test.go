@@ -35,16 +35,14 @@ func (suite *streamConsumerGroupTestSuite) TestLocationHandling() {
 
 	suite.createStream(suite.streamPath, numShards)
 
-	numberOfRecordsToConsume0 := []int{5, 10, 10, 10, 15, 10, 10, 20}
-
-	streaConsumerGroup := suite.createStreamConsumerGroup(2)
+	streamConsumerGroup := suite.createStreamConsumerGroup(2)
 
 	memberGroup := newMemberGroup(suite,
-		streaConsumerGroup,
+		streamConsumerGroup,
 		numShards,
 		2,
 		[]int{0, 0, 0, 0, 0, 0, 0, 0},
-		numberOfRecordsToConsume0)
+		[]int{5, 10, 10, 10, 15, 10, 10, 20})
 
 	// wait a bit for things to happen - the members should all connect, get their partitions and start consuming
 	// but not actually consume anything
@@ -56,18 +54,18 @@ func (suite *streamConsumerGroupTestSuite) TestLocationHandling() {
 	memberGroup.verifyNumRecordsConsumed([]int{0, 0, 0, 0, 0, 0, 0, 0})
 
 	// get the num shards from the observer
-	observedNumShards, err := streaConsumerGroup.GetNumShards()
+	observedNumShards, err := streamConsumerGroup.GetNumShards()
 	suite.Require().NoError(err)
 	suite.Require().Equal(numShards, observedNumShards)
 
 	// get the num shards from the observer
-	observedState, err := streaConsumerGroup.GetState()
+	observedState, err := streamConsumerGroup.GetState()
 	suite.Require().NoError(err)
 	suite.Require().Len(observedState.SessionStates, 2)
 
-	// iterate over shards to check their sequence numbers
-	for shardId := 0; shardId < numShards; shardId++ {
-		shardSequenceNumber, err := streaConsumerGroup.GetShardSequenceNumber(shardId)
+	// iterate over shards to check their sequence numbers, they shouldn't exist
+	for shardID := 0; shardID < numShards; shardID++ {
+		shardSequenceNumber, err := streamConsumerGroup.GetShardSequenceNumber(shardID)
 		suite.Require().Equal(err, streamconsumergroup.ErrShardNotFound)
 		suite.Require().Equal(uint64(0), shardSequenceNumber)
 	}
@@ -81,15 +79,16 @@ func (suite *streamConsumerGroupTestSuite) TestLocationHandling() {
 	memberGroup.verifyClaimShards(numShards, []int{4})
 	memberGroup.verifyNumActiveClaimConsumptions(0)
 	memberGroup.verifyNumRecordsConsumed([]int{5, 10, 10, 10, 15, 10, 10, 20})
+	suite.verifyShardSequenceNumbers(numShards, streamConsumerGroup, []int{5, 10, 10, 10, 15, 10, 10, 20})
 
 	// stop the group
 	memberGroup.stop()
 	time.Sleep(3 * time.Second)
 
-	streaConsumerGroup = suite.createStreamConsumerGroup(4)
+	streamConsumerGroup = suite.createStreamConsumerGroup(4)
 
 	memberGroup = newMemberGroup(suite,
-		streaConsumerGroup,
+		streamConsumerGroup,
 		numShards,
 		4,
 		[]int{5, 10, 10, 10, 15, 10, 10, 20},
@@ -99,21 +98,17 @@ func (suite *streamConsumerGroupTestSuite) TestLocationHandling() {
 	time.Sleep(30 * time.Second)
 
 	// get the num shards from the observer
-	observedNumShards, err = streaConsumerGroup.GetNumShards()
+	observedNumShards, err = streamConsumerGroup.GetNumShards()
 	suite.Require().NoError(err)
 	suite.Require().Equal(numShards, observedNumShards)
 
 	// get the num shards from the observer
-	observedState, err = streaConsumerGroup.GetState()
+	observedState, err = streamConsumerGroup.GetState()
 	suite.Require().NoError(err)
 	suite.Require().Len(observedState.SessionStates, 4)
 
 	// iterate over shards to check their sequence numbers
-	for shardId := 0; shardId < numShards; shardId++ {
-		shardSequenceNumber, err := streaConsumerGroup.GetShardSequenceNumber(shardId)
-		suite.Require().NoError(err)
-		suite.Require().Equal(uint64(numberOfRecordsToConsume0[shardId]), shardSequenceNumber)
-	}
+	suite.verifyShardSequenceNumbers(numShards, streamConsumerGroup, []int{30, 30, 30, 30, 30, 30, 30, 30})
 
 	memberGroup.verifyClaimShards(numShards, []int{2})
 	memberGroup.verifyNumActiveClaimConsumptions(8)
@@ -190,6 +185,18 @@ func (suite *streamConsumerGroupTestSuite) writeRecords(numRecordsPerShard []int
 	suite.Require().Equal(0, putRecordsResponse.FailedRecordCount)
 
 	suite.logger.DebugWith("Done writing records", "numRecordsPerShard", numRecordsPerShard)
+}
+
+func (suite *streamConsumerGroupTestSuite) verifyShardSequenceNumbers(numShards int,
+	streamConsumerGroup streamconsumergroup.StreamConsumerGroup,
+	expectedShardSequenceNumbers []int) {
+
+	// iterate over shards to check their sequence numbers
+	for shardID := 0; shardID < numShards; shardID++ {
+		shardSequenceNumber, err := streamConsumerGroup.GetShardSequenceNumber(shardID)
+		suite.Require().NoError(err)
+		suite.Require().Equal(uint64(expectedShardSequenceNumbers[shardID]), shardSequenceNumber)
+	}
 }
 
 //
@@ -290,7 +297,7 @@ type member struct {
 	suite                      *streamConsumerGroupTestSuite
 	logger                     logger.Logger
 	streamConsumerGroupMember  streamconsumergroup.Member
-	id                       string
+	id                         string
 	expectedStartRecordIndex   []int
 	numberOfRecordToConsume    []int
 	numberOfRecordsConsumed    []int
@@ -313,7 +320,7 @@ func newMember(suite *streamConsumerGroupTestSuite,
 		suite:                     suite,
 		logger:                    suite.logger.GetChild(id),
 		streamConsumerGroupMember: streamConsumerGroupMember,
-		id:                      id,
+		id:                        id,
 		streamConsumerGroup:       streamConsumerGroup,
 		expectedStartRecordIndex:  make([]int, numShards),
 		numberOfRecordToConsume:   make([]int, numShards),

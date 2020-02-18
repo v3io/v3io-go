@@ -4,13 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/v3io/v3io-go/pkg/common"
-	v3ioerrors "github.com/v3io/v3io-go/pkg/errors"
 	"net/http"
 	"path"
 	"strconv"
 
+	"github.com/v3io/v3io-go/pkg/common"
 	"github.com/v3io/v3io-go/pkg/dataplane"
+	v3ioerrors "github.com/v3io/v3io-go/pkg/errors"
 
 	"github.com/nuclio/errors"
 	"github.com/nuclio/logger"
