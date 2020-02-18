@@ -31,18 +31,20 @@ func (suite *streamConsumerGroupTestSuite) SetupSuite() {
 }
 
 func (suite *streamConsumerGroupTestSuite) TestLocationHandling() {
-	consumerGroupName := "cg0"
 	numShards := 8
 
 	suite.createStream(suite.streamPath, numShards)
 
+	numberOfRecordsToConsume0 := []int{5, 10, 10, 10, 15, 10, 10, 20}
+
+	streaConsumerGroup := suite.createStreamConsumerGroup(2)
+
 	memberGroup := newMemberGroup(suite,
-		consumerGroupName,
-		2,
+		streaConsumerGroup,
 		numShards,
 		2,
 		[]int{0, 0, 0, 0, 0, 0, 0, 0},
-		[]int{5, 10, 10, 10, 15, 10, 10, 20})
+		numberOfRecordsToConsume0)
 
 	// wait a bit for things to happen - the members should all connect, get their partitions and start consuming
 	// but not actually consume anything
@@ -52,6 +54,23 @@ func (suite *streamConsumerGroupTestSuite) TestLocationHandling() {
 	memberGroup.verifyClaimShards(numShards, []int{4})
 	memberGroup.verifyNumActiveClaimConsumptions(numShards)
 	memberGroup.verifyNumRecordsConsumed([]int{0, 0, 0, 0, 0, 0, 0, 0})
+
+	// get the num shards from the observer
+	observedNumShards, err := streaConsumerGroup.GetNumShards()
+	suite.Require().NoError(err)
+	suite.Require().Equal(numShards, observedNumShards)
+
+	// get the num shards from the observer
+	observedState, err := streaConsumerGroup.GetState()
+	suite.Require().NoError(err)
+	suite.Require().Len(observedState.SessionStates, 2)
+
+	// iterate over shards to check their sequence numbers
+	for shardId := 0; shardId < numShards; shardId++ {
+		shardSequenceNumber, err := streaConsumerGroup.GetShardSequenceNumber(shardId)
+		suite.Require().Equal(err, streamconsumergroup.ErrShardNotFound)
+		suite.Require().Equal(uint64(0), shardSequenceNumber)
+	}
 
 	suite.writeRecords([]int{30, 30, 30, 30, 30, 30, 30, 30})
 
@@ -67,9 +86,10 @@ func (suite *streamConsumerGroupTestSuite) TestLocationHandling() {
 	memberGroup.stop()
 	time.Sleep(3 * time.Second)
 
+	streaConsumerGroup = suite.createStreamConsumerGroup(4)
+
 	memberGroup = newMemberGroup(suite,
-		consumerGroupName,
-		4,
+		streaConsumerGroup,
 		numShards,
 		4,
 		[]int{5, 10, 10, 10, 15, 10, 10, 20},
@@ -78,12 +98,47 @@ func (suite *streamConsumerGroupTestSuite) TestLocationHandling() {
 	// wait a bit for things to happen
 	time.Sleep(30 * time.Second)
 
+	// get the num shards from the observer
+	observedNumShards, err = streaConsumerGroup.GetNumShards()
+	suite.Require().NoError(err)
+	suite.Require().Equal(numShards, observedNumShards)
+
+	// get the num shards from the observer
+	observedState, err = streaConsumerGroup.GetState()
+	suite.Require().NoError(err)
+	suite.Require().Len(observedState.SessionStates, 4)
+
+	// iterate over shards to check their sequence numbers
+	for shardId := 0; shardId < numShards; shardId++ {
+		shardSequenceNumber, err := streaConsumerGroup.GetShardSequenceNumber(shardId)
+		suite.Require().NoError(err)
+		suite.Require().Equal(uint64(numberOfRecordsToConsume0[shardId]), shardSequenceNumber)
+	}
+
 	memberGroup.verifyClaimShards(numShards, []int{2})
 	memberGroup.verifyNumActiveClaimConsumptions(8)
 	memberGroup.verifyNumRecordsConsumed([]int{25, 20, 20, 20, 15, 20, 20, 10})
 
 	memberGroup.stop()
 	time.Sleep(3 * time.Second)
+}
+
+func (suite *streamConsumerGroupTestSuite) createStreamConsumerGroup(maxReplicas int) streamconsumergroup.StreamConsumerGroup {
+	consumerGroupName := "cg0"
+
+	streamConsumerGroupConfig := streamconsumergroup.NewConfig()
+	streamConsumerGroupConfig.Claim.RecordBatchFetch.NumRecordsInBatch = 10
+	streamConsumerGroupConfig.Claim.RecordBatchFetch.Interval = 50 * time.Millisecond
+
+	streamConsumerGroup, err := streamconsumergroup.NewStreamConsumerGroup(suite.logger,
+		consumerGroupName,
+		streamConsumerGroupConfig,
+		suite.container,
+		suite.streamPath,
+		maxReplicas)
+	suite.Require().NoError(err, "Failed creating stream consumer group")
+
+	return streamConsumerGroup
 }
 
 func (suite *streamConsumerGroupTestSuite) createStream(streamPath string, numShards int) {
@@ -148,8 +203,7 @@ type memberGroup struct {
 }
 
 func newMemberGroup(suite *streamConsumerGroupTestSuite,
-	consumerGroupName string,
-	maxNumMembers int,
+	streamConsumerGroup streamconsumergroup.StreamConsumerGroup,
 	numShards int,
 	numMembers int,
 	expectedInitialRecordIndex []int,
@@ -164,8 +218,7 @@ func newMemberGroup(suite *streamConsumerGroupTestSuite,
 	for memberIdx := 0; memberIdx < numMembers; memberIdx++ {
 		go func() {
 			memberInstance := newMember(suite,
-				consumerGroupName,
-				maxNumMembers,
+				streamConsumerGroup,
 				numShards,
 				memberIdx,
 				newMemberGroup.numberOfRecordsConsumed)
@@ -236,7 +289,8 @@ func (mg *memberGroup) stop() {
 type member struct {
 	suite                      *streamConsumerGroupTestSuite
 	logger                     logger.Logger
-	id                         string
+	streamConsumerGroupMember  streamconsumergroup.Member
+	id                       string
 	expectedStartRecordIndex   []int
 	numberOfRecordToConsume    []int
 	numberOfRecordsConsumed    []int
@@ -246,35 +300,24 @@ type member struct {
 }
 
 func newMember(suite *streamConsumerGroupTestSuite,
-	consumerGroupName string,
-	maxNumMembers int,
+	streamConsumerGroup streamconsumergroup.StreamConsumerGroup,
 	numShards int,
 	index int,
 	numberOfRecordsConsumed []int) *member {
 	id := fmt.Sprintf("m%d", index)
 
-	streamConsumerGroupConfig := streamconsumergroup.NewConfig()
-	streamConsumerGroupConfig.Claim.RecordBatchFetch.NumRecordsInBatch = 10
-	streamConsumerGroupConfig.Claim.RecordBatchFetch.Interval = 50 * time.Millisecond
-
-	streamConsumerGroup, err := streamconsumergroup.NewStreamConsumerGroup(
-		suite.logger,
-		consumerGroupName,
-		id,
-		streamConsumerGroupConfig,
-		suite.streamPath,
-		maxNumMembers,
-		suite.container)
-	suite.Require().NoError(err, "Failed creating stream consumer group")
+	streamConsumerGroupMember, err := streamconsumergroup.NewMember(streamConsumerGroup, id)
+	suite.Require().NoError(err)
 
 	return &member{
-		suite:                    suite,
-		logger:                   suite.logger.GetChild(id),
-		id:                       id,
-		streamConsumerGroup:      streamConsumerGroup,
-		expectedStartRecordIndex: make([]int, numShards),
-		numberOfRecordToConsume:  make([]int, numShards),
-		numberOfRecordsConsumed:  numberOfRecordsConsumed,
+		suite:                     suite,
+		logger:                    suite.logger.GetChild(id),
+		streamConsumerGroupMember: streamConsumerGroupMember,
+		id:                      id,
+		streamConsumerGroup:       streamConsumerGroup,
+		expectedStartRecordIndex:  make([]int, numShards),
+		numberOfRecordToConsume:   make([]int, numShards),
+		numberOfRecordsConsumed:   numberOfRecordsConsumed,
 	}
 }
 
@@ -344,12 +387,12 @@ func (m *member) start(expectedStartRecordIndex []int, numberOfRecordToConsume [
 	m.numberOfRecordToConsume = numberOfRecordToConsume
 
 	// start consuming
-	err := m.streamConsumerGroup.Consume(m)
+	err := m.streamConsumerGroupMember.Consume(m)
 	m.suite.Require().NoError(err)
 }
 
 func (m *member) stop() {
-	err := m.streamConsumerGroup.Close()
+	err := m.streamConsumerGroupMember.Close()
 	m.suite.Require().NoError(err)
 }
 
