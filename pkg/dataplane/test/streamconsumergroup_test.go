@@ -27,6 +27,10 @@ type streamConsumerGroupTestSuite struct {
 func (suite *streamConsumerGroupTestSuite) SetupSuite() {
 	suite.streamTestSuite.SetupSuite()
 	suite.createContainer()
+}
+
+func (suite *streamConsumerGroupTestSuite) SetupTest() {
+	suite.streamTestSuite.SetupTest()
 	suite.streamPath = fmt.Sprintf("%s/test-stream-0/", suite.testPath)
 }
 
