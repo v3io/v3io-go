@@ -20,12 +20,12 @@ type recordData struct {
 }
 
 type streamConsumerGroupTestSuite struct {
-	StreamTestSuite
+	streamTestSuite
 	streamPath string
 }
 
 func (suite *streamConsumerGroupTestSuite) SetupSuite() {
-	suite.StreamTestSuite.SetupSuite()
+	suite.streamTestSuite.SetupSuite()
 	suite.createContainer()
 	suite.streamPath = fmt.Sprintf("%s/test-stream-0/", suite.testPath)
 }
