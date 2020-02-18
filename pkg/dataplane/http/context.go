@@ -41,13 +41,13 @@ type context struct {
 }
 
 type NewClientInput struct {
-	TlsConfig       *tls.Config
+	TLSConfig       *tls.Config
 	DialTimeout     time.Duration
 	MaxConnsPerHost int
 }
 
 func NewClient(newClientInput *NewClientInput) *fasthttp.Client {
-	tlsConfig := newClientInput.TlsConfig
+	tlsConfig := newClientInput.TLSConfig
 	if tlsConfig == nil {
 		tlsConfig = &tls.Config{InsecureSkipVerify: true}
 	}
