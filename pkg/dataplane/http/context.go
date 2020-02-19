@@ -1347,13 +1347,17 @@ func (c *context) getItemsParseCAPNPResponse(response *v3io.Response, withWildca
 	accLength := 0
 	//Additional data sections "in between"
 	for capnpSectionIndex := 1; capnpSectionIndex < len(capnpSections)-1; capnpSectionIndex++ {
-		data, err := node_common_capnp.ReadRootVnObjectAttributeValueMap(capnpSections[capnpSectionIndex])
+		data, err := node_common_capnp.ReadRootVnObjectItemsGetResponseDataPayload(capnpSections[capnpSectionIndex])
 		if err != nil {
 			return nil, errors.Wrap(err, "node_common_capnp.ReadRootVnObjectAttributeValueMap")
 		}
-		dv, err := data.Values()
+		dvmap, err := data.ValueMap()
 		if err != nil {
-			return nil, errors.Wrap(err, "data.Values")
+			return nil, errors.Wrap(err, "data.ValueMap")
+		}
+		dv, err := dvmap.Values()
+		if err != nil {
+			return nil, errors.Wrap(err, "data.ValueMap.Values")
 		}
 		accLength = accLength + dv.Len()
 		valuesSections[capnpSectionIndex-1].data = dv
