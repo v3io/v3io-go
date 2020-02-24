@@ -897,11 +897,11 @@ func (c *context) sendRequest(dataPlaneInput *v3io.DataPlaneInput,
 		request.Header.Add(headerName, headerValue)
 	}
 
-	//c.logger.DebugWithCtx(dataPlaneInput.Ctx,
-	//	"Tx",
-	//	"uri", uriStr,
-	//	"method", method,
-	//	"body-length", len(body))
+	c.logger.DebugWithCtx(dataPlaneInput.Ctx,
+		"Tx",
+		"uri", uriStr,
+		"method", method,
+		"body-length", len(body))
 
 	if dataPlaneInput.Timeout <= 0 {
 		err = c.httpClient.Do(request, response.HTTPResponse)
@@ -916,14 +916,14 @@ func (c *context) sendRequest(dataPlaneInput *v3io.DataPlaneInput,
 	statusCode = response.HTTPResponse.StatusCode()
 
 	{
-		//contentLength := response.HTTPResponse.Header.ContentLength()
-		//if contentLength < 0 {
-		//	contentLength = 0
-		//}
-		//c.logger.DebugWithCtx(dataPlaneInput.Ctx,
-		//	"Rx",
-		//	"statusCode", statusCode,
-		//	"Content-Length", contentLength)
+		contentLength := response.HTTPResponse.Header.ContentLength()
+		if contentLength < 0 {
+			contentLength = 0
+		}
+		c.logger.DebugWithCtx(dataPlaneInput.Ctx,
+			"Rx",
+			"statusCode", statusCode,
+			"Content-Length", contentLength)
 	}
 
 	// did we get a 2xx response?
