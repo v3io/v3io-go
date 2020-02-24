@@ -154,6 +154,18 @@ func (c *container) GetContainersSync(getContainersInput *v3io.GetContainersInpu
 	return c.session.context.GetContainersSync(getContainersInput)
 }
 
+// GetClusterMD
+func (c *container) GetClusterMD(getClusterMDInput *v3io.GetClusterMDInput, context interface{}, responseChan chan *v3io.Response) (*v3io.Request, error) {
+	c.populateInputFields(&getClusterMDInput.DataPlaneInput)
+	return c.session.context.GetClusterMD(getClusterMDInput, context, responseChan)
+}
+
+// GetClusterMDSync
+func (c *container) GetClusterMDSync(getClusterMDInput *v3io.GetClusterMDInput) (*v3io.Response, error) {
+	c.populateInputFields(&getClusterMDInput.DataPlaneInput)
+	return c.session.context.GetClusterMDSync(getClusterMDInput)
+}
+
 // GetContainers
 func (c *container) GetContainerContents(getContainerContentsInput *v3io.GetContainerContentsInput, context interface{}, responseChan chan *v3io.Response) (*v3io.Request, error) {
 	c.populateInputFields(&getContainerContentsInput.DataPlaneInput)

@@ -115,6 +115,24 @@ func (c *context) GetContainersSync(getContainersInput *v3io.GetContainersInput)
 		nil,
 		&v3io.GetContainersOutput{})
 }
+// GetClusterMD
+func (c *context) GetClusterMD(getClusterMDInput *v3io.GetClusterMDInput,
+	context interface{},
+	responseChan chan *v3io.Response) (*v3io.Request, error) {
+	return c.sendRequestToWorker(getClusterMDInput, context, responseChan)
+}
+
+func (c *context) GetClusterMDSync(getClusterMDInput *v3io.GetClusterMDInput) (*v3io.Response, error) {
+	getClusterMDOutput := v3io.GetClusterMDOutput{}
+
+	return c.sendRequestAndXMLUnmarshal(&getClusterMDInput.DataPlaneInput,
+		http.MethodGet,
+		"",
+		"",
+		nil,
+		nil,
+		&getClusterMDOutput)
+}
 
 // GetContainers
 func (c *context) GetContainerContents(getContainerContentsInput *v3io.GetContainerContentsInput,
@@ -1092,6 +1110,8 @@ func (c *context) workerEntry(workerIndex int) {
 			response, err = c.GetContainersSync(typedInput)
 		case *v3io.GetContainerContentsInput:
 			response, err = c.GetContainerContentsSync(typedInput)
+		case *v3io.GetClusterMDInput:
+			response, err = c.GetClusterMDSync(typedInput)
 		default:
 			c.logger.ErrorWith("Got unexpected request type", "type", reflect.TypeOf(request.Input).String())
 		}
