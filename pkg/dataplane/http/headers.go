@@ -2,14 +2,15 @@ package v3iohttp
 
 // function names
 const (
-	putItemFunctionName      = "PutItem"
-	updateItemFunctionName   = "UpdateItem"
-	getItemFunctionName      = "GetItem"
-	getItemsFunctionName     = "GetItems"
-	createStreamFunctionName = "CreateStream"
-	putRecordsFunctionName   = "PutRecords"
-	getRecordsFunctionName   = "GetRecords"
-	seekShardsFunctionName   = "SeekShard"
+	putItemFunctionName        = "PutItem"
+	updateItemFunctionName     = "UpdateItem"
+	getItemFunctionName        = "GetItem"
+	getItemsFunctionName       = "GetItems"
+	createStreamFunctionName   = "CreateStream"
+	describeStreamFunctionName = "DescribeStream"
+	putRecordsFunctionName     = "PutRecords"
+	getRecordsFunctionName     = "GetRecords"
+	seekShardsFunctionName     = "SeekShard"
 )
 
 // headers for put item
@@ -30,17 +31,29 @@ var getItemHeaders = map[string]string{
 	"X-v3io-function": getItemFunctionName,
 }
 
-// headers for get item with captain-proto serialisation
+// headers for get items
+var getItemsHeaders = map[string]string{
+	"Content-Type":    "application/json",
+	"X-v3io-function": getItemsFunctionName,
+}
+
+// headers for get items requesting captain-proto response
 var getItemsHeadersCapnp = map[string]string{
 	"Content-Type":                 "application/json",
-	"X-v3io-response-content-type": "capnp",
 	"X-v3io-function":              getItemsFunctionName,
+	"X-v3io-response-content-type": "capnp",
 }
 
 // headers for create stream
 var createStreamHeaders = map[string]string{
 	"Content-Type":    "application/json",
 	"X-v3io-function": createStreamFunctionName,
+}
+
+// headers for get records
+var describeStreamHeaders = map[string]string{
+	"Content-Type":    "application/json",
+	"X-v3io-function": describeStreamFunctionName,
 }
 
 // headers for put records
