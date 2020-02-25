@@ -324,6 +324,9 @@ func (c *context) PutItemSync(putItemInput *v3io.PutItemInput) (*v3io.Response, 
 		putItemInput.Condition,
 		putItemHeaders,
 		body)
+	if err != nil {
+		return nil, err
+	}
 
 	mtimeSecs, mtimeNSecs, err := parseMtimeHeader(response)
 	if err != nil {
@@ -414,6 +417,9 @@ func (c *context) UpdateItemSync(updateItemInput *v3io.UpdateItemInput) (*v3io.R
 			updateItemInput.Condition,
 			putItemHeaders,
 			body)
+		if err != nil {
+			return nil, err
+		}
 
 		mtimeSecs, mtimeNSecs, err := parseMtimeHeader(response)
 		if err != nil {
@@ -430,6 +436,9 @@ func (c *context) UpdateItemSync(updateItemInput *v3io.UpdateItemInput) (*v3io.R
 			updateItemInput.Condition,
 			updateItemHeaders,
 			updateItemInput.UpdateMode)
+		if err != nil {
+			return nil, err
+		}
 
 		mtimeSecs, mtimeNSecs, err := parseMtimeHeader(response)
 		if err != nil {
