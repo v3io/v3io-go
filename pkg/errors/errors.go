@@ -5,7 +5,8 @@ import (
 )
 
 var ErrInvalidTypeConversion = errors.New("Invalid type conversion")
-
+var ErrNotFound = errors.New("Not found")
+var ErrStopped = errors.New("Stopped")
 var ErrTimeout = errors.New("Timed out")
 
 type ErrorWithStatusCode struct {
