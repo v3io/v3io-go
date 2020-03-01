@@ -67,7 +67,7 @@ func (c *container) PutItem(putItemInput *v3io.PutItemInput,
 }
 
 // PutItemSync
-func (c *container) PutItemSync(putItemInput *v3io.PutItemInput) error {
+func (c *container) PutItemSync(putItemInput *v3io.PutItemInput) (*v3io.Response, error) {
 	c.populateInputFields(&putItemInput.DataPlaneInput)
 	return c.session.context.PutItemSync(putItemInput)
 }
@@ -95,7 +95,7 @@ func (c *container) UpdateItem(updateItemInput *v3io.UpdateItemInput,
 }
 
 // UpdateItemSync
-func (c *container) UpdateItemSync(updateItemInput *v3io.UpdateItemInput) error {
+func (c *container) UpdateItemSync(updateItemInput *v3io.UpdateItemInput) (*v3io.Response, error) {
 	c.populateInputFields(&updateItemInput.DataPlaneInput)
 	return c.session.context.UpdateItemSync(updateItemInput)
 }

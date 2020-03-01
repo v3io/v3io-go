@@ -359,7 +359,7 @@ func (suite *syncKVTestSuite) TestEMD() {
 		suite.populateDataPlaneInput(&input.DataPlaneInput)
 
 		// get a specific bucket
-		err := suite.container.PutItemSync(&input)
+		_, err := suite.container.PutItemSync(&input)
 		suite.Require().NoError(err, "Failed to put item")
 	}
 
@@ -381,7 +381,7 @@ func (suite *syncKVTestSuite) TestEMD() {
 	// when run against a context, will populate fields like container name
 	suite.populateDataPlaneInput(&updateItemInput.DataPlaneInput)
 
-	err := suite.container.UpdateItemSync(&updateItemInput)
+	_, err := suite.container.UpdateItemSync(&updateItemInput)
 	suite.Require().NoError(err, "Failed to update item")
 
 	// get louise
@@ -449,7 +449,7 @@ func (suite *syncKVTestSuite) TestEMD() {
 	// when run against a context, will populate fields like container name
 	suite.populateDataPlaneInput(&updateItemInput.DataPlaneInput)
 
-	err = suite.container.UpdateItemSync(&updateItemInput)
+	_, err = suite.container.UpdateItemSync(&updateItemInput)
 	suite.Require().NoError(err, "Failed to update item")
 
 	// get tina
