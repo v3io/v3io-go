@@ -210,6 +210,12 @@ type PutItemInput struct {
 	UpdateMode string
 }
 
+type PutItemOutput struct {
+	DataPlaneInput
+	MtimeSecs int
+	MtimeNSecs int
+}
+
 type PutItemsInput struct {
 	DataPlaneInput
 	Path      string
@@ -230,6 +236,12 @@ type UpdateItemInput struct {
 	Expression *string
 	Condition  string
 	UpdateMode string
+}
+
+type UpdateItemOutput struct {
+	DataPlaneInput
+	MtimeSecs int
+	MtimeNSecs int
 }
 
 type GetItemInput struct {
