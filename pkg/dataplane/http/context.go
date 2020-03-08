@@ -133,15 +133,29 @@ func (c *context) GetClusterMD(getClusterMDInput *v3io.GetClusterMDInput,
 }
 
 func (c *context) GetClusterMDSync(getClusterMDInput *v3io.GetClusterMDInput) (*v3io.Response, error) {
-	getClusterMDOutput := v3io.GetClusterMDOutput{}
-
-	return c.sendRequestAndXMLUnmarshal(&getClusterMDInput.DataPlaneInput,
+	response, err := c.sendRequest(&getClusterMDInput.DataPlaneInput,
 		http.MethodPut,
 		"",
 		"",
+		getClusterMDHeaders,
 		nil,
-		nil,
-		&getClusterMDOutput)
+		false)
+	if err != nil {
+		return nil, err
+	}
+
+	getClusterMDOutput := v3io.GetClusterMDOutput{}
+
+	// unmarshal the body into an ad hoc structure
+	err = json.Unmarshal(response.Body(), &getClusterMDOutput)
+	if err != nil {
+		return nil, err
+	}
+
+	// set the output in the response
+	response.Output = &getClusterMDOutput
+
+	return response, nil
 }
 
 // GetContainers

@@ -66,7 +66,7 @@ type GetClusterMDInput struct {
 }
 type GetClusterMDOutput struct {
 	DataPlaneOutput
-	NumberOfVNs	int	`xml:"NumberOfVNs"`
+	NumberOfVNs	int
 }
 
 type GetContainerContentsInput struct {
