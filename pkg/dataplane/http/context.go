@@ -136,7 +136,7 @@ func (c *context) GetClusterMDSync(getClusterMDInput *v3io.GetClusterMDInput) (*
 	getClusterMDOutput := v3io.GetClusterMDOutput{}
 
 	return c.sendRequestAndXMLUnmarshal(&getClusterMDInput.DataPlaneInput,
-		http.MethodGet,
+		http.MethodPut,
 		"",
 		"",
 		nil,
