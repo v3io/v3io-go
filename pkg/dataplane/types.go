@@ -61,6 +61,14 @@ type DataPlaneOutput struct {
 // Container
 //
 
+type GetClusterMDInput struct {
+	DataPlaneInput
+}
+type GetClusterMDOutput struct {
+	DataPlaneOutput
+	NumberOfVNs	int
+}
+
 type GetContainerContentsInput struct {
 	DataPlaneInput
 	Path             string

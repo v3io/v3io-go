@@ -147,7 +147,7 @@ func (scg *streamConsumerGroup) setStateInPersistency(state *State, mtime *int) 
 		condition = fmt.Sprintf("__mtime_nsecs == %v", *mtime)
 	}
 
-	err = scg.container.UpdateItemSync(&v3io.UpdateItemInput{
+	_, err = scg.container.UpdateItemSync(&v3io.UpdateItemInput{
 		Path:      scg.getStateFilePath(),
 		Condition: condition,
 		Attributes: map[string]interface{}{
@@ -308,12 +308,13 @@ func (scg *streamConsumerGroup) setShardSequenceNumberInPersistency(shardID int,
 		return errors.Wrapf(err, "Failed getting shard path: %v", shardID)
 	}
 
-	return scg.container.UpdateItemSync(&v3io.UpdateItemInput{
+	_, err = scg.container.UpdateItemSync(&v3io.UpdateItemInput{
 		Path: shardPath,
 		Attributes: map[string]interface{}{
 			scg.getShardCommittedSequenceNumberAttributeName(): sequenceNumber,
 		},
 	})
+	return err
 }
 
 // returns true if the states are equal, ignoring heartbeat times

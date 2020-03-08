@@ -23,6 +23,12 @@ type Container interface {
 	//
 
 	// GetContainers
+	GetClusterMD(*GetClusterMDInput, interface{}, chan *Response) (*Request, error)
+
+	// GetContainersSync
+	GetClusterMDSync(*GetClusterMDInput) (*Response, error)
+
+	// GetContainers
 	GetContainers(*GetContainersInput, interface{}, chan *Response) (*Request, error)
 
 	// GetContainersSync

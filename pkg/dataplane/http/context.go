@@ -125,6 +125,38 @@ func (c *context) GetContainersSync(getContainersInput *v3io.GetContainersInput)
 		nil,
 		&v3io.GetContainersOutput{})
 }
+// GetClusterMD
+func (c *context) GetClusterMD(getClusterMDInput *v3io.GetClusterMDInput,
+	context interface{},
+	responseChan chan *v3io.Response) (*v3io.Request, error) {
+	return c.sendRequestToWorker(getClusterMDInput, context, responseChan)
+}
+
+func (c *context) GetClusterMDSync(getClusterMDInput *v3io.GetClusterMDInput) (*v3io.Response, error) {
+	response, err := c.sendRequest(&getClusterMDInput.DataPlaneInput,
+		http.MethodPut,
+		"",
+		"",
+		getClusterMDHeaders,
+		nil,
+		false)
+	if err != nil {
+		return nil, err
+	}
+
+	getClusterMDOutput := v3io.GetClusterMDOutput{}
+
+	// unmarshal the body into an ad hoc structure
+	err = json.Unmarshal(response.Body(), &getClusterMDOutput)
+	if err != nil {
+		return nil, err
+	}
+
+	// set the output in the response
+	response.Output = &getClusterMDOutput
+
+	return response, nil
+}
 
 // GetContainers
 func (c *context) GetContainerContents(getContainerContentsInput *v3io.GetContainerContentsInput,
@@ -1192,6 +1224,8 @@ func (c *context) workerEntry(workerIndex int) {
 			response, err = c.GetContainersSync(typedInput)
 		case *v3io.GetContainerContentsInput:
 			response, err = c.GetContainerContentsSync(typedInput)
+		case *v3io.GetClusterMDInput:
+			response, err = c.GetClusterMDSync(typedInput)
 		default:
 			c.logger.ErrorWith("Got unexpected request type", "type", reflect.TypeOf(request.Input).String())
 		}
