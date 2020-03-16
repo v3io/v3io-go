@@ -1263,6 +1263,9 @@ func getSectionAndIndex(values []attributeValuesSection, idx int) (section int, 
 	if len(values) == 1 {
 		return 0, idx
 	}
+	if idx < values[0].accumulatedPreviousSectionsLength {
+		return 0, idx
+	}
 	for i := 1; i < len(values); i++ {
 		if values[i].accumulatedPreviousSectionsLength > idx {
 			return i, idx - values[i-1].accumulatedPreviousSectionsLength
