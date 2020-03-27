@@ -88,7 +88,7 @@ func (scg *streamConsumerGroup) getTotalNumberOfShards() (int, error) {
 }
 
 func (scg *streamConsumerGroup) setState(modifier stateModifier) (*State, error) {
-	var modifiedState *State
+	var previousState, modifiedState *State
 
 	backoff := scg.config.State.ModifyRetry.Backoff
 	attempts := scg.config.State.ModifyRetry.Attempts
@@ -107,7 +107,7 @@ func (scg *streamConsumerGroup) setState(modifier stateModifier) (*State, error)
 		}
 
 		// for logging
-		previousState := state.deepCopy()
+		previousState = state.deepCopy()
 
 		modifiedState, err = modifier(state)
 		if err != nil {
@@ -130,7 +130,7 @@ func (scg *streamConsumerGroup) setState(modifier stateModifier) (*State, error)
 	})
 
 	if err != nil {
-		return nil, errors.Wrap(err, "Failed modifying state, attempts exhausted")
+		return nil, errors.Wrapf(err, "Failed modifying state, attempts exhausted. currentState(%s)", previousState.String())
 	}
 
 	return modifiedState, nil

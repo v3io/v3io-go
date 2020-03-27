@@ -125,6 +125,7 @@ func (c *context) GetContainersSync(getContainersInput *v3io.GetContainersInput)
 		nil,
 		&v3io.GetContainersOutput{})
 }
+
 // GetClusterMD
 func (c *context) GetClusterMD(getClusterMDInput *v3io.GetClusterMDInput,
 	context interface{},
