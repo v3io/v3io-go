@@ -66,7 +66,7 @@ type GetClusterMDInput struct {
 }
 type GetClusterMDOutput struct {
 	DataPlaneOutput
-	NumberOfVNs	int
+	NumberOfVNs int
 }
 
 type GetContainerContentsInput struct {
@@ -212,7 +212,7 @@ type PutItemInput struct {
 
 type PutItemOutput struct {
 	DataPlaneInput
-	MtimeSecs int
+	MtimeSecs  int
 	MtimeNSecs int
 }
 
@@ -240,7 +240,7 @@ type UpdateItemInput struct {
 
 type UpdateItemOutput struct {
 	DataPlaneInput
-	MtimeSecs int
+	MtimeSecs  int
 	MtimeNSecs int
 }
 
