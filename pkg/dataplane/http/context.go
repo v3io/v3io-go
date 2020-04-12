@@ -524,11 +524,18 @@ func (c *context) PutObject(putObjectInput *v3io.PutObjectInput,
 
 // PutObjectSync
 func (c *context) PutObjectSync(putObjectInput *v3io.PutObjectInput) error {
+
+	var headers map[string]string
+	if putObjectInput.Append {
+		headers = make(map[string]string)
+		headers["Range"] = "-1"
+	}
+
 	_, err := c.sendRequest(&putObjectInput.DataPlaneInput,
 		http.MethodPut,
 		putObjectInput.Path,
 		"",
-		nil,
+		headers,
 		putObjectInput.Body,
 		true)
 
@@ -1325,7 +1332,7 @@ func decodeCapnpAttributes(keyValues node_common_capnp.VnObjectItemsGetMappedKey
 func (c *context) getItemsParseJSONResponse(response *v3io.Response, getItemsInput *v3io.GetItemsInput) (*v3io.GetItemsOutput, error) {
 
 	getItemsResponse := struct {
-		Items            []map[string]map[string]interface{}
+		Items []map[string]map[string]interface{}
 		NextMarker       string
 		LastItemIncluded string
 	}{}
