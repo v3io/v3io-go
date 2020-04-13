@@ -43,11 +43,11 @@ type Container interface {
 	//
 	// Object
 	//
-	// HeadPath
-	HeadPath(*HeadPathInput, interface{}, chan *Response) (*Request, error)
+	// CheckPathExists
+	CheckPathExists(*CheckPathExistsInput, interface{}, chan *Response) (*Request, error)
 
-	// HeadPathSync
-	HeadPathSync(*HeadPathInput) error
+	// CheckPathExistsSync
+	CheckPathExistsSync(*CheckPathExistsInput) error
 
 	// GetObject
 	GetObject(*GetObjectInput, interface{}, chan *Response) (*Request, error)

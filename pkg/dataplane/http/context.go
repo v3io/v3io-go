@@ -613,18 +613,18 @@ func (c *context) DescribeStreamSync(describeStreamInput *v3io.DescribeStreamInp
 	return response, nil
 }
 
-// HeadPath
-func (c *context) HeadPath(headPathInput *v3io.HeadPathInput,
+// checkPathExists
+func (c *context) CheckPathExists(checkPathExistsInput *v3io.CheckPathExistsInput,
 	context interface{},
 	responseChan chan *v3io.Response) (*v3io.Request, error) {
-	return c.sendRequestToWorker(headPathInput, context, responseChan)
+	return c.sendRequestToWorker(checkPathExistsInput, context, responseChan)
 }
 
-// HeadPathSync
-func (c *context) HeadPathSync(headPathInput *v3io.HeadPathInput)  error {
-	_, err := c.sendRequest(&headPathInput.DataPlaneInput,
+// checkPathExistsSync
+func (c *context) CheckPathExistsSync(checkPathExistsInput *v3io.CheckPathExistsInput)  error {
+	_, err := c.sendRequest(&checkPathExistsInput.DataPlaneInput,
 		http.MethodHead,
-		headPathInput.Path,
+		checkPathExistsInput.Path,
 		"",
 		nil,
 		nil,
@@ -1247,8 +1247,8 @@ func (c *context) workerEntry(workerIndex int) {
 			response, err = c.GetContainerContentsSync(typedInput)
 		case *v3io.GetClusterMDInput:
 			response, err = c.GetClusterMDSync(typedInput)
-		case *v3io.HeadPathInput:
-			err = c.HeadPathSync(typedInput)
+		case *v3io.CheckPathExistsInput:
+			err = c.CheckPathExistsSync(typedInput)
 		default:
 			c.logger.ErrorWith("Got unexpected request type", "type", reflect.TypeOf(request.Input).String())
 		}

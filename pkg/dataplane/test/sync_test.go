@@ -324,16 +324,16 @@ func (suite *syncObjectTestSuite) TestObject() {
 }
 
 
-func (suite *syncObjectTestSuite) TestHeadPath() {
+func (suite *syncObjectTestSuite) TestCheckPathExists() {
 	suite.containerName = "bigdata"
 
-	headPathInput := v3io.HeadPathInput{}
-	headPathInput.Path = "/SomeFolder/"
+	checkPathExists := v3io.CheckPathExistsInput{}
+	checkPathExists.Path = "/SomeFolder/"
 	// when run against a context
-	suite.populateDataPlaneInput(&headPathInput.DataPlaneInput)
+	suite.populateDataPlaneInput(&checkPathExists.DataPlaneInput)
 
-	err := suite.container.HeadPathSync(&headPathInput)
-	suite.Require().Error(err, "Head on non existing folder should return error")
+	err := suite.container.CheckPathExistsSync(&checkPathExists)
+	suite.Require().Error(err, "did not get an error on non existing error")
 }
 
 type syncContextObjectTestSuite struct {
