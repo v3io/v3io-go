@@ -613,6 +613,26 @@ func (c *context) DescribeStreamSync(describeStreamInput *v3io.DescribeStreamInp
 	return response, nil
 }
 
+// HeadPath
+func (c *context) HeadPath(headPathInput *v3io.HeadPathInput,
+	context interface{},
+	responseChan chan *v3io.Response) (*v3io.Request, error) {
+	return c.sendRequestToWorker(headPathInput, context, responseChan)
+}
+
+// HeadPathSync
+func (c *context) HeadPathSync(headPathInput *v3io.HeadPathInput)  error {
+	_, err := c.sendRequest(&headPathInput.DataPlaneInput,
+		http.MethodHead,
+		headPathInput.Path,
+		"",
+		nil,
+		nil,
+		true)
+	return err
+}
+
+
 // DeleteStream
 func (c *context) DeleteStream(deleteStreamInput *v3io.DeleteStreamInput,
 	context interface{},
@@ -1227,6 +1247,8 @@ func (c *context) workerEntry(workerIndex int) {
 			response, err = c.GetContainerContentsSync(typedInput)
 		case *v3io.GetClusterMDInput:
 			response, err = c.GetClusterMDSync(typedInput)
+		case *v3io.HeadPathInput:
+			err = c.HeadPathSync(typedInput)
 		default:
 			c.logger.ErrorWith("Got unexpected request type", "type", reflect.TypeOf(request.Input).String())
 		}

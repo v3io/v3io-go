@@ -323,6 +323,19 @@ func (suite *syncObjectTestSuite) TestObject() {
 	suite.Require().Nil(response)
 }
 
+
+func (suite *syncObjectTestSuite) TestHeadPath() {
+	suite.containerName = "bigdata"
+
+	headPathInput := v3io.HeadPathInput{}
+	headPathInput.Path = "/SomeFolder/"
+	// when run against a context
+	suite.populateDataPlaneInput(&headPathInput.DataPlaneInput)
+
+	err := suite.container.HeadPathSync(&headPathInput)
+	suite.Require().Error(err, "Head on non existing folder should return error")
+}
+
 type syncContextObjectTestSuite struct {
 	syncObjectTestSuite
 }

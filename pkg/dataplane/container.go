@@ -43,6 +43,11 @@ type Container interface {
 	//
 	// Object
 	//
+	// HeadPath
+	HeadPath(*HeadPathInput, interface{}, chan *Response) (*Request, error)
+
+	// HeadPathSync
+	HeadPathSync(*HeadPathInput) error
 
 	// GetObject
 	GetObject(*GetObjectInput, interface{}, chan *Response) (*Request, error)
