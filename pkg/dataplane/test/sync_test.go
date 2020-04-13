@@ -323,6 +323,18 @@ func (suite *syncObjectTestSuite) TestObject() {
 	suite.Require().Nil(response)
 }
 
+func (suite *syncObjectTestSuite) TestCheckPathExists() {
+	suite.containerName = "bigdata"
+
+	checkPathExists := v3io.CheckPathExistsInput{}
+	checkPathExists.Path = "/SomeFolder/"
+	// when run against a context
+	suite.populateDataPlaneInput(&checkPathExists.DataPlaneInput)
+
+	err := suite.container.CheckPathExistsSync(&checkPathExists)
+	suite.Require().Error(err, "did not get an error on non existing error")
+}
+
 type syncContextObjectTestSuite struct {
 	syncObjectTestSuite
 }
