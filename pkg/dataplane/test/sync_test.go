@@ -323,7 +323,6 @@ func (suite *syncObjectTestSuite) TestObject() {
 	suite.Require().Nil(response)
 }
 
-
 func (suite *syncObjectTestSuite) TestCheckPathExists() {
 	suite.containerName = "bigdata"
 

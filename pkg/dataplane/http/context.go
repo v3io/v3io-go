@@ -621,7 +621,7 @@ func (c *context) CheckPathExists(checkPathExistsInput *v3io.CheckPathExistsInpu
 }
 
 // checkPathExistsSync
-func (c *context) CheckPathExistsSync(checkPathExistsInput *v3io.CheckPathExistsInput)  error {
+func (c *context) CheckPathExistsSync(checkPathExistsInput *v3io.CheckPathExistsInput) error {
 	_, err := c.sendRequest(&checkPathExistsInput.DataPlaneInput,
 		http.MethodHead,
 		checkPathExistsInput.Path,
@@ -631,7 +631,6 @@ func (c *context) CheckPathExistsSync(checkPathExistsInput *v3io.CheckPathExists
 		true)
 	return err
 }
-
 
 // DeleteStream
 func (c *context) DeleteStream(deleteStreamInput *v3io.DeleteStreamInput,
