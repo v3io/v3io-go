@@ -191,6 +191,7 @@ type PutObjectInput struct {
 	Path   string
 	Offset int
 	Body   []byte
+	Append bool
 }
 
 type DeleteObjectInput struct {

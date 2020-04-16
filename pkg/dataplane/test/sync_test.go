@@ -323,6 +323,111 @@ func (suite *syncObjectTestSuite) TestObject() {
 	suite.Require().Nil(response)
 }
 
+func (suite *syncObjectTestSuite) TestAppend() {
+	path := "/object.txt"
+	contents := "vegans are better than everyone"
+
+	getObjectInput := &v3io.GetObjectInput{
+		Path: path,
+	}
+
+	// when run against a context, will populate fields like container name
+	suite.populateDataPlaneInput(&getObjectInput.DataPlaneInput)
+
+	response, err := suite.container.GetObjectSync(getObjectInput)
+
+	// get the underlying root error
+	errWithStatusCode, errHasStatusCode := err.(v3ioerrors.ErrorWithStatusCode)
+	suite.Require().True(errHasStatusCode)
+	suite.Require().Equal(404, errWithStatusCode.StatusCode())
+
+	//
+	// PUT contents to some object
+	//
+
+	putObjectInput := &v3io.PutObjectInput{
+		Path: path,
+		Body: []byte(contents),
+	}
+
+	// when run against a context, will populate fields like container name
+	suite.populateDataPlaneInput(&putObjectInput.DataPlaneInput)
+
+	err = suite.container.PutObjectSync(putObjectInput)
+
+	suite.Require().NoError(err, "Failed to put")
+
+
+	//
+	// Append contents to the same object
+	//
+
+	appendContents := "NOT!"
+	appendPutObjectInput := &v3io.PutObjectInput{
+		Path: path,
+		Body: []byte(appendContents),
+		Append: true,
+	}
+
+	// when run against a context, will populate fields like container name
+	suite.populateDataPlaneInput(&appendPutObjectInput.DataPlaneInput)
+
+	err = suite.container.PutObjectSync(appendPutObjectInput)
+
+	suite.Require().NoError(err, "Failed to put")
+
+	//
+	// Get the contents
+	//
+
+	getObjectInput = &v3io.GetObjectInput{
+		Path: path,
+	}
+
+	// when run against a context, will populate fields like container name
+	suite.populateDataPlaneInput(&getObjectInput.DataPlaneInput)
+
+	response, err = suite.container.GetObjectSync(getObjectInput)
+	suite.Require().NoError(err, "Failed to get")
+
+	// make sure buckets is not empty
+	suite.Require().Equal(contents + appendContents, string(response.Body()))
+
+	// release the response
+	response.Release()
+
+	//
+	// Delete the object
+	//
+
+	deleteObjectInput := &v3io.DeleteObjectInput{
+		Path: path,
+	}
+
+	// when run against a context, will populate fields like container name
+	suite.populateDataPlaneInput(&deleteObjectInput.DataPlaneInput)
+
+	err = suite.container.DeleteObjectSync(deleteObjectInput)
+
+	suite.Require().NoError(err, "Failed to delete")
+
+	//
+	// Get the contents again (should fail)
+	//
+
+	getObjectInput = &v3io.GetObjectInput{
+		Path: path,
+	}
+
+	// when run against a context, will populate fields like container name
+	suite.populateDataPlaneInput(&getObjectInput.DataPlaneInput)
+
+	response, err = suite.container.GetObjectSync(getObjectInput)
+
+	suite.Require().Error(err, "Failed to get")
+	suite.Require().Nil(response)
+}
+
 func (suite *syncObjectTestSuite) TestCheckPathExists() {
 	suite.containerName = "bigdata"
 
