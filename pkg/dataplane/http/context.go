@@ -506,11 +506,18 @@ func (c *context) GetObject(getObjectInput *v3io.GetObjectInput,
 
 // GetObjectSync
 func (c *context) GetObjectSync(getObjectInput *v3io.GetObjectInput) (*v3io.Response, error) {
+	var headers map[string]string
+	if getObjectInput.Offset != 0 || getObjectInput.NumBytes != 0 {
+		headers = make(map[string]string)
+		// Range header is inclusive in both 'start' and 'end', thus reducing 1
+		headers["Range"] = fmt.Sprintf("bytes=%v-%v", getObjectInput.Offset, getObjectInput.Offset+getObjectInput.NumBytes-1)
+	}
+
 	return c.sendRequest(&getObjectInput.DataPlaneInput,
 		http.MethodGet,
 		getObjectInput.Path,
 		"",
-		nil,
+		headers,
 		nil,
 		false)
 }
