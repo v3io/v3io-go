@@ -307,6 +307,11 @@ type CreateStreamInput struct {
 	RetentionPeriodHours int
 }
 
+type CheckPathExistsInput struct {
+	DataPlaneInput
+	Path string
+}
+
 type DescribeStreamInput struct {
 	DataPlaneInput
 	Path string
