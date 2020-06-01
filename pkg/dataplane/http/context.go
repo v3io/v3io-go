@@ -35,11 +35,11 @@ import (
 var requestID uint64
 
 type context struct {
-	logger           logger.Logger
-	requestChan      chan *v3io.Request
-	httpClient       *fasthttp.Client
-	numWorkers       int
-	connSemaphore    *semaphore.Weighted
+	logger        logger.Logger
+	requestChan   chan *v3io.Request
+	httpClient    *fasthttp.Client
+	numWorkers    int
+	connSemaphore *semaphore.Weighted
 }
 
 type NewClientInput struct {
@@ -85,17 +85,15 @@ func NewContext(parentLogger logger.Logger, newContextInput *NewContextInput) (v
 		httpClient = NewClient(&NewClientInput{})
 	}
 
-	maxConns := newContextInput.MaxConns
-	if newContextInput.MaxConns <= 0 {
-		maxConns = 10240
+	newContext := &context{
+		logger:      parentLogger.GetChild("context.http"),
+		httpClient:  httpClient,
+		requestChan: make(chan *v3io.Request, requestChanLen),
+		numWorkers:  numWorkers,
 	}
 
-	newContext := &context{
-		logger:        parentLogger.GetChild("context.http"),
-		httpClient:    httpClient,
-		requestChan:   make(chan *v3io.Request, requestChanLen),
-		numWorkers:    numWorkers,
-		connSemaphore: semaphore.NewWeighted(maxConns),
+	if newContextInput.MaxConns > 0 {
+		newContext.connSemaphore = semaphore.NewWeighted(newContextInput.MaxConns)
 	}
 
 	for workerIndex := 0; workerIndex < numWorkers; workerIndex++ {
@@ -1006,13 +1004,17 @@ func (c *context) sendRequest(dataPlaneInput *v3io.DataPlaneInput,
 		"method", method,
 		"body-length", len(body))
 
-	c.connSemaphore.Acquire(goctx.TODO(), 1)
+	if c.connSemaphore != nil {
+		c.connSemaphore.Acquire(goctx.TODO(), 1)
+	}
 	if dataPlaneInput.Timeout <= 0 {
 		err = c.httpClient.Do(request, response.HTTPResponse)
 	} else {
 		err = c.httpClient.DoTimeout(request, response.HTTPResponse, dataPlaneInput.Timeout)
 	}
-	c.connSemaphore.Release(1)
+	if c.connSemaphore != nil {
+		c.connSemaphore.Release(1)
+	}
 
 	if err != nil {
 		goto cleanup
