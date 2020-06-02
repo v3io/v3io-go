@@ -93,7 +93,7 @@ func NewContext(parentLogger logger.Logger, newContextInput *NewContextInput) (v
 	}
 
 	if newContextInput.MaxConns > 0 {
-		newContext.connSemaphore = semaphore.NewWeighted(newContextInput.MaxConns)
+		newContext.connSemaphore = semaphore.NewWeighted(int64(newContextInput.MaxConns))
 	}
 
 	for workerIndex := 0; workerIndex < numWorkers; workerIndex++ {
