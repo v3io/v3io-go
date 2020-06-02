@@ -2,6 +2,7 @@ package v3iohttp
 
 import (
 	"bytes"
+	goctx "context"
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
@@ -26,6 +27,7 @@ import (
 	"github.com/nuclio/errors"
 	"github.com/nuclio/logger"
 	"github.com/valyala/fasthttp"
+	"golang.org/x/sync/semaphore"
 	"zombiezen.com/go/capnproto2"
 )
 
@@ -33,10 +35,11 @@ import (
 var requestID uint64
 
 type context struct {
-	logger           logger.Logger
-	requestChan      chan *v3io.Request
-	httpClient       *fasthttp.Client
-	numWorkers       int
+	logger        logger.Logger
+	requestChan   chan *v3io.Request
+	httpClient    *fasthttp.Client
+	numWorkers    int
+	connSemaphore *semaphore.Weighted
 }
 
 type NewClientInput struct {
@@ -87,6 +90,10 @@ func NewContext(parentLogger logger.Logger, newContextInput *NewContextInput) (v
 		httpClient:  httpClient,
 		requestChan: make(chan *v3io.Request, requestChanLen),
 		numWorkers:  numWorkers,
+	}
+
+	if newContextInput.MaxConns > 0 {
+		newContext.connSemaphore = semaphore.NewWeighted(int64(newContextInput.MaxConns))
 	}
 
 	for workerIndex := 0; workerIndex < numWorkers; workerIndex++ {
@@ -997,10 +1004,16 @@ func (c *context) sendRequest(dataPlaneInput *v3io.DataPlaneInput,
 		"method", method,
 		"body-length", len(body))
 
+	if c.connSemaphore != nil {
+		c.connSemaphore.Acquire(goctx.TODO(), 1)
+	}
 	if dataPlaneInput.Timeout <= 0 {
 		err = c.httpClient.Do(request, response.HTTPResponse)
 	} else {
 		err = c.httpClient.DoTimeout(request, response.HTTPResponse, dataPlaneInput.Timeout)
+	}
+	if c.connSemaphore != nil {
+		c.connSemaphore.Release(1)
 	}
 
 	if err != nil {

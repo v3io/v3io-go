@@ -6,4 +6,5 @@ type NewContextInput struct {
 	HTTPClient     *fasthttp.Client
 	NumWorkers     int
 	RequestChanLen int
+	MaxConns       int
 }
