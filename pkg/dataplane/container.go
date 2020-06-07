@@ -140,4 +140,14 @@ type Container interface {
 
 	// GetRecordsSync
 	GetRecordsSync(*GetRecordsInput) (*Response, error)
+
+	//
+	// OOS
+	//
+
+	// PutOOSObject
+	PutOOSObject(*PutOOSObjectInput, interface{}, chan *Response) (*Request, error)
+
+	// PutOOSObjectSync
+	PutOOSObjectSync(*PutOOSObjectInput) error
 }

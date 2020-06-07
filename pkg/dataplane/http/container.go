@@ -263,3 +263,17 @@ func (c *container) GetRecordsSync(getRecordsInput *v3io.GetRecordsInput) (*v3io
 	c.populateInputFields(&getRecordsInput.DataPlaneInput)
 	return c.session.context.GetRecordsSync(getRecordsInput)
 }
+
+// PutOOSObject
+func (c *container) PutOOSObject(putOOSObjectInput *v3io.PutOOSObjectInput,
+	context interface{},
+	responseChan chan *v3io.Response) (*v3io.Request, error) {
+	c.populateInputFields(&putOOSObjectInput.DataPlaneInput)
+	return c.session.context.PutOOSObject(putOOSObjectInput, context, responseChan)
+}
+
+// PutOOSObjectSync
+func (c *container) PutOOSObjectSync(putOOSObjectInput *v3io.PutOOSObjectInput) error {
+	c.populateInputFields(&putOOSObjectInput.DataPlaneInput)
+	return c.session.context.PutOOSObjectSync(putOOSObjectInput)
+}
