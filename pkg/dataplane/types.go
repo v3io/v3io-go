@@ -383,3 +383,11 @@ type GetRecordsOutput struct {
 	RecordsBehindLatest int
 	Records             []GetRecordsResult
 }
+
+type PutOOSObjectInput struct {
+	DataPlaneInput
+	Path    string
+	SliceID int
+	Header  []byte
+	Data    [][]byte
+}

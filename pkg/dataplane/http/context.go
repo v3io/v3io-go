@@ -1549,3 +1549,51 @@ func trimAndParseInt(str string) (int, error) {
 	trimmed := strings.TrimSpace(str)
 	return strconv.Atoi(trimmed)
 }
+
+// PutOOSObject
+func (c *context) PutOOSObject(putOOSObjectInput *v3io.PutOOSObjectInput,
+	context interface{},
+	responseChan chan *v3io.Response) (*v3io.Request, error) {
+	return c.sendRequestToWorker(putOOSObjectInput, context, responseChan)
+}
+
+// PutOOSObjectSync
+func (c *context) PutOOSObjectSync(putOOSObjectInput *v3io.PutOOSObjectInput) error {
+
+	var iovecSizes strings.Builder
+
+	// concatenate header + data lengths with ',' separator
+	totalSize := len(putOOSObjectInput.Header)
+
+	// heuristics: 6 chars per number + char for delimiter) * (len(Data) + 1) - 1
+	iovecSizes.Grow(7*(len(putOOSObjectInput.Data)+1) - 1)
+	iovecSizes.WriteString(strconv.Itoa(totalSize))
+
+	for _, ioVec := range putOOSObjectInput.Data {
+		totalSize += len(ioVec)
+		iovecSizes.WriteString(",")
+		iovecSizes.WriteString(strconv.Itoa(len(ioVec)))
+	}
+	// concatenate the header + data to buffer
+	buffer := bytes.NewBuffer(make([]byte, 0, totalSize))
+	buffer.Write(putOOSObjectInput.Header)
+
+	for _, ioVec := range putOOSObjectInput.Data {
+		buffer.Write(ioVec)
+	}
+
+	headers := putOOSObjectHeaders
+	headers["slice"] = strconv.Itoa(putOOSObjectInput.SliceID)
+	headers["io-vec-num"] = strconv.Itoa(len(putOOSObjectInput.Data) + 1)
+	headers["io-vec-sizes"] = iovecSizes.String()
+
+	_, err := c.sendRequest(&putOOSObjectInput.DataPlaneInput,
+		http.MethodPut,
+		putOOSObjectInput.Path,
+		"",
+		headers,
+		buffer.Bytes(),
+		true)
+
+	return err
+}
