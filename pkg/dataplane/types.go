@@ -23,19 +23,11 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/valyala/fasthttp"
 )
 
 //
 // Control plane
 //
-
-type NewContextInput struct {
-	Client         *fasthttp.Client
-	NumWorkers     int
-	RequestChanLen int
-}
 
 type NewSessionInput struct {
 	URL       string
@@ -68,6 +60,14 @@ type DataPlaneOutput struct {
 //
 // Container
 //
+
+type GetClusterMDInput struct {
+	DataPlaneInput
+}
+type GetClusterMDOutput struct {
+	DataPlaneOutput
+	NumberOfVNs int
+}
 
 type GetContainerContentsInput struct {
 	DataPlaneInput
@@ -125,20 +125,22 @@ func mode(v3ioFileMode FileMode) (os.FileMode, error) {
 	// For example Scan API returns file mode as decimal number (base 10) while ListDir as Octal (base 8)
 	var sFileMode = string(v3ioFileMode)
 	if strings.HasPrefix(sFileMode, "0") {
+
 		// Convert octal representation of V3IO into decimal representation of Go
-		if mode, err := strconv.ParseUint(sFileMode, 8, 32); err != nil {
-			return os.FileMode(S_IFMT), err
-		} else {
-			golangFileMode := ((mode & S_IFMT) << 17) | (mode & IP_OFFMASK)
-			return os.FileMode(golangFileMode), nil
-		}
-	} else {
-		mode, err := strconv.ParseUint(sFileMode, 10, 32)
+		mode, err := strconv.ParseUint(sFileMode, 8, 32)
 		if err != nil {
 			return os.FileMode(S_IFMT), err
 		}
-		return os.FileMode(mode), nil
+
+		golangFileMode := ((mode & S_IFMT) << 17) | (mode & IP_OFFMASK)
+		return os.FileMode(golangFileMode), nil
 	}
+
+	mode, err := strconv.ParseUint(sFileMode, 10, 32)
+	if err != nil {
+		return os.FileMode(S_IFMT), err
+	}
+	return os.FileMode(mode), nil
 }
 
 type GetContainerContentsOutput struct {
@@ -189,6 +191,7 @@ type PutObjectInput struct {
 	Path   string
 	Offset int
 	Body   []byte
+	Append bool
 }
 
 type DeleteObjectInput struct {
@@ -206,6 +209,12 @@ type PutItemInput struct {
 	Condition  string
 	Attributes map[string]interface{}
 	UpdateMode string
+}
+
+type PutItemOutput struct {
+	DataPlaneInput
+	MtimeSecs  int
+	MtimeNSecs int
 }
 
 type PutItemsInput struct {
@@ -230,6 +239,12 @@ type UpdateItemInput struct {
 	UpdateMode string
 }
 
+type UpdateItemOutput struct {
+	DataPlaneInput
+	MtimeSecs  int
+	MtimeNSecs int
+}
+
 type GetItemInput struct {
 	DataPlaneInput
 	Path           string
@@ -243,17 +258,18 @@ type GetItemOutput struct {
 
 type GetItemsInput struct {
 	DataPlaneInput
-	Path              string
-	TableName         string
-	AttributeNames    []string
-	Filter            string
-	Marker            string
-	ShardingKey       string
-	Limit             int
-	Segment           int
-	TotalSegments     int
-	SortKeyRangeStart string
-	SortKeyRangeEnd   string
+	Path                string
+	TableName           string
+	AttributeNames      []string
+	Filter              string
+	Marker              string
+	ShardingKey         string
+	Limit               int
+	Segment             int
+	TotalSegments       int
+	SortKeyRangeStart   string
+	SortKeyRangeEnd     string
+	RequestJSONResponse bool `json:"RequestJsonResponse"`
 }
 
 type GetItemsOutput struct {
@@ -268,10 +284,11 @@ type GetItemsOutput struct {
 //
 
 type StreamRecord struct {
-	ShardID      *int
-	Data         []byte
-	ClientInfo   []byte
-	PartitionKey string
+	ShardID        *int
+	Data           []byte
+	ClientInfo     []byte
+	PartitionKey   string
+	SequenceNumber uint64
 }
 
 type SeekShardInputType int
@@ -290,6 +307,22 @@ type CreateStreamInput struct {
 	RetentionPeriodHours int
 }
 
+type CheckPathExistsInput struct {
+	DataPlaneInput
+	Path string
+}
+
+type DescribeStreamInput struct {
+	DataPlaneInput
+	Path string
+}
+
+type DescribeStreamOutput struct {
+	DataPlaneOutput
+	ShardCount           int
+	RetentionPeriodHours int
+}
+
 type DeleteStreamInput struct {
 	DataPlaneInput
 	Path string
@@ -302,7 +335,7 @@ type PutRecordsInput struct {
 }
 
 type PutRecordResult struct {
-	SequenceNumber int
+	SequenceNumber uint64
 	ShardID        int `json:"ShardId"`
 	ErrorCode      int
 	ErrorMessage   string
@@ -318,7 +351,7 @@ type SeekShardInput struct {
 	DataPlaneInput
 	Path                   string
 	Type                   SeekShardInputType
-	StartingSequenceNumber int
+	StartingSequenceNumber uint64
 	Timestamp              int
 }
 
@@ -337,7 +370,7 @@ type GetRecordsInput struct {
 type GetRecordsResult struct {
 	ArrivalTimeSec  int
 	ArrivalTimeNSec int
-	SequenceNumber  int
+	SequenceNumber  uint64
 	ClientInfo      []byte
 	PartitionKey    string
 	Data            []byte
@@ -349,4 +382,12 @@ type GetRecordsOutput struct {
 	MSecBehindLatest    int
 	RecordsBehindLatest int
 	Records             []GetRecordsResult
+}
+
+type PutOOSObjectInput struct {
+	DataPlaneInput
+	Path    string
+	SliceID int
+	Header  []byte
+	Data    [][]byte
 }

@@ -19,6 +19,22 @@ type syncTestSuite struct {
 // Container tests
 //
 
+func (suite *syncContainerTestSuite) TestGetClusterMD() {
+	suite.containerName = "bigdata"
+
+	getClusterMDInput := v3io.GetClusterMDInput{}
+
+	// when run against a context
+	suite.populateDataPlaneInput(&getClusterMDInput.DataPlaneInput)
+
+	// get cluster md
+	response, err := suite.container.GetClusterMDSync(&getClusterMDInput)
+	suite.Require().NoError(err, "Failed to get cluster meta data")
+	getClusteMDOutput := response.Output.(*v3io.GetClusterMDOutput)
+	suite.Require().NotEqual(getClusteMDOutput.NumberOfVNs, 0)
+	response.Release()
+}
+
 type syncContainerTestSuite struct {
 	syncTestSuite
 }
@@ -307,6 +323,260 @@ func (suite *syncObjectTestSuite) TestObject() {
 	suite.Require().Nil(response)
 }
 
+func (suite *syncObjectTestSuite) TestAppend() {
+	path := "/object.txt"
+	contents := "vegans are better than everyone"
+
+	getObjectInput := &v3io.GetObjectInput{
+		Path: path,
+	}
+
+	// when run against a context, will populate fields like container name
+	suite.populateDataPlaneInput(&getObjectInput.DataPlaneInput)
+
+	response, err := suite.container.GetObjectSync(getObjectInput)
+
+	// get the underlying root error
+	errWithStatusCode, errHasStatusCode := err.(v3ioerrors.ErrorWithStatusCode)
+	suite.Require().True(errHasStatusCode)
+	suite.Require().Equal(404, errWithStatusCode.StatusCode())
+
+	//
+	// PUT contents to some object
+	//
+
+	putObjectInput := &v3io.PutObjectInput{
+		Path: path,
+		Body: []byte(contents),
+	}
+
+	// when run against a context, will populate fields like container name
+	suite.populateDataPlaneInput(&putObjectInput.DataPlaneInput)
+
+	err = suite.container.PutObjectSync(putObjectInput)
+
+	suite.Require().NoError(err, "Failed to put")
+
+	//
+	// Append contents to the same object
+	//
+
+	appendContents := "NOT!"
+	appendPutObjectInput := &v3io.PutObjectInput{
+		Path:   path,
+		Body:   []byte(appendContents),
+		Append: true,
+	}
+
+	// when run against a context, will populate fields like container name
+	suite.populateDataPlaneInput(&appendPutObjectInput.DataPlaneInput)
+
+	err = suite.container.PutObjectSync(appendPutObjectInput)
+
+	suite.Require().NoError(err, "Failed to put")
+
+	//
+	// Get the contents
+	//
+
+	getObjectInput = &v3io.GetObjectInput{
+		Path: path,
+	}
+
+	// when run against a context, will populate fields like container name
+	suite.populateDataPlaneInput(&getObjectInput.DataPlaneInput)
+
+	response, err = suite.container.GetObjectSync(getObjectInput)
+	suite.Require().NoError(err, "Failed to get")
+
+	// make sure buckets is not empty
+	suite.Require().Equal(contents+appendContents, string(response.Body()))
+
+	// release the response
+	response.Release()
+
+	//
+	// Delete the object
+	//
+
+	deleteObjectInput := &v3io.DeleteObjectInput{
+		Path: path,
+	}
+
+	// when run against a context, will populate fields like container name
+	suite.populateDataPlaneInput(&deleteObjectInput.DataPlaneInput)
+
+	err = suite.container.DeleteObjectSync(deleteObjectInput)
+
+	suite.Require().NoError(err, "Failed to delete")
+
+	//
+	// Get the contents again (should fail)
+	//
+
+	getObjectInput = &v3io.GetObjectInput{
+		Path: path,
+	}
+
+	// when run against a context, will populate fields like container name
+	suite.populateDataPlaneInput(&getObjectInput.DataPlaneInput)
+
+	response, err = suite.container.GetObjectSync(getObjectInput)
+
+	suite.Require().Error(err, "Failed to get")
+	suite.Require().Nil(response)
+}
+
+func (suite *syncObjectTestSuite) TestCheckPathExists() {
+	suite.containerName = "bigdata"
+
+	checkPathExists := v3io.CheckPathExistsInput{}
+	checkPathExists.Path = "/SomeFolder/"
+	// when run against a context
+	suite.populateDataPlaneInput(&checkPathExists.DataPlaneInput)
+
+	err := suite.container.CheckPathExistsSync(&checkPathExists)
+	suite.Require().Error(err, "did not get an error on non existing error")
+}
+
+func (suite *syncObjectTestSuite) TestReadRange() {
+	path := "/range.txt"
+
+	fileSize := 1024 * 1024 * 3
+	contents := make([]byte, fileSize)
+
+	for i := range contents {
+		contents[i] = 'a'
+	}
+
+	getObjectInput := &v3io.GetObjectInput{
+		Path: path,
+	}
+
+	// when run against a context, will populate fields like container name
+	suite.populateDataPlaneInput(&getObjectInput.DataPlaneInput)
+
+	response, err := suite.container.GetObjectSync(getObjectInput)
+
+	// get the underlying root error
+	errWithStatusCode, errHasStatusCode := err.(v3ioerrors.ErrorWithStatusCode)
+	suite.Require().True(errHasStatusCode)
+	suite.Require().Equal(404, errWithStatusCode.StatusCode())
+
+	//
+	// PUT contents to some object
+	//
+
+	putObjectInput := &v3io.PutObjectInput{
+		Path: path,
+		Body: []byte(contents),
+	}
+
+	// when run against a context, will populate fields like container name
+	suite.populateDataPlaneInput(&putObjectInput.DataPlaneInput)
+
+	err = suite.container.PutObjectSync(putObjectInput)
+
+	suite.Require().NoError(err, "Failed to put")
+
+	//
+	// Get all the contents
+	//
+
+	getObjectInput = &v3io.GetObjectInput{
+		Path: path,
+	}
+
+	// when run against a context, will populate fields like container name
+	suite.populateDataPlaneInput(&getObjectInput.DataPlaneInput)
+
+	response, err = suite.container.GetObjectSync(getObjectInput)
+	suite.Require().NoError(err, "Failed to get")
+
+	// make sure buckets is not empty
+	suite.Require().Equal(string(contents), string(response.Body()))
+
+	// release the response
+	response.Release()
+
+	halfFileLength := fileSize / 2
+	//
+	// Get the first half
+	//
+
+	getObjectInput = &v3io.GetObjectInput{
+		Path:     path,
+		Offset:   0,
+		NumBytes: halfFileLength,
+	}
+
+	// when run against a context, will populate fields like container name
+	suite.populateDataPlaneInput(&getObjectInput.DataPlaneInput)
+
+	response, err = suite.container.GetObjectSync(getObjectInput)
+	suite.Require().NoError(err, "Failed to get")
+
+	// make sure buckets is not empty
+	suite.Require().Equal(string(contents[:halfFileLength]), string(response.Body()))
+
+	// release the response
+	response.Release()
+
+	fmt.Println("======== gonna read second")
+	//
+	// Get the second half
+	//
+
+	getObjectInput = &v3io.GetObjectInput{
+		Path:     path,
+		Offset:   halfFileLength,
+		NumBytes: halfFileLength,
+	}
+
+	// when run against a context, will populate fields like container name
+	suite.populateDataPlaneInput(&getObjectInput.DataPlaneInput)
+
+	response, err = suite.container.GetObjectSync(getObjectInput)
+	suite.Require().NoError(err, "Failed to get")
+
+	// make sure buckets is not empty
+	suite.Require().Equal(string(contents[halfFileLength:]), string(response.Body()))
+
+	// release the response
+	response.Release()
+
+	//
+	// Delete the object
+	//
+
+	deleteObjectInput := &v3io.DeleteObjectInput{
+		Path: path,
+	}
+
+	// when run against a context, will populate fields like container name
+	suite.populateDataPlaneInput(&deleteObjectInput.DataPlaneInput)
+
+	err = suite.container.DeleteObjectSync(deleteObjectInput)
+
+	suite.Require().NoError(err, "Failed to delete")
+
+	//
+	// Get the contents again (should fail)
+	//
+
+	getObjectInput = &v3io.GetObjectInput{
+		Path: path,
+	}
+
+	// when run against a context, will populate fields like container name
+	suite.populateDataPlaneInput(&getObjectInput.DataPlaneInput)
+
+	response, err = suite.container.GetObjectSync(getObjectInput)
+
+	suite.Require().Error(err, "Failed to get")
+	suite.Require().Nil(response)
+}
+
 type syncContextObjectTestSuite struct {
 	syncObjectTestSuite
 }
@@ -359,7 +629,7 @@ func (suite *syncKVTestSuite) TestEMD() {
 		suite.populateDataPlaneInput(&input.DataPlaneInput)
 
 		// get a specific bucket
-		err := suite.container.PutItemSync(&input)
+		_, err := suite.container.PutItemSync(&input)
 		suite.Require().NoError(err, "Failed to put item")
 	}
 
@@ -381,7 +651,7 @@ func (suite *syncKVTestSuite) TestEMD() {
 	// when run against a context, will populate fields like container name
 	suite.populateDataPlaneInput(&updateItemInput.DataPlaneInput)
 
-	err := suite.container.UpdateItemSync(&updateItemInput)
+	_, err := suite.container.UpdateItemSync(&updateItemInput)
 	suite.Require().NoError(err, "Failed to update item")
 
 	// get louise
@@ -449,7 +719,7 @@ func (suite *syncKVTestSuite) TestEMD() {
 	// when run against a context, will populate fields like container name
 	suite.populateDataPlaneInput(&updateItemInput.DataPlaneInput)
 
-	err = suite.container.UpdateItemSync(&updateItemInput)
+	_, err = suite.container.UpdateItemSync(&updateItemInput)
 	suite.Require().NoError(err, "Failed to update item")
 
 	// get tina
@@ -632,28 +902,22 @@ func (suite *syncContainerKVTestSuite) SetupSuite() {
 
 type syncStreamTestSuite struct {
 	syncTestSuite
-	testPath string
+	streamTestSuite streamTestSuite
 }
 
 func (suite *syncStreamTestSuite) SetupTest() {
-	suite.testPath = "/stream-test"
-	err := suite.deleteAllStreamsInPath(suite.testPath)
-	// get the underlying root error
-	if err != nil {
-		errWithStatusCode, errHasStatusCode := err.(v3ioerrors.ErrorWithStatusCode)
-		suite.Require().True(errHasStatusCode)
-		// File not found is OK
-		suite.Require().Equal(404, errWithStatusCode.StatusCode(), "Failed to setup test suite")
+	suite.streamTestSuite = streamTestSuite{
+		testSuite: suite.syncTestSuite.testSuite,
 	}
+	suite.streamTestSuite.SetupTest()
 }
 
 func (suite *syncStreamTestSuite) TearDownTest() {
-	err := suite.deleteAllStreamsInPath(suite.testPath)
-	suite.Require().NoError(err, "Failed to tear down test suite")
+	suite.streamTestSuite.TearDownTest()
 }
 
 func (suite *syncStreamTestSuite) TestStream() {
-	streamPath := fmt.Sprintf("%s/mystream/", suite.testPath)
+	streamPath := fmt.Sprintf("%s/mystream/", suite.streamTestSuite.testPath)
 
 	//
 	// Create the stream
@@ -770,39 +1034,6 @@ func (suite *syncStreamTestSuite) TestStream() {
 
 	err = suite.container.DeleteStreamSync(&deleteStreamInput)
 	suite.Require().NoError(err, "Failed to delete stream")
-}
-
-func (suite *syncStreamTestSuite) deleteAllStreamsInPath(path string) error {
-
-	getContainerContentsInput := v3io.GetContainerContentsInput{
-		Path: path,
-	}
-
-	suite.populateDataPlaneInput(&getContainerContentsInput.DataPlaneInput)
-
-	// get all streams in the test path
-	response, err := suite.container.GetContainerContentsSync(&getContainerContentsInput)
-
-	if err != nil {
-		return err
-	}
-	response.Release()
-
-	// iterate over streams (prefixes) and delete them
-	for _, commonPrefix := range response.Output.(*v3io.GetContainerContentsOutput).CommonPrefixes {
-		deleteStreamInput := v3io.DeleteStreamInput{
-			Path: "/" + commonPrefix.Prefix,
-		}
-
-		suite.populateDataPlaneInput(&deleteStreamInput.DataPlaneInput)
-
-		err := suite.container.DeleteStreamSync(&deleteStreamInput)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 type syncContextStreamTestSuite struct {
