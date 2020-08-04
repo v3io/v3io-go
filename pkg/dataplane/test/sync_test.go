@@ -272,11 +272,55 @@ func (suite *syncObjectTestSuite) TestObject() {
 	suite.Require().NoError(err, "Failed to put")
 
 	//
-	// Get the contents
+	// Get the contents by path
 	//
 
 	getObjectInput = &v3io.GetObjectInput{
 		Path: path,
+	}
+
+	// when run against a context, will populate fields like container name
+	suite.populateDataPlaneInput(&getObjectInput.DataPlaneInput)
+
+	response, err = suite.container.GetObjectSync(getObjectInput)
+	suite.Require().NoError(err, "Failed to get")
+
+	// make sure buckets is not empty
+	suite.Require().Equal(contents, string(response.Body()))
+
+	// release the response
+	response.Release()
+
+	//
+	// Get object by inode
+	//
+
+	// Get item attributes to find out what's the inode & ctime
+	getItemInput := v3io.GetItemInput{
+		Path:           path,
+		AttributeNames: []string{"**"},
+	}
+
+	// when run against a context, will populate fields like container name
+	suite.populateDataPlaneInput(&getItemInput.DataPlaneInput)
+
+	response, err = suite.container.GetItemSync(&getItemInput)
+	suite.Require().NoError(err, "Failed to get item")
+
+	// parse item attributes and extract inode & ctime
+	getItemOutput := response.Output.(*v3io.GetItemOutput)
+	inode, err := getItemOutput.Item.GetFieldInt("__inode_number")
+	suite.Require().NoError(err, "Failed to get inode")
+	ctimeSec, err := getItemOutput.Item.GetFieldInt("__ctime_secs")
+	suite.Require().NoError(err, "Failed to get ctime sec")
+	ctimeNsec, err := getItemOutput.Item.GetFieldInt("__ctime_nsecs")
+	suite.Require().NoError(err, "Failed to get ctime nsec")
+
+	// get object using inode and ctime
+	getObjectInput = &v3io.GetObjectInput{
+		Path:      fmt.Sprintf("%d", inode),
+		CtimeSec:  ctimeSec,
+		CtimeNsec: ctimeNsec,
 	}
 
 	// when run against a context, will populate fields like container name
