@@ -519,6 +519,14 @@ func (c *context) GetObjectSync(getObjectInput *v3io.GetObjectInput) (*v3io.Resp
 		headers["Range"] = fmt.Sprintf("bytes=%v-%v", getObjectInput.Offset, getObjectInput.Offset+getObjectInput.NumBytes-1)
 	}
 
+	if getObjectInput.CtimeSec > 0 {
+		if headers == nil {
+			headers = make(map[string]string)
+		}
+		headers["ctime-sec"] = fmt.Sprintf("%d", getObjectInput.CtimeSec)
+		headers["ctime-nsec"] = fmt.Sprintf("%d", getObjectInput.CtimeNsec)
+	}
+
 	return c.sendRequest(&getObjectInput.DataPlaneInput,
 		http.MethodGet,
 		getObjectInput.Path,

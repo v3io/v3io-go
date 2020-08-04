@@ -181,9 +181,11 @@ type ContainerInfo struct {
 
 type GetObjectInput struct {
 	DataPlaneInput
-	Path     string
-	Offset   int
-	NumBytes int
+	Path      string
+	Offset    int
+	NumBytes  int
+	CtimeSec  int
+	CtimeNsec int
 }
 
 type PutObjectInput struct {
