@@ -998,11 +998,12 @@ func (c *context) sendRequest(dataPlaneInput *v3io.DataPlaneInput,
 		request.Header.Add(headerName, headerValue)
 	}
 
-	c.logger.DebugWithCtx(dataPlaneInput.Ctx,
-		"Tx",
-		"uri", uriStr,
-		"method", method,
-		"body-length", len(body))
+	// DONT COMMIT THIS UNCOMMENTED. This is for testing purposes only
+	// c.logger.DebugWithCtx(dataPlaneInput.Ctx,
+	// 	"Tx",
+	// 	"uri", uriStr,
+	// 	"method", method,
+	// 	"body-length", len(body))
 
 	if c.connSemaphore != nil {
 		c.connSemaphore.Acquire(goctx.TODO(), 1)
@@ -1022,16 +1023,17 @@ func (c *context) sendRequest(dataPlaneInput *v3io.DataPlaneInput,
 
 	statusCode = response.HTTPResponse.StatusCode()
 
-	{
-		contentLength := response.HTTPResponse.Header.ContentLength()
-		if contentLength < 0 {
-			contentLength = 0
-		}
-		c.logger.DebugWithCtx(dataPlaneInput.Ctx,
-			"Rx",
-			"statusCode", statusCode,
-			"Content-Length", contentLength)
-	}
+	// DONT COMMIT THIS UNCOMMENTED. This is for testing purposes only
+	// {
+	// 	contentLength := response.HTTPResponse.Header.ContentLength()
+	// 	if contentLength < 0 {
+	// 		contentLength = 0
+	// 	}
+	// 	c.logger.DebugWithCtx(dataPlaneInput.Ctx,
+	// 		"Rx",
+	// 		"statusCode", statusCode,
+	// 		"Content-Length", contentLength)
+	// }
 
 	// did we get a 2xx response?
 	success = statusCode >= 200 && statusCode < 300
