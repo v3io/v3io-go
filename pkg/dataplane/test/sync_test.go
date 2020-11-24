@@ -2,6 +2,7 @@ package test
 
 import (
 	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
@@ -207,6 +208,77 @@ func (suite *syncContainerTestSuite) TestGetContainerContentsDirsWithAllAttrs() 
 	for _, prefix := range getContainerContentsOutput.CommonPrefixes {
 		validateCommonPrefix(suite, &prefix, true)
 	}
+}
+
+func (suite *syncContainerTestSuite) TestSetDirsAttrs() {
+	path := fmt.Sprintf("tmp/test/sync_test/TestSetDirsAttrs/%d/", time.Now().Unix())
+
+	// create empty directory
+	putObjectInput := &v3io.PutObjectInput{}
+	putObjectInput.Path = fmt.Sprintf("%sdir-test/", path)
+	putObjectInput.Body = nil
+
+	// when run against a context
+	suite.populateDataPlaneInput(&putObjectInput.DataPlaneInput)
+	err := suite.container.PutObjectSync(putObjectInput)
+	suite.Require().NoError(err, "Failed to create test directory")
+
+	// Update directory's attributes
+	updateObjectInput := &v3io.UpdateObjectInput{}
+	updateObjectInput.Path = fmt.Sprintf("%sdir-test/", path)
+	layout := "2006-01-02T15:04:05.00Z"
+	atime, err := time.Parse(layout, "2020-11-22T19:27:33.49Z")
+	suite.Require().NoError(err)
+	ctime, err := time.Parse(layout, "2020-09-20T15:10:35.08Z")
+	suite.Require().NoError(err)
+	mtime, err := time.Parse(layout, "2020-09-24T12:55:35.08Z")
+	suite.Require().NoError(err)
+	dirAttributes := &v3io.DirAttributes{
+		Mode:      511,
+		UID:       67,
+		GID:       68,
+		AtimeSec:  int(atime.Unix()),
+		AtimeNSec: int(atime.UnixNano() % 1000000000),
+		CtimeSec:  int(ctime.Unix()),
+		CtimeNSec: int(ctime.UnixNano() % 1000000000),
+		MtimeSec:  int(mtime.Unix()),
+		MtimeNSec: int(mtime.UnixNano() % 1000000000),
+	}
+	updateObjectInput.DirAttributes = dirAttributes
+
+	// when run against a context
+	suite.populateDataPlaneInput(&updateObjectInput.DataPlaneInput)
+	err = suite.container.UpdateObjectSync(updateObjectInput)
+	suite.Require().NoError(err, "Failed to update test directory")
+
+	// Read directory and compare attributes
+	getContainerContentsInput := v3io.GetContainerContentsInput{
+		Path:             path,
+		GetAllAttributes: true,
+		DirectoriesOnly:  true,
+		Limit:            10,
+	}
+
+	// when run against a context
+	suite.populateDataPlaneInput(&getContainerContentsInput.DataPlaneInput)
+
+	// get container contents
+	response, err := suite.container.GetContainerContentsSync(&getContainerContentsInput)
+	suite.Require().NoError(err, "Failed to get container contents")
+	response.Release()
+
+	getContainerContentsOutput := response.Output.(*v3io.GetContainerContentsOutput)
+	suite.Require().Empty(len(getContainerContentsOutput.Contents))
+	suite.Require().Equal(1, len(getContainerContentsOutput.CommonPrefixes))
+	suite.Require().Equal(false, getContainerContentsOutput.IsTruncated)
+
+	prefix := getContainerContentsOutput.CommonPrefixes[0]
+	suite.Require().Equal(atime.Format(layout), prefix.AccessTime)
+	suite.Require().Equal(mtime.Format(layout), prefix.LastModified)
+	suite.Require().Equal(ctime.Format(layout), prefix.CreatingTime)
+	suite.Require().Equal(strconv.FormatInt(int64(dirAttributes.GID), 16), prefix.GID)
+	suite.Require().Equal(strconv.FormatInt(int64(dirAttributes.UID), 16), prefix.UID)
+	suite.Require().Equal("040777", string(prefix.Mode))
 }
 
 type syncContextContainerTestSuite struct {

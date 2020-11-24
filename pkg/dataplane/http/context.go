@@ -563,6 +563,28 @@ func (c *context) PutObjectSync(putObjectInput *v3io.PutObjectInput) error {
 	return err
 }
 
+// UpdateObjectSync
+func (c *context) UpdateObjectSync(updateObjectInput *v3io.UpdateObjectInput) error {
+	headers := map[string]string{
+		"X-v3io-function": "DirSetAttr",
+	}
+
+	marshaledDirAttributes, err := json.Marshal(updateObjectInput.DirAttributes)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.sendRequest(&updateObjectInput.DataPlaneInput,
+		http.MethodPut,
+		updateObjectInput.Path,
+		"",
+		headers,
+		marshaledDirAttributes,
+		true)
+
+	return err
+}
+
 // DeleteObject
 func (c *context) DeleteObject(deleteObjectInput *v3io.DeleteObjectInput,
 	context interface{},

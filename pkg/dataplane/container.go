@@ -61,6 +61,9 @@ type Container interface {
 	// PutObjectSync
 	PutObjectSync(*PutObjectInput) error
 
+	// UpdateObjectSync
+	UpdateObjectSync(*UpdateObjectInput) error
+
 	// DeleteObject
 	DeleteObject(*DeleteObjectInput, interface{}, chan *Response) (*Request, error)
 
