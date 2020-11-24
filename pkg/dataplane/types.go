@@ -201,6 +201,24 @@ type DeleteObjectInput struct {
 	Path string
 }
 
+type UpdateObjectInput struct {
+	DataPlaneInput
+	Path          string
+	DirAttributes *DirAttributes
+}
+
+type DirAttributes struct {
+	Mode      int `json:"mode,omitempty"`
+	UID       int `json:"uid,omitempty"`
+	GID       int `json:"gid,omitempty"`
+	AtimeSec  int `json:"atime.sec,omitempty"`
+	AtimeNSec int `json:"atime.nsec,omitempty"`
+	CtimeSec  int `json:"ctime.sec,omitempty"`
+	CtimeNSec int `json:"ctime.nsec,omitempty"`
+	MtimeSec  int `json:"mtime.sec,omitempty"`
+	MtimeNSec int `json:"mtime.nsec,omitempty"`
+}
+
 //
 // KV
 //

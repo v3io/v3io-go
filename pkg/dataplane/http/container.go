@@ -128,6 +128,12 @@ func (c *container) PutObjectSync(putObjectInput *v3io.PutObjectInput) error {
 	return c.session.context.PutObjectSync(putObjectInput)
 }
 
+// UpdateObjectSync
+func (c *container) UpdateObjectSync(updateObjectInput *v3io.UpdateObjectInput) error {
+	c.populateInputFields(&updateObjectInput.DataPlaneInput)
+	return c.session.context.UpdateObjectSync(updateObjectInput)
+}
+
 // DeleteObject
 func (c *container) DeleteObject(deleteObjectInput *v3io.DeleteObjectInput,
 	context interface{},
