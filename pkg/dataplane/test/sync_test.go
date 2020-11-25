@@ -235,7 +235,7 @@ func (suite *syncContainerTestSuite) TestSetDirsAttrs() {
 	suite.Require().NoError(err)
 	dirAttributes := &v3io.DirAttributes{
 		Mode:      511,
-		UID:       67,
+		UID:       0,
 		GID:       68,
 		AtimeSec:  int(atime.Unix()),
 		AtimeNSec: int(atime.UnixNano() % 1000000000),
