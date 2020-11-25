@@ -227,7 +227,7 @@ func (suite *syncContainerTestSuite) TestSetDirsAttrs() {
 	updateObjectInput := &v3io.UpdateObjectInput{}
 	updateObjectInput.Path = fmt.Sprintf("%sdir-test/", path)
 	layout := "2006-01-02T15:04:05.00Z"
-	atime, err := time.Parse(layout, "2020-11-22T19:27:33.49Z")
+	atime, err := time.Parse(layout, "2020-11-22T19:27:33.00Z")
 	suite.Require().NoError(err)
 	ctime, err := time.Parse(layout, "2020-09-20T15:10:35.08Z")
 	suite.Require().NoError(err)
