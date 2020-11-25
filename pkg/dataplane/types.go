@@ -212,11 +212,11 @@ type DirAttributes struct {
 	UID       int `json:"uid"`
 	GID       int `json:"gid"`
 	AtimeSec  int `json:"atime.sec,omitempty"`
-	AtimeNSec int `json:"atime.nsec,omitempty"`
+	AtimeNSec int `json:"atime.nsec"`
 	CtimeSec  int `json:"ctime.sec,omitempty"`
-	CtimeNSec int `json:"ctime.nsec,omitempty"`
+	CtimeNSec int `json:"ctime.nsec"`
 	MtimeSec  int `json:"mtime.sec,omitempty"`
-	MtimeNSec int `json:"mtime.nsec,omitempty"`
+	MtimeNSec int `json:"mtime.nsec"`
 }
 
 //
