@@ -209,8 +209,8 @@ type UpdateObjectInput struct {
 
 type DirAttributes struct {
 	Mode      int `json:"mode,omitempty"`
-	UID       int `json:"uid,omitempty"`
-	GID       int `json:"gid,omitempty"`
+	UID       int `json:"uid"`
+	GID       int `json:"gid"`
 	AtimeSec  int `json:"atime.sec,omitempty"`
 	AtimeNSec int `json:"atime.nsec,omitempty"`
 	CtimeSec  int `json:"ctime.sec,omitempty"`
