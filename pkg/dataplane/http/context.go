@@ -1143,8 +1143,7 @@ func (c *context) encodeTypedAttributes(attributes map[string]interface{}) (map[
 		case bool:
 			typedAttributes[attributeName]["BOOL"] = value
 		case time.Time:
-			nanos := value.UnixNano()
-			typedAttributes[attributeName]["TS"] = fmt.Sprintf("%v:%v", nanos/1000000000, nanos%1000000000)
+			typedAttributes[attributeName]["TS"] = fmt.Sprintf("%v:%v", value.Unix(), value.Nanosecond())
 		}
 	}
 
