@@ -258,6 +258,18 @@ func (c *container) PutRecordsSync(putRecordsInput *v3io.PutRecordsInput) (*v3io
 	return c.session.context.PutRecordsSync(putRecordsInput)
 }
 
+// PutChunk
+func (c *container) PutChunk(putChunkInput *v3io.PutChunkInput, context interface{}, responseChan chan *v3io.Response) (*v3io.Request, error) {
+	c.populateInputFields(&putChunkInput.DataPlaneInput)
+	return c.session.context.PutChunk(putChunkInput, context, responseChan)
+}
+
+// PutChunkSync
+func (c *container) PutChunkSync(putChunkInput *v3io.PutChunkInput) (error) {
+	c.populateInputFields(&putChunkInput.DataPlaneInput)
+	return c.session.context.PutChunkSync(putChunkInput)
+}
+
 // GetRecords
 func (c *container) GetRecords(getRecordsInput *v3io.GetRecordsInput, context interface{}, responseChan chan *v3io.Response) (*v3io.Request, error) {
 	c.populateInputFields(&getRecordsInput.DataPlaneInput)

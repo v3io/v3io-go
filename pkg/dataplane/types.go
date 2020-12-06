@@ -371,6 +371,33 @@ type PutRecordsOutput struct {
 	Records           []PutRecordResult
 }
 
+type ChunkMetadata struct {
+	ChunkSeqNumber       int `json:"ChunkSequenceNumber"`
+	LengthInBytes        int `json:"LengthInBytes"`
+	FirstRecordSeqNumber int `json:"FirstRecordSequenceNumber"`
+	FirstRecordTimeSecs  int `json:"FirstRecordTimeSec"`
+	FirstRecordTimeNSecs int `json:"FirstRecordTimeNSec"`
+}
+
+type CurrentChunkMetadata struct {
+	ChunkSeqNumber         int `json:"ChunkSequenceNumber"`
+	OffsetAfterJob         int `json:"OffsetAfterJob"`
+	SeqNumberAfterJob      int `json:"SequenceNumberAfterJob"`
+	FirstRecordTimeSec     int `json:"FirstRecordTimeSec"`
+	LatestRecordTimeSec    int `json:"LatestRecordTimeSec"`
+	LatestRecordTimeNSec   int `json:"LatestRecordTimeNSec"`
+}
+
+type PutChunkInput struct {
+	DataPlaneInput                              `json:"-"`
+	Path                 string                 `json:"-"`
+	ChunkSeqNumber       int                    `json:"ChunkSequenceNumber"`
+	Offset               int                    `json:"Offset"`
+	Data                 []byte                 `json:"Data,omitempty"`
+	ChunksMetadata       []*ChunkMetadata       `json:"Metadata,omitempty"`
+	CurrentChunkMetadata *CurrentChunkMetadata  `json:"CurrentMetadata,omitempty"`
+}
+
 type SeekShardInput struct {
 	DataPlaneInput
 	Path                   string
