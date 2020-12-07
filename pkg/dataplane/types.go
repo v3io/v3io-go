@@ -289,6 +289,9 @@ type GetItemsInput struct {
 	TotalSegments       int
 	SortKeyRangeStart   string
 	SortKeyRangeEnd     string
+	AllowObjectScatter  string
+	ReturnData          string
+	DataMaxSize         int
 	RequestJSONResponse bool `json:"RequestJsonResponse"`
 }
 
@@ -296,6 +299,7 @@ type GetItemsOutput struct {
 	DataPlaneOutput
 	Last       bool
 	NextMarker string
+	Scattered  bool
 	Items      []Item
 }
 

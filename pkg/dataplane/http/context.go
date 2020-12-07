@@ -312,6 +312,16 @@ func (c *context) GetItemsSync(getItemsInput *v3io.GetItemsInput) (*v3io.Respons
 		body["SortKeyRangeEnd"] = getItemsInput.SortKeyRangeEnd
 	}
 
+	if getItemsInput.AllowObjectScatter != "" {
+		body["AllowObjectScatter"] = getItemsInput.AllowObjectScatter
+	}
+	if getItemsInput.ReturnData != "" {
+		body["ReturnData"] = getItemsInput.ReturnData
+	}
+	if getItemsInput.DataMaxSize != 0 {
+		body["DataMaxSize"] = getItemsInput.DataMaxSize
+	}
+
 	marshalledBody, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
@@ -1406,6 +1416,7 @@ func (c *context) getItemsParseJSONResponse(response *v3io.Response, getItemsInp
 		Items            []map[string]map[string]interface{}
 		NextMarker       string
 		LastItemIncluded string
+		Scattered        bool
 	}{}
 
 	// unmarshal the body into an ad hoc structure
@@ -1424,6 +1435,7 @@ func (c *context) getItemsParseJSONResponse(response *v3io.Response, getItemsInp
 	getItemsOutput := v3io.GetItemsOutput{
 		NextMarker: getItemsResponse.NextMarker,
 		Last:       getItemsResponse.LastItemIncluded == "TRUE",
+		Scattered:  getItemsResponse.Scattered == "TRUE",
 	}
 
 	// iterate through the items and decode them
@@ -1447,9 +1459,11 @@ func (c *context) getItemsParseCAPNPResponse(response *v3io.Response, withWildca
 		return nil, errors.Errorf("getItemsCapnp: Got only %v capnp sections. Expecting at least 2", len(capnpSections))
 	}
 	cookie := string(response.HeaderPeek("X-v3io-cookie"))
+	scattered := string(response.HeaderPeek("X-v3io-scattered"))
 	getItemsOutput := v3io.GetItemsOutput{
 		NextMarker: cookie,
 		Last:       len(cookie) == 0,
+		Scattered:  scattered == "TRUE",
 	}
 	if len(capnpSections) < 2 {
 		return nil, errors.Errorf("getItemsCapnp: Got only %v capnp sections. Expecting at least 2", len(capnpSections))
