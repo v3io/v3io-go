@@ -1416,7 +1416,7 @@ func (c *context) getItemsParseJSONResponse(response *v3io.Response, getItemsInp
 		Items            []map[string]map[string]interface{}
 		NextMarker       string
 		LastItemIncluded string
-		Scattered        bool
+		Scattered        string
 	}{}
 
 	// unmarshal the body into an ad hoc structure
