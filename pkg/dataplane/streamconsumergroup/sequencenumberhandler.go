@@ -1,6 +1,7 @@
 package streamconsumergroup
 
 import (
+	"sync"
 	"time"
 
 	"github.com/v3io/v3io-go/pkg/common"
@@ -18,6 +19,7 @@ type sequenceNumberHandler struct {
 	markedShardSequenceNumbers                 []uint64
 	stopMarkedShardSequenceNumberCommitterChan chan struct{}
 	lastCommittedShardSequenceNumbers          []uint64
+	markedShardSequenceNumbersMutex            sync.Mutex
 }
 
 func newSequenceNumberHandler(member *member) (*sequenceNumberHandler, error) {
@@ -52,7 +54,9 @@ func (snh *sequenceNumberHandler) stop() error {
 }
 
 func (snh *sequenceNumberHandler) markShardSequenceNumber(shardID int, sequenceNumber uint64) error {
+	snh.markedShardSequenceNumbersMutex.Lock()
 	snh.markedShardSequenceNumbers[shardID] = sequenceNumber
+	snh.markedShardSequenceNumbersMutex.Unlock()
 
 	return nil
 }
@@ -81,7 +85,9 @@ func (snh *sequenceNumberHandler) commitMarkedShardSequenceNumbers() error {
 	var markedShardSequenceNumbersCopy []uint64
 
 	// create a copy of the marked shard sequenceNumbers
+	snh.markedShardSequenceNumbersMutex.Lock()
 	markedShardSequenceNumbersCopy = append(markedShardSequenceNumbersCopy, snh.markedShardSequenceNumbers...)
+	snh.markedShardSequenceNumbersMutex.Unlock()
 
 	// if there was no chance since last, do nothing
 	if common.Uint64SlicesEqual(snh.lastCommittedShardSequenceNumbers, markedShardSequenceNumbersCopy) {

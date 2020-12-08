@@ -3,6 +3,7 @@ package test
 import (
 	"encoding/json"
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -227,11 +228,11 @@ func newMemberGroup(suite *streamConsumerGroupTestSuite,
 	memberChan := make(chan *member, numMembers)
 
 	for memberIdx := 0; memberIdx < numMembers; memberIdx++ {
-		go func() {
+		go func(idx int) {
 			memberInstance := newMember(suite,
 				streamConsumerGroup,
 				numShards,
-				memberIdx,
+				idx,
 				newMemberGroup.numberOfRecordsConsumed)
 
 			// start
@@ -239,7 +240,7 @@ func newMemberGroup(suite *streamConsumerGroupTestSuite,
 
 			// shove to member chan
 			memberChan <- memberInstance
-		}()
+		}(memberIdx)
 	}
 
 	for memberInstance := range memberChan {
@@ -275,7 +276,9 @@ func (mg *memberGroup) verifyNumActiveClaimConsumptions(expectedNumActiveClaimCo
 	totalNumActiveClaimConsumptions := 0
 
 	for _, member := range mg.members {
+		member.numActiveMutex.Lock()
 		totalNumActiveClaimConsumptions += int(member.numActiveClaimConsumptions)
+		member.numActiveMutex.Unlock()
 	}
 
 	mg.suite.Require().Equal(expectedNumActiveClaimConsumptions, totalNumActiveClaimConsumptions)
@@ -308,6 +311,8 @@ type member struct {
 	streamConsumerGroup        streamconsumergroup.StreamConsumerGroup
 	claims                     []streamconsumergroup.Claim
 	numActiveClaimConsumptions int64
+	numActiveMutex             sync.Mutex
+	numOfRecordsMutex          sync.Mutex
 }
 
 func newMember(suite *streamConsumerGroupTestSuite,
@@ -347,18 +352,24 @@ func (m *member) Cleanup(session streamconsumergroup.Session) error {
 }
 
 func (m *member) ConsumeClaim(session streamconsumergroup.Session, claim streamconsumergroup.Claim) error {
+	m.numActiveMutex.Lock()
 	numActiveClaimConsumptions := atomic.AddInt64(&m.numActiveClaimConsumptions, 1)
+	m.numActiveMutex.Unlock()
 	m.logger.DebugWith("Consume Claims called", "numActiveClaimConsumptions", numActiveClaimConsumptions)
 
 	expectedRecordIndex := m.expectedStartRecordIndex[claim.GetShardID()]
 
 	// reduce at the end
 	defer func() {
+		m.numActiveMutex.Lock()
 		numActiveClaimConsumptions := atomic.AddInt64(&m.numActiveClaimConsumptions, -1)
+		m.numActiveMutex.Unlock()
 
+		m.numOfRecordsMutex.Lock()
 		m.logger.DebugWith("Consume Claims done",
 			"numRecordsConsumed", m.numberOfRecordsConsumed,
 			"numActiveClaimConsumptions", numActiveClaimConsumptions)
+		m.numOfRecordsMutex.Unlock()
 	}()
 
 	// start reading
@@ -379,7 +390,9 @@ func (m *member) ConsumeClaim(session streamconsumergroup.Session, claim streamc
 			m.suite.Require().Equal(expectedRecordIndex, recordDataInstance.Index)
 
 			expectedRecordIndex++
+			m.numOfRecordsMutex.Lock()
 			m.numberOfRecordsConsumed[claim.GetShardID()]++
+			m.numOfRecordsMutex.Unlock()
 
 			err = session.MarkRecord(&record)
 			m.suite.Require().NoError(err)
