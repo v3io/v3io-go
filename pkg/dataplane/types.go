@@ -442,3 +442,25 @@ type PutOOSObjectInput struct {
 	Header  []byte
 	Data    [][]byte
 }
+
+type ChunkMetaData struct {
+	OSSID                uint32
+	OSDID                uint32
+	StoredHandle         uint64
+	ChunkSeqNumber       uint64
+	FirstRecordSeqNumber uint64
+	FirstRecordTsSec     uint64
+	FirstRecordTsNSec    uint64
+	LengthInBytes        uint64
+}
+
+type CurrentChunkMetaData struct {
+	NextRecordSeqNumber         uint64
+	CurrentChunkLengthBytes     uint64
+	CurrentChunkSeqNumber       uint32
+	ChunkGranularity            uint32
+	NumStoredChunks             uint16
+	FirstRecordOnChunkSec       uint32
+	LatestRecordArrivalTimeSec  uint64
+	LatestRecordArrivalTimeNSec uint64
+}
