@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/stretchr/testify/suite"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -1136,6 +1137,49 @@ func (suite *syncStreamTestSuite) TestStream() {
 	suite.Require().Equal("first shard record #2", string(getRecordsOutput.Records[1].Data))
 
 	response.Release()
+
+	getItemsInput := v3io.GetItemsInput{
+		Path:           streamPath,
+		ReturnData: 	"true",
+		AllowObjectScatter: "true",
+		AttributeNames: []string{"*"}, // TODO: [Alex] should be **
+	}
+
+	suite.populateDataPlaneInput(&getItemsInput.DataPlaneInput)
+
+	cursor, err := v3io.NewItemsCursor(suite.container, &getItemsInput)
+	suite.Require().NoError(err, "Failed to get items")
+
+	cursorItems, err := cursor.AllSync()
+	suite.Require().NoError(err)
+	
+	// internal use case test
+	for _, cursorItem := range cursorItems {
+		shardName, err := cursorItem.GetFieldString("__name")
+		suite.Require().NoError(err, "Failed to get item name")
+		chunkId, streamData, chunkMetadata, currentChunkMetadata, err := cursorItem.GetShard()
+		suite.Require().NoError(err, "Failed to get stream")
+
+		suite.Require().Equal(0, chunkId, "chunk indexes doesn't match")
+		suite.Require().True(chunkMetadata.ChunkSeqNumber == 0)
+		suite.Require().True(chunkMetadata.FirstRecordSeqNumber == 1)
+		suite.Require().True(chunkMetadata.LengthInBytes == 0)
+		switch shardName {
+		case "0":
+			suite.Require().True(currentChunkMetadata.NextRecordSeqNumber == 2)
+			suite.Require().True(currentChunkMetadata.CurrentChunkLengthBytes == 56)
+			suite.Require().True(strings.Contains(string(*streamData), "some shard record #1"))
+		case "1":
+			suite.Require().True(currentChunkMetadata.NextRecordSeqNumber == 3)
+			suite.Require().True(currentChunkMetadata.CurrentChunkLengthBytes == 114)
+			suite.Require().True(strings.Contains(string(*streamData), "first shard record #1"))
+			suite.Require().True(strings.Contains(string(*streamData), "first shard record #2"))
+		case "2":
+			suite.Require().True(currentChunkMetadata.NextRecordSeqNumber == 2)
+			suite.Require().True(currentChunkMetadata.CurrentChunkLengthBytes == 58)
+			suite.Require().True(strings.Contains(string(*streamData), "second shard record #1"))
+		}
+	}
 
 	//
 	// Delete stream
