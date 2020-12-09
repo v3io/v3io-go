@@ -1046,7 +1046,10 @@ func (c *context) sendRequest(dataPlaneInput *v3io.DataPlaneInput,
 	// 	"body-length", len(body))
 
 	if c.connSemaphore != nil {
-		c.connSemaphore.Acquire(goctx.TODO(), 1)
+		err = c.connSemaphore.Acquire(goctx.TODO(), 1)
+		if err != nil {
+			goto cleanup
+		}
 	}
 	if dataPlaneInput.Timeout <= 0 {
 		err = c.httpClient.Do(request, response.HTTPResponse)
