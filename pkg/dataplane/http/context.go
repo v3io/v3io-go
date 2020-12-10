@@ -855,6 +855,35 @@ func (c *context) PutRecordsSync(putRecordsInput *v3io.PutRecordsInput) (*v3io.R
 	return response, nil
 }
 
+// PutChunk
+func (c *context) PutChunk(putChunkInput *v3io.PutChunkInput,
+	context interface{},
+	responseChan chan *v3io.Response) (*v3io.Request, error) {
+	return c.sendRequestToWorker(putChunkInput, context, responseChan)
+}
+
+// PutChunkSync
+func (c *context) PutChunkSync(putChunkInput *v3io.PutChunkInput) (error) {
+
+	buffer, err := json.Marshal(putChunkInput)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.sendRequest(&putChunkInput.DataPlaneInput,
+		http.MethodPost,
+		putChunkInput.Path,
+		"",
+		putChunkHeaders,
+		buffer,
+		false)
+	if err != nil {
+		return err
+	}
+
+	return err
+}
+
 // GetRecords
 func (c *context) GetRecords(getRecordsInput *v3io.GetRecordsInput,
 	context interface{},
@@ -1314,6 +1343,8 @@ func (c *context) workerEntry(workerIndex int) {
 			response, err = c.GetRecordsSync(typedInput)
 		case *v3io.PutRecordsInput:
 			response, err = c.PutRecordsSync(typedInput)
+		case *v3io.PutChunkInput:
+			err = c.PutChunkSync(typedInput)
 		case *v3io.SeekShardInput:
 			response, err = c.SeekShardSync(typedInput)
 		case *v3io.GetContainersInput:

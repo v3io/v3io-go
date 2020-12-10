@@ -13,6 +13,7 @@ const (
 	seekShardsFunctionName     = "SeekShard"
 	getClusterMDFunctionName   = "GetClusterMD"
 	putOOSObjectFunctionName   = "OosRun"
+	PutChunkFunctionName	   = "PutChunk"
 )
 
 // headers for put item
@@ -68,6 +69,12 @@ var describeStreamHeaders = map[string]string{
 var putRecordsHeaders = map[string]string{
 	"Content-Type":    "application/json",
 	"X-v3io-function": putRecordsFunctionName,
+}
+
+// headers for put chunks
+var putChunkHeaders = map[string]string{
+	"Content-Type":    "application/json",
+	"X-v3io-function": PutChunkFunctionName,
 }
 
 // headers for put records

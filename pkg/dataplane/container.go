@@ -138,6 +138,12 @@ type Container interface {
 	// PutRecordsSync
 	PutRecordsSync(*PutRecordsInput) (*Response, error)
 
+	// PutChunk
+	PutChunk(*PutChunkInput, interface{}, chan *Response) (*Request, error)
+
+	// PutChunkSync
+	PutChunkSync(input *PutChunkInput) (error)
+
 	// GetRecords
 	GetRecords(*GetRecordsInput, interface{}, chan *Response) (*Request, error)
 

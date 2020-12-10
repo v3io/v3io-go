@@ -2,14 +2,13 @@ package test
 
 import (
 	"fmt"
+	"github.com/stretchr/testify/suite"
 	"strconv"
 	"testing"
 	"time"
 
 	"github.com/v3io/v3io-go/pkg/dataplane"
 	"github.com/v3io/v3io-go/pkg/errors"
-
-	"github.com/stretchr/testify/suite"
 )
 
 type syncTestSuite struct {
@@ -1144,6 +1143,46 @@ func (suite *syncStreamTestSuite) TestStream() {
 
 	deleteStreamInput := v3io.DeleteStreamInput{
 		Path: streamPath,
+	}
+
+	suite.populateDataPlaneInput(&deleteStreamInput.DataPlaneInput)
+
+	err = suite.container.DeleteStreamSync(&deleteStreamInput)
+	suite.Require().NoError(err, "Failed to delete stream")
+
+	//
+	// Put Chunk
+	//
+
+	restoreStreamPath := fmt.Sprintf("%s/restoremystream/", suite.streamTestSuite.testPath)
+
+	createStreamInput = v3io.CreateStreamInput{
+		Path:                 restoreStreamPath,
+		ShardCount:           4,
+		RetentionPeriodHours: 1,
+	}
+
+	suite.populateDataPlaneInput(&createStreamInput.DataPlaneInput)
+
+	err = suite.container.CreateStreamSync(&createStreamInput)
+	suite.Require().NoError(err, "Failed to create stream")
+
+	shardPath := fmt.Sprintf("%s/1/", restoreStreamPath)
+
+	putChunkInput := v3io.PutChunkInput{
+		Path: shardPath,
+		ChunkSeqNumber: 0,
+		Offset: 0,
+		Data: []byte("some data"),
+	}
+
+	suite.populateDataPlaneInput(&putChunkInput.DataPlaneInput)
+
+	err = suite.container.PutChunkSync(&putChunkInput)
+	suite.Require().NoError(err, "Failed to put chunk")
+
+	deleteStreamInput = v3io.DeleteStreamInput{
+		Path: restoreStreamPath,
 	}
 
 	suite.populateDataPlaneInput(&deleteStreamInput.DataPlaneInput)
