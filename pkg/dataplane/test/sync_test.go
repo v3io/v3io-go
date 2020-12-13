@@ -2,7 +2,6 @@ package test
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/suite"
 	"strconv"
 	"strings"
 	"testing"
@@ -10,6 +9,8 @@ import (
 
 	"github.com/v3io/v3io-go/pkg/dataplane"
 	"github.com/v3io/v3io-go/pkg/errors"
+
+	"github.com/stretchr/testify/suite"
 )
 
 type syncTestSuite struct {
@@ -1139,10 +1140,10 @@ func (suite *syncStreamTestSuite) TestStream() {
 	response.Release()
 
 	getItemsInput := v3io.GetItemsInput{
-		Path:           streamPath,
-		ReturnData: 	"true",
+		Path:               streamPath,
+		ReturnData:         "true",
 		AllowObjectScatter: "true",
-		AttributeNames: []string{"*"}, // TODO: [Alex] should be **
+		AttributeNames:     []string{"**"},
 	}
 
 	suite.populateDataPlaneInput(&getItemsInput.DataPlaneInput)
@@ -1152,7 +1153,7 @@ func (suite *syncStreamTestSuite) TestStream() {
 
 	cursorItems, err := cursor.AllSync()
 	suite.Require().NoError(err)
-	
+
 	// internal use case test
 	for _, cursorItem := range cursorItems {
 		shardName, err := cursorItem.GetFieldString("__name")
@@ -1193,44 +1194,205 @@ func (suite *syncStreamTestSuite) TestStream() {
 
 	err = suite.container.DeleteStreamSync(&deleteStreamInput)
 	suite.Require().NoError(err, "Failed to delete stream")
+}
 
-	//
-	// Put Chunk
-	//
+type syncStreamBackupRestoreTestSuite struct {
+	syncTestSuite
+	streamTestSuite streamTestSuite
+}
 
-	restoreStreamPath := fmt.Sprintf("%s/restoremystream/", suite.streamTestSuite.testPath)
+func (suite *syncStreamBackupRestoreTestSuite) SetupTest() {
+	suite.streamTestSuite = streamTestSuite{
+		testSuite: suite.syncTestSuite.testSuite,
+	}
+	suite.streamTestSuite.SetupTest()
+}
 
-	createStreamInput = v3io.CreateStreamInput{
-		Path:                 restoreStreamPath,
+func (suite *syncStreamBackupRestoreTestSuite) TearDownTest() {
+	suite.streamTestSuite.TearDownTest()
+}
+
+// internal use case test
+func (suite *syncStreamBackupRestoreTestSuite) TestStream() {
+	streamPath := fmt.Sprintf("%s/mystream/", suite.streamTestSuite.testPath)
+
+	createStreamInput := v3io.CreateStreamInput{
+		Path:                 streamPath,
 		ShardCount:           4,
 		RetentionPeriodHours: 1,
 	}
-
 	suite.populateDataPlaneInput(&createStreamInput.DataPlaneInput)
+	err := suite.container.CreateStreamSync(&createStreamInput)
+	suite.Require().NoError(err, "Failed to create stream")
 
+	firstShardID := 1
+	secondShardID := 2
+
+	records := []*v3io.StreamRecord{
+		{ShardID: &firstShardID, Data: []byte("first shard record #1")},
+		{ShardID: &firstShardID, Data: []byte("first shard record #2")},
+		{ShardID: &secondShardID, Data: []byte("second shard record #1")},
+		{Data: []byte("some shard record #1")},
+	}
+
+	putRecordsInput := v3io.PutRecordsInput{
+		Path:    streamPath,
+		Records: records,
+	}
+	suite.populateDataPlaneInput(&putRecordsInput.DataPlaneInput)
+	response, err := suite.container.PutRecordsSync(&putRecordsInput)
+	suite.Require().NoError(err, "Failed to put records")
+	response.Release()
+
+	//
+	// Backup stream
+	//
+
+	getItemsInput := v3io.GetItemsInput{
+		Path:               streamPath,
+		ReturnData:         "true",
+		AllowObjectScatter: "true",
+		AttributeNames:     []string{"**"},
+	}
+	suite.populateDataPlaneInput(&getItemsInput.DataPlaneInput)
+	cursor, err := v3io.NewItemsCursor(suite.container, &getItemsInput)
+	suite.Require().NoError(err, "Failed to get items")
+
+	cursorItems, err := cursor.AllSync()
+	suite.Require().NoError(err)
+
+	type Chunk struct {
+		Data          *[]byte
+		ChunkMetadata *v3io.ItemChunkMetadata
+	}
+	type Shard struct {
+		Chunks       map[int]*Chunk
+		CurrentChunk *v3io.ItemCurrentChunkMetadata
+	}
+	streamBackup := map[string]*Shard{}
+	for _, cursorItem := range cursorItems {
+		shardName, err := cursorItem.GetFieldString("__name")
+		suite.Require().NoError(err, "Failed to get item name")
+		chunkId, streamData, chunkMetadata, currentChunkMetadata, err := cursorItem.GetShard()
+		suite.Require().NoError(err, "Failed to get stream")
+
+		if _, ok := streamBackup[shardName]; !ok {
+			streamBackup[shardName] = &Shard{Chunks: map[int]*Chunk{}}
+		}
+
+		if _, ok := streamBackup[shardName].Chunks[chunkId]; !ok {
+			streamBackup[shardName].Chunks[chunkId] = &Chunk{}
+		}
+		if chunkMetadata != nil {
+			(*streamBackup[shardName].Chunks[chunkId]).ChunkMetadata = chunkMetadata
+		}
+		if streamData != nil {
+			(*streamBackup[shardName].Chunks[chunkId]).Data = streamData
+		}
+		if currentChunkMetadata != nil {
+			streamBackup[shardName].CurrentChunk = currentChunkMetadata
+		}
+	}
+
+	deleteStreamInput := v3io.DeleteStreamInput{
+		Path: streamPath,
+	}
+	suite.populateDataPlaneInput(&deleteStreamInput.DataPlaneInput)
+	err = suite.container.DeleteStreamSync(&deleteStreamInput)
+	suite.Require().NoError(err, "Failed to delete stream")
+
+	//
+	// Restore stream
+	//
+
+	createStreamInput = v3io.CreateStreamInput{
+		Path:                 streamPath,
+		ShardCount:           4,
+		RetentionPeriodHours: 1,
+	}
+	suite.populateDataPlaneInput(&createStreamInput.DataPlaneInput)
 	err = suite.container.CreateStreamSync(&createStreamInput)
 	suite.Require().NoError(err, "Failed to create stream")
 
-	shardPath := fmt.Sprintf("%s/1/", restoreStreamPath)
+	for shardName, shardData := range streamBackup {
+		shardPath := fmt.Sprintf("%s/%s/", streamPath, shardName)
 
-	putChunkInput := v3io.PutChunkInput{
-		Path: shardPath,
-		ChunkSeqNumber: 0,
-		Offset: 0,
-		Data: []byte("some data"),
+		putChunkMetadataInput := v3io.PutChunkInput{
+			Path:                 shardPath,
+			ChunksMetadata:       []*v3io.ChunkMetadata{},
+			CurrentChunkMetadata: &v3io.CurrentChunkMetadata{},
+		}
+
+		// send data
+		for chunkID, chunkData := range shardData.Chunks {
+			putChunkInput := v3io.PutChunkInput{
+				Path:           shardPath,
+				ChunkSeqNumber: chunkID,
+				Offset:         0,
+				Data:           *chunkData.Data,
+			}
+
+			suite.populateDataPlaneInput(&putChunkInput.DataPlaneInput)
+			err = suite.container.PutChunkSync(&putChunkInput)
+			suite.Require().NoError(err, "Failed to put chunk")
+
+			chunkMetadata := &v3io.ChunkMetadata{
+				ChunkSeqNumber:       chunkID,
+				LengthInBytes:        chunkData.ChunkMetadata.LengthInBytes,
+				FirstRecordSeqNumber: chunkData.ChunkMetadata.FirstRecordSeqNumber,
+				FirstRecordTimeSecs:  chunkData.ChunkMetadata.FirstRecordTsSec,
+				FirstRecordTimeNSecs: chunkData.ChunkMetadata.FirstRecordTsNSec,
+			}
+			putChunkMetadataInput.ChunksMetadata = append(putChunkMetadataInput.ChunksMetadata, chunkMetadata)
+		}
+
+		putChunkMetadataInput.CurrentChunkMetadata = &v3io.CurrentChunkMetadata{
+			ChunkSeqNumber:       shardData.CurrentChunk.CurrentChunkSeqNumber,
+			OffsetAfterJob:       shardData.CurrentChunk.CurrentChunkLengthBytes,
+			SeqNumberAfterJob:    shardData.CurrentChunk.NextRecordSeqNumber,
+			FirstRecordTimeSec:   shardData.CurrentChunk.FirstRecordOnChunkSec,
+			LatestRecordTimeSec:  shardData.CurrentChunk.LatestRecordArrivalTimeSec,
+			LatestRecordTimeNSec: shardData.CurrentChunk.LatestRecordArrivalTimeNSec,
+		}
+
+		suite.populateDataPlaneInput(&putChunkMetadataInput.DataPlaneInput)
+		err = suite.container.PutChunkSync(&putChunkMetadataInput)
+		suite.Require().NoError(err, "Failed to put chunk")
 	}
 
-	suite.populateDataPlaneInput(&putChunkInput.DataPlaneInput)
+	//
+	// Check Records
+	//
 
-	err = suite.container.PutChunkSync(&putChunkInput)
-	suite.Require().NoError(err, "Failed to put chunk")
+	seekShardInput := v3io.SeekShardInput{
+		Path: streamPath + "1",
+		Type: v3io.SeekShardInputTypeEarliest,
+	}
+	suite.populateDataPlaneInput(&seekShardInput.DataPlaneInput)
+	response, err = suite.container.SeekShardSync(&seekShardInput)
+	suite.Require().NoError(err, "Failed to seek shard")
+	location := response.Output.(*v3io.SeekShardOutput).Location
+	suite.Require().NotEqual("", location)
+	response.Release()
+
+	getRecordsInput := v3io.GetRecordsInput{
+		Path:     streamPath + "1",
+		Location: location,
+		Limit:    100,
+	}
+	suite.populateDataPlaneInput(&getRecordsInput.DataPlaneInput)
+	response, err = suite.container.GetRecordsSync(&getRecordsInput)
+	suite.Require().NoError(err, "Failed to get records")
+	getRecordsOutput := response.Output.(*v3io.GetRecordsOutput)
+
+	suite.Require().Equal("first shard record #1", string(getRecordsOutput.Records[0].Data))
+	suite.Require().Equal("first shard record #2", string(getRecordsOutput.Records[1].Data))
+	response.Release()
 
 	deleteStreamInput = v3io.DeleteStreamInput{
-		Path: restoreStreamPath,
+		Path: streamPath,
 	}
-
 	suite.populateDataPlaneInput(&deleteStreamInput.DataPlaneInput)
-
 	err = suite.container.DeleteStreamSync(&deleteStreamInput)
 	suite.Require().NoError(err, "Failed to delete stream")
 }
@@ -1255,6 +1417,16 @@ func (suite *syncContainerStreamTestSuite) SetupSuite() {
 	suite.createContainer()
 }
 
+type syncContextStreamBackupRestoreTestSuite struct {
+	syncStreamBackupRestoreTestSuite
+}
+
+func (suite *syncContextStreamBackupRestoreTestSuite) SetupSuite() {
+	suite.syncStreamBackupRestoreTestSuite.SetupSuite()
+
+	suite.createContext()
+}
+
 // In order for 'go test' to run this suite, we need to create
 // a normal test function and pass our suite to suite.Run
 func TestSyncSuite(t *testing.T) {
@@ -1265,6 +1437,7 @@ func TestSyncSuite(t *testing.T) {
 	suite.Run(t, new(syncContainerKVTestSuite))
 	suite.Run(t, new(syncContextStreamTestSuite))
 	suite.Run(t, new(syncContainerStreamTestSuite))
+	suite.Run(t, new(syncContextStreamBackupRestoreTestSuite))
 }
 
 func validateContent(suite *syncContainerTestSuite, content *v3io.Content, expectedSize int, withPrefixInfo bool) {

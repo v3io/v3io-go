@@ -13,7 +13,7 @@ const (
 	seekShardsFunctionName     = "SeekShard"
 	getClusterMDFunctionName   = "GetClusterMD"
 	putOOSObjectFunctionName   = "OosRun"
-	PutChunkFunctionName	   = "PutChunk"
+	PutChunkFunctionName       = "PutChunk"
 )
 
 // headers for put item

@@ -265,7 +265,7 @@ func (c *container) PutChunk(putChunkInput *v3io.PutChunkInput, context interfac
 }
 
 // PutChunkSync
-func (c *container) PutChunkSync(putChunkInput *v3io.PutChunkInput) (error) {
+func (c *container) PutChunkSync(putChunkInput *v3io.PutChunkInput) error {
 	c.populateInputFields(&putChunkInput.DataPlaneInput)
 	return c.session.context.PutChunkSync(putChunkInput)
 }
