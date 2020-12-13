@@ -863,7 +863,7 @@ func (c *context) PutChunk(putChunkInput *v3io.PutChunkInput,
 }
 
 // PutChunkSync
-func (c *context) PutChunkSync(putChunkInput *v3io.PutChunkInput) (error) {
+func (c *context) PutChunkSync(putChunkInput *v3io.PutChunkInput) error {
 
 	buffer, err := json.Marshal(putChunkInput)
 	if err != nil {
@@ -877,9 +877,6 @@ func (c *context) PutChunkSync(putChunkInput *v3io.PutChunkInput) (error) {
 		putChunkHeaders,
 		buffer,
 		false)
-	if err != nil {
-		return err
-	}
 
 	return err
 }

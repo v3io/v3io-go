@@ -85,13 +85,13 @@ func (i Item) GetFieldUint64(name string) (uint64, error) {
 }
 
 // For internal use only - DO NOT USE!
-func (i Item) GetShard() (int, *[]byte, *ChunkMetaData, *CurrentChunkMetaData, error) {
+func (i Item) GetShard() (int, *[]byte, *ItemChunkMetadata, *ItemCurrentChunkMetadata, error) {
 	streamDataPrefix := "__data_stream["
 	streamMetadataPrefix := "__data_stream_metadata["
 
 	var streamData *[]byte
-	chunkMetaData := ChunkMetaData{}
-	currentChunkMetadata := CurrentChunkMetaData{}
+	chunkMetaData := ItemChunkMetadata{}
+	currentChunkMetadata := ItemCurrentChunkMetadata{}
 	var chunkID int
 
 	for k, v := range i {
