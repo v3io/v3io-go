@@ -392,7 +392,7 @@ type PutChunkInput struct {
 	DataPlaneInput       `json:"-"`
 	Path                 string                `json:"-"`
 	ChunkSeqNumber       int                   `json:"ChunkSequenceNumber,omitempty"`
-	Offset               int                   `json:"Offset,omitempty"`
+	Offset               uint64                `json:"Offset,omitempty"`
 	Data                 []byte                `json:"Data,omitempty"`
 	ChunksMetadata       []*ChunkMetadata      `json:"Metadata,omitempty"`
 	CurrentChunkMetadata *CurrentChunkMetadata `json:"CurrentMetadata,omitempty"`
@@ -463,4 +463,9 @@ type ItemCurrentChunkMetadata struct {
 	FirstRecordOnChunkSec       uint32
 	LatestRecordArrivalTimeSec  uint64
 	LatestRecordArrivalTimeNSec uint64
+}
+
+type ItemChunkData struct {
+	Offset uint64
+	Data   *[]byte
 }
