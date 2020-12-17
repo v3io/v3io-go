@@ -85,11 +85,12 @@ func (i Item) GetFieldUint64(name string) (uint64, error) {
 }
 
 // For internal use only - DO NOT USE!
-func (i Item) GetShard() (int, *[]byte, *ItemChunkMetadata, *ItemCurrentChunkMetadata, error) {
-	streamDataPrefix := "__data_stream["
-	streamMetadataPrefix := "__data_stream_metadata["
+func (i Item) GetShard() (int, []*ItemChunkData, *ItemChunkMetadata, *ItemCurrentChunkMetadata, error) {
+	const streamDataPrefix = "__data_stream["
+	const streamMetadataPrefix = "__data_stream_metadata["
+	const offsetPrefix = "__data_stream[0000]["
 
-	var streamData *[]byte
+	var chunkDataArray []*ItemChunkData
 	chunkMetaData := ItemChunkMetadata{}
 	currentChunkMetadata := ItemCurrentChunkMetadata{}
 	var chunkID int
@@ -97,11 +98,13 @@ func (i Item) GetShard() (int, *[]byte, *ItemChunkMetadata, *ItemCurrentChunkMet
 	for k, v := range i {
 		if strings.HasPrefix(k, streamDataPrefix) {
 			chunkID, _ = strconv.Atoi(k[len(streamDataPrefix):][:4])
-			metadata, ok := v.([]byte)
+			offset, _ := strconv.ParseUint(k[len(offsetPrefix):][:16], 10, 64)
+			data, ok := v.([]byte)
 			if !ok {
 				return 0, nil, nil, nil, v3ioerrors.ErrInvalidTypeConversion
 			}
-			streamData = &metadata
+			streamData := ItemChunkData{Offset: offset, Data: &data}
+			chunkDataArray = append(chunkDataArray, &streamData)
 		}
 
 		if strings.HasPrefix(k, streamMetadataPrefix) {
@@ -132,5 +135,5 @@ func (i Item) GetShard() (int, *[]byte, *ItemChunkMetadata, *ItemCurrentChunkMet
 			}
 		}
 	}
-	return chunkID, streamData, &chunkMetaData, &currentChunkMetadata, nil
+	return chunkID, chunkDataArray, &chunkMetaData, &currentChunkMetadata, nil
 }

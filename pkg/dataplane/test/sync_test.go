@@ -1169,16 +1169,16 @@ func (suite *syncStreamTestSuite) TestStream() {
 		case "0":
 			suite.Require().True(currentChunkMetadata.NextRecordSeqNumber == 2)
 			suite.Require().True(currentChunkMetadata.CurrentChunkLengthBytes == 56)
-			suite.Require().True(strings.Contains(string(*streamData), "some shard record #1"))
+			suite.Require().True(strings.Contains(string(*streamData[0].Data), "some shard record #1"))
 		case "1":
 			suite.Require().True(currentChunkMetadata.NextRecordSeqNumber == 3)
 			suite.Require().True(currentChunkMetadata.CurrentChunkLengthBytes == 114)
-			suite.Require().True(strings.Contains(string(*streamData), "first shard record #1"))
-			suite.Require().True(strings.Contains(string(*streamData), "first shard record #2"))
+			suite.Require().True(strings.Contains(string(*streamData[0].Data), "first shard record #1"))
+			suite.Require().True(strings.Contains(string(*streamData[0].Data), "first shard record #2"))
 		case "2":
 			suite.Require().True(currentChunkMetadata.NextRecordSeqNumber == 2)
 			suite.Require().True(currentChunkMetadata.CurrentChunkLengthBytes == 58)
-			suite.Require().True(strings.Contains(string(*streamData), "second shard record #1"))
+			suite.Require().True(strings.Contains(string(*streamData[0].Data), "second shard record #1"))
 		}
 	}
 
@@ -1262,7 +1262,7 @@ func (suite *syncStreamBackupRestoreTestSuite) TestStream() {
 	suite.Require().NoError(err)
 
 	type Chunk struct {
-		Data          *[]byte
+		Data          []*v3io.ItemChunkData
 		ChunkMetadata *v3io.ItemChunkMetadata
 	}
 	type Shard struct {
@@ -1273,7 +1273,7 @@ func (suite *syncStreamBackupRestoreTestSuite) TestStream() {
 	for _, cursorItem := range cursorItems {
 		shardName, err := cursorItem.GetFieldString("__name")
 		suite.Require().NoError(err, "Failed to get item name")
-		chunkId, streamData, chunkMetadata, currentChunkMetadata, err := cursorItem.GetShard()
+		chunkId, chunkDataArray, chunkMetadata, currentChunkMetadata, err := cursorItem.GetShard()
 		suite.Require().NoError(err, "Failed to get stream")
 
 		if _, ok := streamBackup[shardName]; !ok {
@@ -1286,8 +1286,8 @@ func (suite *syncStreamBackupRestoreTestSuite) TestStream() {
 		if chunkMetadata != nil {
 			(*streamBackup[shardName].Chunks[chunkId]).ChunkMetadata = chunkMetadata
 		}
-		if streamData != nil {
-			(*streamBackup[shardName].Chunks[chunkId]).Data = streamData
+		if len(chunkDataArray) != 0 {
+			(*streamBackup[shardName].Chunks[chunkId]).Data = chunkDataArray
 		}
 		if currentChunkMetadata != nil {
 			streamBackup[shardName].CurrentChunk = currentChunkMetadata
@@ -1325,16 +1325,18 @@ func (suite *syncStreamBackupRestoreTestSuite) TestStream() {
 
 		// send data
 		for chunkID, chunkData := range shardData.Chunks {
-			putChunkInput := v3io.PutChunkInput{
-				Path:           shardPath,
-				ChunkSeqNumber: chunkID,
-				Offset:         0,
-				Data:           *chunkData.Data,
-			}
+			for _, dataFragment := range chunkData.Data {
+				putChunkInput := v3io.PutChunkInput{
+					Path:           shardPath,
+					ChunkSeqNumber: chunkID,
+					Offset:         dataFragment.Offset,
+					Data:           *dataFragment.Data,
+				}
 
-			suite.populateDataPlaneInput(&putChunkInput.DataPlaneInput)
-			err = suite.container.PutChunkSync(&putChunkInput)
-			suite.Require().NoError(err, "Failed to put chunk")
+				suite.populateDataPlaneInput(&putChunkInput.DataPlaneInput)
+				err = suite.container.PutChunkSync(&putChunkInput)
+				suite.Require().NoError(err, "Failed to put chunk")
+			}
 
 			chunkMetadata := &v3io.ChunkMetadata{
 				ChunkSeqNumber:       chunkID,
