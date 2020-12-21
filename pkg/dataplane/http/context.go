@@ -876,7 +876,7 @@ func (c *context) PutChunkSync(putChunkInput *v3io.PutChunkInput) error {
 		"",
 		putChunkHeaders,
 		buffer,
-		false)
+		true)
 
 	return err
 }

@@ -1158,7 +1158,7 @@ func (suite *syncStreamTestSuite) TestStream() {
 	for _, cursorItem := range cursorItems {
 		shardName, err := cursorItem.GetFieldString("__name")
 		suite.Require().NoError(err, "Failed to get item name")
-		chunkId, streamData, chunkMetadata, currentChunkMetadata, err := cursorItem.GetShard()
+		chunkId, streamData, chunkMetadata, _, err := cursorItem.GetShard()
 		suite.Require().NoError(err, "Failed to get stream")
 
 		suite.Require().Equal(0, chunkId, "chunk indexes doesn't match")
@@ -1167,18 +1167,12 @@ func (suite *syncStreamTestSuite) TestStream() {
 		suite.Require().True(chunkMetadata.LengthInBytes == 0)
 		switch shardName {
 		case "0":
-			suite.Require().True(currentChunkMetadata.NextRecordSeqNumber == 2)
-			suite.Require().True(currentChunkMetadata.CurrentChunkLengthBytes == 56)
-			suite.Require().True(strings.Contains(string(*streamData[0].Data), "some shard record #1"))
+			suite.Require().True(strings.Contains(string(*streamData[0].Data), string(records[4].Data)))
 		case "1":
-			suite.Require().True(currentChunkMetadata.NextRecordSeqNumber == 3)
-			suite.Require().True(currentChunkMetadata.CurrentChunkLengthBytes == 114)
-			suite.Require().True(strings.Contains(string(*streamData[0].Data), "first shard record #1"))
-			suite.Require().True(strings.Contains(string(*streamData[0].Data), "first shard record #2"))
+			suite.Require().True(strings.Contains(string(*streamData[0].Data), string(records[0].Data)))
+			suite.Require().True(strings.Contains(string(*streamData[0].Data), string(records[1].Data)))
 		case "2":
-			suite.Require().True(currentChunkMetadata.NextRecordSeqNumber == 2)
-			suite.Require().True(currentChunkMetadata.CurrentChunkLengthBytes == 58)
-			suite.Require().True(strings.Contains(string(*streamData[0].Data), "second shard record #1"))
+			suite.Require().True(strings.Contains(string(*streamData[0].Data), string(records[3].Data)))
 		}
 	}
 
@@ -1339,7 +1333,7 @@ func (suite *syncStreamBackupRestoreTestSuite) TestStream() {
 			}
 
 			chunkMetadata := &v3io.ChunkMetadata{
-				ChunkSeqNumber:       chunkID,
+				ChunkSeqNumber:       chunkData.ChunkMetadata.ChunkSeqNumber,
 				LengthInBytes:        chunkData.ChunkMetadata.LengthInBytes,
 				FirstRecordSeqNumber: chunkData.ChunkMetadata.FirstRecordSeqNumber,
 				FirstRecordTimeSecs:  chunkData.ChunkMetadata.FirstRecordTsSec,

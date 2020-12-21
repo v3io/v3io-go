@@ -372,7 +372,7 @@ type PutRecordsOutput struct {
 }
 
 type ChunkMetadata struct {
-	ChunkSeqNumber       int    `json:"ChunkSequenceNumber"`
+	ChunkSeqNumber       uint64 `json:"ChunkSequenceNumber"`
 	LengthInBytes        uint64 `json:"LengthInBytes"`
 	FirstRecordSeqNumber uint64 `json:"FirstRecordSequenceNumber"`
 	FirstRecordTimeSecs  uint64 `json:"FirstRecordTimeSec"`
