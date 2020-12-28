@@ -1462,8 +1462,11 @@ func (c *context) getItemsParseJSONResponse(response *v3io.Response, getItemsInp
 		return nil, err
 	}
 
+	lastItemIncluded, _ := strconv.ParseBool(getItemsResponse.LastItemIncluded)
+	scattered, _ := strconv.ParseBool(getItemsResponse.Scattered)
+
 	//validate getItems response to avoid infinite loop
-	if getItemsResponse.LastItemIncluded != "TRUE" && (getItemsResponse.NextMarker == "" || getItemsResponse.NextMarker == getItemsInput.Marker) {
+	if !lastItemIncluded && (getItemsResponse.NextMarker == "" || getItemsResponse.NextMarker == getItemsInput.Marker) {
 		errMsg := fmt.Sprintf("Invalid getItems response: lastItemIncluded=false and nextMarker='%s', "+
 			"startMarker='%s', probably due to object size bigger than 2M. Query is: %+v", getItemsResponse.NextMarker, getItemsInput.Marker, getItemsInput)
 		c.logger.Warn(errMsg)
@@ -1471,8 +1474,8 @@ func (c *context) getItemsParseJSONResponse(response *v3io.Response, getItemsInp
 
 	getItemsOutput := v3io.GetItemsOutput{
 		NextMarker: getItemsResponse.NextMarker,
-		Last:       getItemsResponse.LastItemIncluded == "TRUE",
-		Scattered:  getItemsResponse.Scattered == "TRUE",
+		Last:       lastItemIncluded,
+		Scattered:  scattered,
 	}
 
 	// iterate through the items and decode them
