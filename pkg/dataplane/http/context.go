@@ -1078,7 +1078,7 @@ func (c *context) sendRequest(dataPlaneInput *v3io.DataPlaneInput,
 		}
 	}
 	// Retry on ErrConnectionClosed due to https://github.com/valyala/fasthttp/issues/189#issuecomment-254538245
-	for i := 0; i < 2; i++ {
+	for i := 0; i < 8; i++ {
 		if dataPlaneInput.Timeout <= 0 {
 			err = c.httpClient.Do(request, response.HTTPResponse)
 		} else {
