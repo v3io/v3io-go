@@ -898,7 +898,7 @@ func (suite *syncKVTestSuite) TestPutItems() {
 	suite.deleteItems(items)
 }
 
-func (suite *syncKVTestSuite) TestPutItemsScattered() {
+func (suite *syncKVTestSuite) TestScatteredCursor() {
 	path := "/emd0"
 
 	scatteredItemKeys := []string{"louise", "karen"}
