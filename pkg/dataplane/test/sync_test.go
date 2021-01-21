@@ -2,6 +2,7 @@ package test
 
 import (
 	"fmt"
+	"math/rand"
 	"strconv"
 	"strings"
 	"testing"
@@ -897,6 +898,117 @@ func (suite *syncKVTestSuite) TestPutItems() {
 	suite.deleteItems(items)
 }
 
+func (suite *syncKVTestSuite) TestScatteredCursor() {
+	path := "/emd0"
+
+	scatteredItemKeys := []string{"louise", "karen"}
+	items := map[string]map[string]interface{}{
+		"bob":                {"age": 42, "feature": "mustache"},
+		"linda":              {"age": 41, "feature": "singing"},
+		"natan":              {"age": 35, "feature": "one leg"},
+		"donald":             {"age": 20, "feature": "teeth"},
+		scatteredItemKeys[0]: {"timestamp": time.Now().UnixNano(), "blob0": randomString(60000)},
+		scatteredItemKeys[1]: {"timestamp": time.Now().UnixNano(), "blob0": randomString(60000)},
+	}
+
+	putItemsInput := &v3io.PutItemsInput{
+		Path:  path,
+		Items: items,
+	}
+
+	// Store initial items
+	suite.populateDataPlaneInput(&putItemsInput.DataPlaneInput)
+	response, err := suite.container.PutItemsSync(putItemsInput)
+	suite.Require().NoError(err, "Failed to put items")
+	putItemsOutput := response.Output.(*v3io.PutItemsOutput)
+	suite.Require().True(putItemsOutput.Success)
+	response.Release()
+
+	// update `scatteredItemKeys` items with big KV entries to force them to scatter
+	for _, key := range scatteredItemKeys {
+		updateItemInput := v3io.UpdateItemInput{
+			Path: fmt.Sprintf("%s/%s", path, key),
+		}
+
+		// because of request size limit we will have to update items in parts
+		for i := 0; i < 4; i++ {
+			attributes := map[string]interface{}{}
+			for j := 0; j < 30; j++ {
+				attributes[fmt.Sprintf("%s_%s_%d_%d", "blob", key, i, j)] = randomString(60000)
+			}
+			updateItemInput.Attributes = attributes
+			suite.populateDataPlaneInput(&updateItemInput.DataPlaneInput)
+			response, err := suite.container.UpdateItemSync(&updateItemInput)
+			suite.Require().NoError(err, "Failed to update item")
+			response.Release()
+		}
+	}
+
+	// Get cursor
+	getItemsInput := v3io.GetItemsInput{
+		Path:               path + "/",
+		AttributeNames:     []string{"**"},
+		AllowObjectScatter: "true",
+	}
+	suite.populateDataPlaneInput(&getItemsInput.DataPlaneInput)
+	cursor, err := v3io.NewItemsCursor(suite.container, &getItemsInput)
+	suite.Require().NoError(err, "Failed to get cursor")
+
+	// extract and combine scattered items
+	scatteredItems := map[string]map[string]interface{}{}
+	var retrievedItems []map[string]interface{}
+	for cursor.NextSync() {
+		item := cursor.GetItem()
+		inode := item["__inode_number"]
+		ctimeSec := item["__ctime_secs"]
+		ctimeNSec := item["__ctime_nsecs"]
+		ctime := int64(ctimeSec.(int))*1e9 + int64(ctimeNSec.(int))
+		objectID := fmt.Sprintf("%d.%d", inode.(int), ctime)
+
+		scatteredItem, scatteredItemFound := scatteredItems[objectID]
+		if scatteredItemFound {
+			for key, value := range item {
+				scatteredItem[key] = value
+			}
+			item = scatteredItem
+		}
+		if cursor.Scattered() || scatteredItemFound {
+			scatteredItems[objectID] = item
+		} else {
+			retrievedItems = append(retrievedItems, item)
+		}
+
+		if !cursor.Scattered() {
+			for _, scatteredItem := range scatteredItems {
+				retrievedItems = append(retrievedItems, scatteredItem)
+			}
+			scatteredItems = map[string]map[string]interface{}{}
+		}
+	}
+	cursor.Release()
+
+	// validate results
+	suite.Assert().Equal(len(items), len(retrievedItems))
+	for _, retrievedItem := range retrievedItems {
+		suite.Assert().Contains(items, retrievedItem["__name"])
+		for _, scatteredItemKey := range scatteredItemKeys {
+			if retrievedItem["__name"] == scatteredItemKey {
+
+				// count number of blob keys
+				blobCounter := 0
+				for key, _ := range retrievedItem {
+					if strings.HasPrefix(key, "blob_") {
+						blobCounter++
+					}
+				}
+				suite.Assert().Equal(4*30, blobCounter)
+			}
+		}
+	}
+
+	suite.deleteItems(items)
+}
+
 func (suite *syncKVTestSuite) TestPutItemsWithError() {
 	items := map[string]map[string]interface{}{
 		"bob":     {"age": 42, "feature": "mustache"},
@@ -1496,4 +1608,17 @@ func validateCommonPrefix(suite *syncContainerTestSuite, prefix *v3io.CommonPref
 		suite.Require().Empty(prefix.Mode)
 		suite.Require().Nil(prefix.InodeNumber)
 	}
+}
+
+func randomString(len int) string {
+	bytes := make([]byte, len)
+	for i := 0; i < len; i++ {
+		bytes[i] = byte(randInt(97, 122))
+	}
+
+	return string(bytes)
+}
+
+func randInt(min int, max int) int {
+	return min + rand.Intn(max-min)
 }

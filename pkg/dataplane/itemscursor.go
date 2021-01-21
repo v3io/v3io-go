@@ -10,6 +10,7 @@ type ItemsCursor struct {
 	items           []Item
 	getItemsInput   *GetItemsInput
 	container       Container
+	scattered       bool
 }
 
 func NewItemsCursor(container Container, getItemsInput *GetItemsInput) (*ItemsCursor, error) {
@@ -125,6 +126,10 @@ func (ic *ItemsCursor) GetItem() Item {
 	return ic.currentItem
 }
 
+func (ic *ItemsCursor) Scattered() bool {
+	return ic.scattered
+}
+
 func (ic *ItemsCursor) setResponse(response *Response) {
 	ic.currentResponse = response
 
@@ -134,4 +139,5 @@ func (ic *ItemsCursor) setResponse(response *Response) {
 	ic.nextMarker = getItemsOutput.NextMarker
 	ic.items = getItemsOutput.Items
 	ic.itemIndex = 0
+	ic.scattered = getItemsOutput.Scattered
 }
