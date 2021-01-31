@@ -955,8 +955,7 @@ func (suite *syncKVTestSuite) TestScatteredCursor() {
 	suite.Require().NoError(err, "Failed to get cursor")
 
 	// extract and combine scattered items
-	scatteredItems := map[string]map[string]interface{}{}
-	var retrievedItems []map[string]interface{}
+	retrievedItems := map[string]map[string]interface{}{}
 	for cursor.NextSync() {
 		item := cursor.GetItem()
 		inode := item["__inode_number"]
@@ -965,25 +964,14 @@ func (suite *syncKVTestSuite) TestScatteredCursor() {
 		ctime := int64(ctimeSec.(int))*1e9 + int64(ctimeNSec.(int))
 		objectID := fmt.Sprintf("%d.%d", inode.(int), ctime)
 
-		scatteredItem, scatteredItemFound := scatteredItems[objectID]
+		scatteredItem, scatteredItemFound := retrievedItems[objectID]
 		if scatteredItemFound {
 			for key, value := range item {
 				scatteredItem[key] = value
 			}
 			item = scatteredItem
 		}
-		if cursor.Scattered() || scatteredItemFound {
-			scatteredItems[objectID] = item
-		} else {
-			retrievedItems = append(retrievedItems, item)
-		}
-
-		if !cursor.Scattered() {
-			for _, scatteredItem := range scatteredItems {
-				retrievedItems = append(retrievedItems, scatteredItem)
-			}
-			scatteredItems = map[string]map[string]interface{}{}
-		}
+		retrievedItems[objectID] = item
 	}
 	cursor.Release()
 

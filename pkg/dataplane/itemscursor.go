@@ -127,7 +127,7 @@ func (ic *ItemsCursor) GetItem() Item {
 }
 
 func (ic *ItemsCursor) Scattered() bool {
-	return ic.scattered
+	return ic.scattered && ic.itemIndex == len(ic.items)
 }
 
 func (ic *ItemsCursor) setResponse(response *Response) {
