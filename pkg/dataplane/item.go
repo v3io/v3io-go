@@ -98,7 +98,7 @@ func (i Item) GetShard() (int, []*ItemChunkData, *ItemChunkMetadata, *ItemCurren
 	for k, v := range i {
 		if strings.HasPrefix(k, streamDataPrefix) {
 			chunkID, _ = strconv.Atoi(k[len(streamDataPrefix):][:4])
-			offset, _ := strconv.ParseUint(k[len(offsetPrefix):][:16], 10, 64)
+			offset, _ := strconv.ParseUint(k[len(offsetPrefix):][:16], 16, 64)
 			data, ok := v.([]byte)
 			if !ok {
 				return 0, nil, nil, nil, v3ioerrors.ErrInvalidTypeConversion
