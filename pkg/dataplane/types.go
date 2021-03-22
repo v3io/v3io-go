@@ -469,3 +469,8 @@ type ItemChunkData struct {
 	Offset uint64
 	Data   *[]byte
 }
+
+type ItemChunk struct {
+	Metadata *ItemChunkMetadata
+	Data     []*ItemChunkData
+}

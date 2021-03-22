@@ -1258,21 +1258,21 @@ func (suite *syncStreamTestSuite) TestStream() {
 	for _, cursorItem := range cursorItems {
 		shardName, err := cursorItem.GetFieldString("__name")
 		suite.Require().NoError(err, "Failed to get item name")
-		chunkId, streamData, chunkMetadata, _, err := cursorItem.GetShard()
+		chunkMap , _, err := cursorItem.GetShard()
 		suite.Require().NoError(err, "Failed to get stream")
 
-		suite.Require().Equal(0, chunkId, "chunk indexes doesn't match")
-		suite.Require().True(chunkMetadata.ChunkSeqNumber == 0)
-		suite.Require().True(chunkMetadata.FirstRecordSeqNumber == 1)
-		suite.Require().True(chunkMetadata.LengthInBytes == 0)
+		suite.Require().Contains(chunkMap, 0, "chunk indexes doesn't match")
+		suite.Require().True(chunkMap[0].Metadata.ChunkSeqNumber == 0)
+		suite.Require().True(chunkMap[0].Metadata.FirstRecordSeqNumber == 1)
+		suite.Require().True(chunkMap[0].Metadata.LengthInBytes == 0)
 		switch shardName {
 		case "0":
-			suite.Require().True(strings.Contains(string(*streamData[0].Data), string(records[4].Data)))
+			suite.Require().True(strings.Contains(string(*chunkMap[0].Data[0].Data), string(records[4].Data)))
 		case "1":
-			suite.Require().True(strings.Contains(string(*streamData[0].Data), string(records[0].Data)))
-			suite.Require().True(strings.Contains(string(*streamData[0].Data), string(records[1].Data)))
+			suite.Require().True(strings.Contains(string(*chunkMap[0].Data[0].Data), string(records[0].Data)))
+			suite.Require().True(strings.Contains(string(*chunkMap[0].Data[0].Data), string(records[1].Data)))
 		case "2":
-			suite.Require().True(strings.Contains(string(*streamData[0].Data), string(records[3].Data)))
+			suite.Require().True(strings.Contains(string(*chunkMap[0].Data[0].Data), string(records[3].Data)))
 		}
 	}
 
@@ -1355,34 +1355,34 @@ func (suite *syncStreamBackupRestoreTestSuite) TestStream() {
 	cursorItems, err := cursor.AllSync()
 	suite.Require().NoError(err)
 
-	type Chunk struct {
-		Data          []*v3io.ItemChunkData
-		ChunkMetadata *v3io.ItemChunkMetadata
-	}
 	type Shard struct {
-		Chunks       map[int]*Chunk
+		Chunks       map[int]*v3io.ItemChunk
 		CurrentChunk *v3io.ItemCurrentChunkMetadata
 	}
 	streamBackup := map[string]*Shard{}
 	for _, cursorItem := range cursorItems {
 		shardName, err := cursorItem.GetFieldString("__name")
 		suite.Require().NoError(err, "Failed to get item name")
-		chunkId, chunkDataArray, chunkMetadata, currentChunkMetadata, err := cursorItem.GetShard()
+		chunkMap, currentChunkMetadata, err := cursorItem.GetShard()
 		suite.Require().NoError(err, "Failed to get stream")
 
 		if _, ok := streamBackup[shardName]; !ok {
-			streamBackup[shardName] = &Shard{Chunks: map[int]*Chunk{}}
+			streamBackup[shardName] = &Shard{Chunks: map[int]*v3io.ItemChunk{}}
 		}
 
-		if _, ok := streamBackup[shardName].Chunks[chunkId]; !ok {
-			streamBackup[shardName].Chunks[chunkId] = &Chunk{}
+		for chunkId := range chunkMap {
+			if _, ok := streamBackup[shardName].Chunks[chunkId]; !ok {
+				streamBackup[shardName].Chunks[chunkId] = &v3io.ItemChunk{}
+			}
+
+			if chunkMap[chunkId].Metadata != nil {
+				(*streamBackup[shardName].Chunks[chunkId]).Metadata = chunkMap[chunkId].Metadata
+			}
+			if len(chunkMap[chunkId].Data) != 0 {
+				(*streamBackup[shardName].Chunks[chunkId]).Data = chunkMap[chunkId].Data
+			}
 		}
-		if chunkMetadata != nil {
-			(*streamBackup[shardName].Chunks[chunkId]).ChunkMetadata = chunkMetadata
-		}
-		if len(chunkDataArray) != 0 {
-			(*streamBackup[shardName].Chunks[chunkId]).Data = chunkDataArray
-		}
+
 		if currentChunkMetadata != nil {
 			streamBackup[shardName].CurrentChunk = currentChunkMetadata
 		}
