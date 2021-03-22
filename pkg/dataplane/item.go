@@ -85,55 +85,61 @@ func (i Item) GetFieldUint64(name string) (uint64, error) {
 }
 
 // For internal use only - DO NOT USE!
-func (i Item) GetShard() (int, []*ItemChunkData, *ItemChunkMetadata, *ItemCurrentChunkMetadata, error) {
+func (i Item) GetShard() (map[int]*ItemChunk, *ItemCurrentChunkMetadata, error) {
 	const streamDataPrefix = "__data_stream["
 	const streamMetadataPrefix = "__data_stream_metadata["
 	const offsetPrefix = "__data_stream[0000]["
 
-	var chunkDataArray []*ItemChunkData
-	chunkMetaData := ItemChunkMetadata{}
 	currentChunkMetadata := ItemCurrentChunkMetadata{}
-	var chunkID int
+	chunkMap := make(map[int]*ItemChunk)
 
 	for k, v := range i {
 		if strings.HasPrefix(k, streamDataPrefix) {
-			chunkID, _ = strconv.Atoi(k[len(streamDataPrefix):][:4])
+			chunkID, _ := strconv.Atoi(k[len(streamDataPrefix):][:4])
 			offset, _ := strconv.ParseUint(k[len(offsetPrefix):][:16], 16, 64)
 			data, ok := v.([]byte)
 			if !ok {
-				return 0, nil, nil, nil, v3ioerrors.ErrInvalidTypeConversion
+				return nil, nil, v3ioerrors.ErrInvalidTypeConversion
 			}
 			streamData := ItemChunkData{Offset: offset, Data: &data}
-			chunkDataArray = append(chunkDataArray, &streamData)
+			if _, ok := chunkMap[chunkID]; !ok {
+				chunkMap[chunkID] = &ItemChunk{}
+			}
+			chunkMap[chunkID].Data = append(chunkMap[chunkID].Data, &streamData)
 		}
 
 		if strings.HasPrefix(k, streamMetadataPrefix) {
-			chunkID, _ = strconv.Atoi(k[len(streamMetadataPrefix):][:4])
-			metadata, ok := v.([]byte)
-			if !ok {
-				return 0, nil, nil, nil, v3ioerrors.ErrInvalidTypeConversion
+			chunkID, _ := strconv.Atoi(k[len(streamMetadataPrefix):][:4])
+			if _, ok := chunkMap[chunkID]; !ok {
+				chunkMap[chunkID] = &ItemChunk{}
 			}
 
+			metadata, ok := v.([]byte)
+			if !ok {
+				return nil, nil, v3ioerrors.ErrInvalidTypeConversion
+			}
 			buf := bytes.NewBuffer(metadata[8:64])
+			chunkMetaData := ItemChunkMetadata{}
 			err := binary.Read(buf, binary.LittleEndian, &chunkMetaData)
 			if err != nil {
-				return 0, nil, nil, nil, err
+				return nil, nil, err
 			}
+			chunkMap[chunkID].Metadata = &chunkMetaData
 
 			buf = bytes.NewBuffer(metadata[0:1])
 			var isCurrent bool
 			err = binary.Read(buf, binary.LittleEndian, &isCurrent)
 			if err != nil {
-				return 0, nil, nil, nil, err
+				return nil, nil, err
 			}
 			if isCurrent {
 				buf = bytes.NewBuffer(metadata[64:110])
 				err = binary.Read(buf, binary.LittleEndian, &currentChunkMetadata)
 				if err != nil {
-					return 0, nil, nil, nil, err
+					return nil, nil, err
 				}
 			}
 		}
 	}
-	return chunkID, chunkDataArray, &chunkMetaData, &currentChunkMetadata, nil
+	return chunkMap, &currentChunkMetadata, nil
 }
