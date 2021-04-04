@@ -1433,11 +1433,11 @@ func (suite *syncStreamBackupRestoreTestSuite) TestStream() {
 			}
 
 			chunkMetadata := &v3io.ChunkMetadata{
-				ChunkSeqNumber:       chunkData.ChunkMetadata.ChunkSeqNumber,
-				LengthInBytes:        chunkData.ChunkMetadata.LengthInBytes,
-				FirstRecordSeqNumber: chunkData.ChunkMetadata.FirstRecordSeqNumber,
-				FirstRecordTimeSecs:  chunkData.ChunkMetadata.FirstRecordTsSec,
-				FirstRecordTimeNSecs: chunkData.ChunkMetadata.FirstRecordTsNSec,
+				ChunkSeqNumber:       chunkData.Metadata.ChunkSeqNumber,
+				LengthInBytes:        chunkData.Metadata.LengthInBytes,
+				FirstRecordSeqNumber: chunkData.Metadata.FirstRecordSeqNumber,
+				FirstRecordTimeSecs:  chunkData.Metadata.FirstRecordTsSec,
+				FirstRecordTimeNSecs: chunkData.Metadata.FirstRecordTsNSec,
 			}
 			putChunkMetadataInput.ChunksMetadata = append(putChunkMetadataInput.ChunksMetadata, chunkMetadata)
 		}
