@@ -852,6 +852,13 @@ func (c *context) PutRecordsSync(putRecordsInput *v3io.PutRecordsInput) (*v3io.R
 	// set the output in the response
 	response.Output = &putRecordsOutput
 
+	if putRecordsOutput.FailedRecordCount != 0 {
+		return response, v3ioerrors.NewErrorWithStatusCode(
+			fmt.Errorf("PutRecords failed path: %s, FailedRecordCount: %d",
+				putRecordsInput.Path, putRecordsOutput.FailedRecordCount),
+			400)
+	}
+
 	return response, nil
 }
 
