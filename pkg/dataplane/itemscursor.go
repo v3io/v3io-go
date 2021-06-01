@@ -78,6 +78,7 @@ func (ic *ItemsCursor) NextItemSync() (Item, error) {
 	// invoke get items
 	newResponse, err := ic.container.GetItemsSync(ic.getItemsInput)
 	if err != nil {
+		ic.currentError = err
 		return nil, err
 	}
 
