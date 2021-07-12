@@ -341,6 +341,9 @@ func (c *context) GetItemsSync(getItemsInput *v3io.GetItemsInput) (*v3io.Respons
 		false)
 
 	if err != nil {
+		if !getItemsInput.DataPlaneInput.IncludeResponseInError {
+			return nil, err
+		}
 		errorWithStatusAndResponse, ok := err.(v3ioerrors.ErrorWithStatusCodeAndResponse)
 		if !ok {
 			return nil, err
@@ -350,7 +353,6 @@ func (c *context) GetItemsSync(getItemsInput *v3io.GetItemsInput) (*v3io.Respons
 		}
 
 		// if error has included response - attempt to parse it
-		// unlike regular response, there is no need to release response from `errorWithStatusAndResponse`
 		response = errorWithStatusAndResponse.Response()
 		response.Output, _ = c.getItemsParseJSONResponse(response, getItemsInput)
 		return response, err
@@ -1016,6 +1018,9 @@ func (c *context) sendRequestAndXMLUnmarshal(dataPlaneInput *v3io.DataPlaneInput
 
 	response, err := c.sendRequest(dataPlaneInput, method, path, query, headers, body, false)
 	if err != nil {
+		if !dataPlaneInput.IncludeResponseInError {
+			return nil, err
+		}
 		errorWithStatusAndResponse, ok := err.(v3ioerrors.ErrorWithStatusCodeAndResponse)
 		if !ok {
 			return nil, err
@@ -1025,7 +1030,6 @@ func (c *context) sendRequestAndXMLUnmarshal(dataPlaneInput *v3io.DataPlaneInput
 		}
 
 		// if error has included response - attempt to parse it
-		// unlike regular response, there is no need to release response from `errorWithStatusAndResponse`
 		response = errorWithStatusAndResponse.Response()
 		_ = xml.Unmarshal(response.Body(), output)
 		response.Output = output
@@ -1143,8 +1147,9 @@ func (c *context) sendRequest(dataPlaneInput *v3io.DataPlaneInput,
 		var re = regexp.MustCompile(".*X-V3io-Session-Key:.*")
 
 		// Include response in error only if caller has requested it
+		// Otherwise it will be released automatically
 		var _response *v3io.Response
-		if !releaseResponse {
+		if dataPlaneInput.IncludeResponseInError {
 			_response = response
 		}
 		sanitizedRequest := re.ReplaceAllString(request.String(), "X-V3io-Session-Key: SANITIZED")
@@ -1163,7 +1168,9 @@ cleanup:
 	fasthttp.ReleaseRequest(request)
 
 	if err != nil {
-		response.Release()
+		if !dataPlaneInput.IncludeResponseInError {
+			response.Release()
+		}
 		return nil, err
 	}
 
