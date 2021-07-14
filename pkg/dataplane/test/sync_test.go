@@ -948,7 +948,7 @@ func (suite *syncKVTestSuite) TestScatteredCursor() {
 						blobCounter++
 					}
 				}
-				suite.Assert().Equal(10*30, blobCounter)
+				suite.Assert().Equal(6*30, blobCounter)
 			}
 		}
 	}
