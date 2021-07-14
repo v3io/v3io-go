@@ -1002,7 +1002,6 @@ func (suite *syncKVTestSuite) TestIncludeResponseInError() {
 	suite.Assert().ElementsMatch(scatteredItemKeys, errorItemKeys)
 }
 
-
 func (suite *syncKVTestSuite) TestPutItemsWithError() {
 	items := map[string]map[string]interface{}{
 		"bob":     {"age": 42, "feature": "mustache"},
@@ -1312,7 +1311,7 @@ func (suite *syncStreamTestSuite) TestStream() {
 	for _, cursorItem := range cursorItems {
 		shardName, err := cursorItem.GetFieldString("__name")
 		suite.Require().NoError(err, "Failed to get item name")
-		chunkMap , _, err := cursorItem.GetShard()
+		chunkMap, _, err := cursorItem.GetShard()
 		suite.Require().NoError(err, "Failed to get stream")
 
 		suite.Require().Contains(chunkMap, 0, "chunk indexes doesn't match")

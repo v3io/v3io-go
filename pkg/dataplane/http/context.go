@@ -1122,18 +1122,18 @@ func (c *context) sendRequest(dataPlaneInput *v3io.DataPlaneInput,
 	if !success {
 		var re = regexp.MustCompile(".*X-V3io-Session-Key:.*")
 
+		sanitizedRequest := re.ReplaceAllString(request.String(), "X-V3io-Session-Key: SANITIZED")
+		_err := fmt.Errorf("Expected a 2xx response status code: %s\nRequest details:\n%s",
+			response.HTTPResponse.String(), sanitizedRequest)
+
 		// Include response in error only if caller has requested it
 		// Otherwise it will be released automatically
-		var _response *v3io.Response
 		if dataPlaneInput.IncludeResponseInError {
-			_response = response
+			err = v3ioerrors.NewErrorWithStatusCodeAndResponse(_err, statusCode, response)
+		} else {
+			err = v3ioerrors.NewErrorWithStatusCode(_err, statusCode)
 		}
-		sanitizedRequest := re.ReplaceAllString(request.String(), "X-V3io-Session-Key: SANITIZED")
-		err = v3ioerrors.NewErrorWithStatusCodeAndResponse(
-			fmt.Errorf("Expected a 2xx response status code: %s\nRequest details:\n%s",
-				response.HTTPResponse.String(), sanitizedRequest),
-			statusCode,
-			_response)
+
 		goto cleanup
 	}
 
