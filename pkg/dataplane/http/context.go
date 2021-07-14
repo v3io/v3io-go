@@ -343,7 +343,7 @@ func (c *context) GetItemsSync(getItemsInput *v3io.GetItemsInput) (*v3io.Respons
 	if err != nil {
 
 		// In case of an error, response is (optionally) returned as a part of an error
-		// We want to extract, parse and return it to the caller along with the original error
+		// We want to extract it, parse it and return to the caller along with the original error
 		// IMPORTANT: if response is present it's the responsibility of a caller to release it
 		response = c.extractResponseFromError(&getItemsInput.DataPlaneInput, err)
 		if response != nil {
@@ -1000,7 +1000,7 @@ func (c *context) sendRequestAndXMLUnmarshal(dataPlaneInput *v3io.DataPlaneInput
 	if err != nil {
 
 		// In case of an error, response is (optionally) returned as a part of an error
-		// We want to extract, parse and return it to the caller along with the original error
+		// We want to extract it, parse it and return to the caller along with the original error
 		response = c.extractResponseFromError(dataPlaneInput, err)
 
 		// attempt to parse the response if it's passed along with the error
