@@ -1071,7 +1071,7 @@ func (suite *syncKVTestSuite) populateScatteredItems(path string) (map[string]ma
 		}
 
 		// because of request size limit we will have to update items in parts
-		for i := 0; i < 10; i++ {
+		for i := 0; i < 6; i++ {
 			attributes := map[string]interface{}{}
 			for j := 0; j < 30; j++ {
 				attributes[fmt.Sprintf("%s_%s_%d_%d", "blob", key, i, j)] = randomString(60000)
