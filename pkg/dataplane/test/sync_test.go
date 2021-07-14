@@ -973,7 +973,7 @@ func (suite *syncKVTestSuite) TestIncludeResponseInError() {
 	var err error
 	var response *v3io.Response
 	var errorItemKeys []string
-	receivedItems := 0
+	totalItems := 0
 	for {
 		response, err = suite.container.GetItemsSync(&getItemsInput)
 		if response != nil {
@@ -991,14 +991,14 @@ func (suite *syncKVTestSuite) TestIncludeResponseInError() {
 				}
 			}
 
-			receivedItems += len(getItemsOutput.Items)
+			totalItems += len(getItemsOutput.Items)
 			getItemsInput.Marker = getItemsOutput.NextMarker
 		} else {
 			break
 		}
 	}
 
-	suite.Assert().Equal(len(items), receivedItems)
+	suite.Assert().Equal(len(items), totalItems)
 	suite.Assert().ElementsMatch(scatteredItemKeys, errorItemKeys)
 }
 
