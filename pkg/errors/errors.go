@@ -2,6 +2,8 @@ package v3ioerrors
 
 import (
 	"errors"
+
+	v3io "github.com/v3io/v3io-go/pkg/dataplane"
 )
 
 var ErrInvalidTypeConversion = errors.New("Invalid type conversion")
@@ -16,7 +18,7 @@ type ErrorWithStatusCode struct {
 
 type ErrorWithStatusCodeAndResponse struct {
 	ErrorWithStatusCode
-	response interface{}
+	response *v3io.Response
 }
 
 func NewErrorWithStatusCode(err error, statusCode int) ErrorWithStatusCode {
@@ -36,7 +38,7 @@ func (e ErrorWithStatusCode) Error() string {
 
 func NewErrorWithStatusCodeAndResponse(err error,
 	statusCode int,
-	response interface{}) ErrorWithStatusCodeAndResponse {
+	response *v3io.Response) ErrorWithStatusCodeAndResponse {
 
 	return ErrorWithStatusCodeAndResponse{
 		ErrorWithStatusCode: NewErrorWithStatusCode(err, statusCode),
@@ -44,6 +46,6 @@ func NewErrorWithStatusCodeAndResponse(err error,
 	}
 }
 
-func (e ErrorWithStatusCodeAndResponse) Response() interface{} {
+func (e ErrorWithStatusCodeAndResponse) Response() *v3io.Response {
 	return e.response
 }
