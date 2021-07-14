@@ -341,24 +341,18 @@ func (c *context) GetItemsSync(getItemsInput *v3io.GetItemsInput) (*v3io.Respons
 		false)
 
 	if err != nil {
-		return nil, err
-	}
 
-	contentType := string(response.HeaderPeek("Content-Type"))
-
-	if contentType != "application/octet-capnp" {
-		c.logger.DebugWithCtx(getItemsInput.Ctx, "Body", "body", string(response.Body()))
-		response.Output, err = c.getItemsParseJSONResponse(response, getItemsInput)
-	} else {
-		var withWildcard bool
-		for _, attributeName := range getItemsInput.AttributeNames {
-			if attributeName == "*" || attributeName == "**" {
-				withWildcard = true
-				break
-			}
+		// In case of an error, response is (optionally) returned as a part of an error
+		// We want to extract, parse and return it to the caller along with the original error
+		// IMPORTANT: if response is present it's the responsibility of a caller to release it
+		response = c.extractResponseFromError(&getItemsInput.DataPlaneInput, err)
+		if response != nil {
+			_ = c.parseGetItemsResponse(getItemsInput, response)
 		}
-		response.Output, err = c.getItemsParseCAPNPResponse(response, withWildcard)
+		return response, err
 	}
+
+	err = c.parseGetItemsResponse(getItemsInput, response)
 	return response, err
 }
 
@@ -1004,7 +998,18 @@ func (c *context) sendRequestAndXMLUnmarshal(dataPlaneInput *v3io.DataPlaneInput
 
 	response, err := c.sendRequest(dataPlaneInput, method, path, query, headers, body, false)
 	if err != nil {
-		return nil, err
+
+		// In case of an error, response is (optionally) returned as a part of an error
+		// We want to extract, parse and return it to the caller along with the original error
+		response = c.extractResponseFromError(dataPlaneInput, err)
+
+		// attempt to parse the response if it's passed along with the error
+		// IMPORTANT: if response is present it's the responsibility of a caller to release it
+		if response != nil {
+			_ = xml.Unmarshal(response.Body(), output)
+			response.Output = output
+		}
+		return response, err
 	}
 
 	// unmarshal the body into the output
@@ -1116,11 +1121,19 @@ func (c *context) sendRequest(dataPlaneInput *v3io.DataPlaneInput,
 	// make sure we got expected status
 	if !success {
 		var re = regexp.MustCompile(".*X-V3io-Session-Key:.*")
+
+		// Include response in error only if caller has requested it
+		// Otherwise it will be released automatically
+		var _response *v3io.Response
+		if dataPlaneInput.IncludeResponseInError {
+			_response = response
+		}
 		sanitizedRequest := re.ReplaceAllString(request.String(), "X-V3io-Session-Key: SANITIZED")
-		err = v3ioerrors.NewErrorWithStatusCode(
+		err = v3ioerrors.NewErrorWithStatusCodeAndResponse(
 			fmt.Errorf("Expected a 2xx response status code: %s\nRequest details:\n%s",
 				response.HTTPResponse.String(), sanitizedRequest),
-			statusCode)
+			statusCode,
+			_response)
 		goto cleanup
 	}
 
@@ -1131,7 +1144,9 @@ cleanup:
 	fasthttp.ReleaseRequest(request)
 
 	if err != nil {
-		response.Release()
+		if !dataPlaneInput.IncludeResponseInError {
+			response.Release()
+		}
 		return nil, err
 	}
 
@@ -1601,6 +1616,43 @@ func (c *context) getItemsParseCAPNPResponse(response *v3io.Response, withWildca
 		getItemsOutput.Items = append(getItemsOutput.Items, ditem)
 	}
 	return &getItemsOutput, nil
+}
+
+func (c *context) extractResponseFromError(dataPlaneInput *v3io.DataPlaneInput, err error) *v3io.Response {
+	if !dataPlaneInput.IncludeResponseInError {
+		return nil
+	}
+	errorWithStatusAndResponse, ok := err.(v3ioerrors.ErrorWithStatusCodeAndResponse)
+	if !ok {
+		return nil
+	}
+	if errorWithStatusAndResponse.Response() == nil {
+		return nil
+	}
+
+	return errorWithStatusAndResponse.Response().(*v3io.Response)
+}
+
+func (c *context) parseGetItemsResponse(getItemsInput *v3io.GetItemsInput, response *v3io.Response) error {
+
+	contentType := string(response.HeaderPeek("Content-Type"))
+
+	var err error
+	if contentType != "application/octet-capnp" {
+		c.logger.DebugWithCtx(getItemsInput.Ctx, "Body", "body", string(response.Body()))
+		response.Output, err = c.getItemsParseJSONResponse(response, getItemsInput)
+	} else {
+		var withWildcard bool
+		for _, attributeName := range getItemsInput.AttributeNames {
+			if attributeName == "*" || attributeName == "**" {
+				withWildcard = true
+				break
+			}
+		}
+		response.Output, err = c.getItemsParseCAPNPResponse(response, withWildcard)
+	}
+
+	return err
 }
 
 // parsing the mtime from a header of the form `__mtime_secs==1581605100 and __mtime_nsecs==498349956`
