@@ -901,7 +901,48 @@ func (suite *syncKVTestSuite) TestPutItems() {
 func (suite *syncKVTestSuite) TestScatteredCursor() {
 	path := "/emd0"
 
-	items, scatteredItemKeys := suite.populateScatteredItems(path)
+	scatteredItemKeys := []string{"louise", "karen"}
+	items := map[string]map[string]interface{}{
+		"bob":                {"age": 42, "feature": "mustache"},
+		"linda":              {"age": 41, "feature": "singing"},
+		"natan":              {"age": 35, "feature": "one leg"},
+		"donald":             {"age": 20, "feature": "teeth"},
+		scatteredItemKeys[0]: {"timestamp": time.Now().UnixNano(), "blob0": randomString(60000)},
+		scatteredItemKeys[1]: {"timestamp": time.Now().UnixNano(), "blob0": randomString(60000)},
+	}
+
+	putItemsInput := &v3io.PutItemsInput{
+		Path:  path,
+		Items: items,
+	}
+
+	// Store initial items
+	suite.populateDataPlaneInput(&putItemsInput.DataPlaneInput)
+	response, err := suite.container.PutItemsSync(putItemsInput)
+	suite.Require().NoError(err, "Failed to put items")
+	putItemsOutput := response.Output.(*v3io.PutItemsOutput)
+	suite.Require().True(putItemsOutput.Success)
+	response.Release()
+
+	// update `scatteredItemKeys` items with big KV entries to force them to scatter
+	for _, key := range scatteredItemKeys {
+		updateItemInput := v3io.UpdateItemInput{
+			Path: fmt.Sprintf("%s/%s", path, key),
+		}
+
+		// because of request size limit we will have to update items in parts
+		for i := 0; i < 4; i++ {
+			attributes := map[string]interface{}{}
+			for j := 0; j < 30; j++ {
+				attributes[fmt.Sprintf("%s_%s_%d_%d", "blob", key, i, j)] = randomString(60000)
+			}
+			updateItemInput.Attributes = attributes
+			suite.populateDataPlaneInput(&updateItemInput.DataPlaneInput)
+			response, err := suite.container.UpdateItemSync(&updateItemInput)
+			suite.Require().NoError(err, "Failed to update item")
+			response.Release()
+		}
+	}
 
 	// Get cursor
 	getItemsInput := v3io.GetItemsInput{
@@ -948,61 +989,13 @@ func (suite *syncKVTestSuite) TestScatteredCursor() {
 						blobCounter++
 					}
 				}
-				suite.Assert().Equal(10*30, blobCounter)
+				suite.Assert().Equal(4*30, blobCounter)
 			}
 		}
 	}
 
 	suite.deleteItems(items)
 }
-
-func (suite *syncKVTestSuite) TestIncludeResponseInError() {
-	path := "/emd0"
-
-	//items, scatteredItemKeys := suite.populateScatteredItems(path)
-	items, scatteredItemKeys := suite.populateScatteredItems(path)
-
-	// Get items with scattering disabled. Since there are scattered items this will create an error
-	getItemsInput := v3io.GetItemsInput{
-		Path:               path + "/",
-		AttributeNames:     []string{"**"},
-		AllowObjectScatter: "false",
-	}
-	suite.populateDataPlaneInput(&getItemsInput.DataPlaneInput)
-	getItemsInput.IncludeResponseInError = true
-
-	var err error
-	var response *v3io.Response
-	var errorItemKeys []string
-	totalItems := 0
-	for {
-		response, err = suite.container.GetItemsSync(&getItemsInput)
-		if response != nil {
-			getItemsOutput := response.Output.(*v3io.GetItemsOutput)
-			if getItemsOutput.Last {
-				break
-			}
-			suite.Assert().True(len(getItemsOutput.NextMarker) > 0)
-
-			if err != nil {
-				for _, item := range getItemsOutput.Items {
-					itemKey, _err := item.GetFieldString("__name")
-					suite.Assert().Nil(_err)
-					errorItemKeys = append(errorItemKeys, itemKey)
-				}
-			}
-
-			totalItems += len(getItemsOutput.Items)
-			getItemsInput.Marker = getItemsOutput.NextMarker
-		} else {
-			break
-		}
-	}
-
-	suite.Assert().Equal(len(items), totalItems)
-	suite.Assert().ElementsMatch(scatteredItemKeys, errorItemKeys)
-}
-
 
 func (suite *syncKVTestSuite) TestPutItemsWithError() {
 	items := map[string]map[string]interface{}{
@@ -1038,54 +1031,6 @@ func (suite *syncKVTestSuite) TestPutItemsWithError() {
 	suite.verifyItems(items)
 
 	suite.deleteItems(items)
-}
-
-func (suite *syncKVTestSuite) populateScatteredItems(path string) (map[string]map[string]interface{}, []string) {
-
-	scatteredItemKeys := []string{"louise", "karen"}
-	items := map[string]map[string]interface{}{
-		"bob":                {"age": 42, "feature": "mustache"},
-		"linda":              {"age": 41, "feature": "singing"},
-		"natan":              {"age": 35, "feature": "one leg"},
-		"donald":             {"age": 20, "feature": "teeth"},
-		scatteredItemKeys[0]: {"timestamp": time.Now().UnixNano(), "blob0": randomString(60000)},
-		scatteredItemKeys[1]: {"timestamp": time.Now().UnixNano(), "blob0": randomString(60000)},
-	}
-
-	putItemsInput := &v3io.PutItemsInput{
-		Path:  path,
-		Items: items,
-	}
-
-	// Store initial items
-	suite.populateDataPlaneInput(&putItemsInput.DataPlaneInput)
-	response, err := suite.container.PutItemsSync(putItemsInput)
-	suite.Require().NoError(err, "Failed to put items")
-	putItemsOutput := response.Output.(*v3io.PutItemsOutput)
-	suite.Require().True(putItemsOutput.Success)
-	response.Release()
-
-	// update `scatteredItemKeys` items with big KV entries to force them to scatter
-	for _, key := range scatteredItemKeys {
-		updateItemInput := v3io.UpdateItemInput{
-			Path: fmt.Sprintf("%s/%s", path, key),
-		}
-
-		// because of request size limit we will have to update items in parts
-		for i := 0; i < 10; i++ {
-			attributes := map[string]interface{}{}
-			for j := 0; j < 30; j++ {
-				attributes[fmt.Sprintf("%s_%s_%d_%d", "blob", key, i, j)] = randomString(60000)
-			}
-			updateItemInput.Attributes = attributes
-			suite.populateDataPlaneInput(&updateItemInput.DataPlaneInput)
-			response, err := suite.container.UpdateItemSync(&updateItemInput)
-			suite.Require().NoError(err, "Failed to update item")
-			response.Release()
-		}
-	}
-
-	return items, scatteredItemKeys
 }
 
 func (suite *syncKVTestSuite) verifyItems(items map[string]map[string]interface{}) {
