@@ -959,10 +959,9 @@ func (suite *syncKVTestSuite) TestScatteredCursor() {
 func (suite *syncKVTestSuite) TestIncludeResponseInError() {
 	path := "/emd0"
 
-	//items, scatteredItemKeys := suite.populateScatteredItems(path)
 	items, scatteredItemKeys := suite.populateScatteredItems(path)
 
-	// Get items with scattering disabled. Since there are scattered items this will create an error
+	// Issue GetItems request with scattering disabled. Since there are scattered items this will create an error
 	getItemsInput := v3io.GetItemsInput{
 		Path:               path + "/",
 		AttributeNames:     []string{"**"},
