@@ -45,13 +45,12 @@ type NewContainerInput struct {
 //
 
 type DataPlaneInput struct {
-	Ctx                    context.Context
-	URL                    string
-	ContainerName          string
-	AuthenticationToken    string
-	AccessKey              string
-	Timeout                time.Duration
-	IncludeResponseInError bool
+	Ctx                 context.Context
+	URL                 string
+	ContainerName       string
+	AuthenticationToken string
+	AccessKey           string
+	Timeout             time.Duration
 }
 
 type DataPlaneOutput struct {
