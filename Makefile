@@ -30,7 +30,7 @@ clean:
 .PHONY: test
 test: check-env
 	GO111MODULE=on \
-		go test -race -tags unit -count 1 -parallel 1 ./...
+		go test -race -tags unit -count 1 ./...
 
 .PHONY: lint
 lint:
