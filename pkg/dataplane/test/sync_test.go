@@ -3,6 +3,7 @@ package test
 import (
 	"fmt"
 	"math/rand"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -864,7 +865,7 @@ func (suite *syncKVTestSuite) TestEMD() {
 	// Delete everything
 	//
 
-	suite.deleteItems(itemsToCreate)
+	suite.deleteItems("/emd0", itemsToCreate)
 }
 
 func (suite *syncKVTestSuite) TestPutItems() {
@@ -895,13 +896,15 @@ func (suite *syncKVTestSuite) TestPutItems() {
 
 	suite.verifyItems(items)
 
-	suite.deleteItems(items)
+	suite.deleteItems(putItemsInput.Path, items)
 }
 
 func (suite *syncKVTestSuite) TestScatteredCursor() {
-	path := "/emd0"
+	path := "/emd1/scattered_cursor"
 
-	items, scatteredItemKeys := suite.populateScatteredItems(path)
+	numOfChunks := 4
+	chunkSize := 30
+	items, scatteredItemKeys := suite.populateScatteredItems(path, numOfChunks, chunkSize)
 
 	// Get cursor
 	getItemsInput := v3io.GetItemsInput{
@@ -948,18 +951,20 @@ func (suite *syncKVTestSuite) TestScatteredCursor() {
 						blobCounter++
 					}
 				}
-				suite.Assert().Equal(6*30, blobCounter)
+				suite.Assert().Equal(numOfChunks*chunkSize, blobCounter)
 			}
 		}
 	}
 
-	suite.deleteItems(items)
+	suite.deleteItems(path, items)
 }
 
 func (suite *syncKVTestSuite) TestIncludeResponseInError() {
-	path := "/emd0"
+	path := "/emd1/response_in_error"
 
-	items, scatteredItemKeys := suite.populateScatteredItems(path)
+	numOfChunks := 6
+	chunkSize := 30
+	items, scatteredItemKeys := suite.populateScatteredItems(path, numOfChunks, chunkSize)
 
 	// Issue GetItems request with scattering disabled. Since there are scattered items this will create an error
 	getItemsInput := v3io.GetItemsInput{
@@ -1000,6 +1005,7 @@ func (suite *syncKVTestSuite) TestIncludeResponseInError() {
 
 	suite.Assert().Equal(len(items), receivedItems)
 	suite.Assert().ElementsMatch(scatteredItemKeys, errorItemKeys)
+	suite.deleteItems(path, items)
 }
 
 func (suite *syncKVTestSuite) TestPutItemsWithError() {
@@ -1035,10 +1041,12 @@ func (suite *syncKVTestSuite) TestPutItemsWithError() {
 
 	suite.verifyItems(items)
 
-	suite.deleteItems(items)
+	suite.deleteItems(putItemsInput.Path, items)
 }
 
-func (suite *syncKVTestSuite) populateScatteredItems(path string) (map[string]map[string]interface{}, []string) {
+func (suite *syncKVTestSuite) populateScatteredItems(path string,
+	numOfChunks int,
+	chunkSize int) (map[string]map[string]interface{}, []string) {
 
 	scatteredItemKeys := []string{"louise", "karen"}
 	items := map[string]map[string]interface{}{
@@ -1070,9 +1078,9 @@ func (suite *syncKVTestSuite) populateScatteredItems(path string) (map[string]ma
 		}
 
 		// because of request size limit we will have to update items in parts
-		for i := 0; i < 6; i++ {
+		for i := 0; i < numOfChunks; i++ {
 			attributes := map[string]interface{}{}
-			for j := 0; j < 30; j++ {
+			for j := 0; j < chunkSize; j++ {
 				attributes[fmt.Sprintf("%s_%s_%d_%d", "blob", key, i, j)] = randomString(60000)
 			}
 			updateItemInput.Attributes = attributes
@@ -1117,12 +1125,15 @@ func (suite *syncKVTestSuite) verifyItems(items map[string]map[string]interface{
 	cursor.Release()
 }
 
-func (suite *syncKVTestSuite) deleteItems(items map[string]map[string]interface{}) {
+func (suite *syncKVTestSuite) deleteItems(path string, items map[string]map[string]interface{}) {
+	if !strings.HasSuffix(path, "/") {
+		path = path + "/"
+	}
 
 	// delete the items
 	for itemKey := range items {
 		input := v3io.DeleteObjectInput{
-			Path: "/emd0/" + itemKey,
+			Path: filepath.Join(path, itemKey),
 		}
 
 		// when run against a context, will populate fields like container name
@@ -1134,7 +1145,7 @@ func (suite *syncKVTestSuite) deleteItems(items map[string]map[string]interface{
 	}
 
 	input := &v3io.DeleteObjectInput{
-		Path: "/emd0/",
+		Path: fmt.Sprintf("%s", path),
 	}
 
 	// when run against a context, will populate fields like container name
