@@ -392,7 +392,7 @@ type CurrentChunkMetadata struct {
 type PutChunkInput struct {
 	DataPlaneInput       `json:"-"`
 	Path                 string                `json:"-"`
-	ChunkSeqNumber       int                   `json:"ChunkSequenceNumber,omitempty"`
+	ChunkSeqNumber       uint64                `json:"ChunkSequenceNumber,omitempty"`
 	Offset               uint64                `json:"Offset,omitempty"`
 	Data                 []byte                `json:"Data,omitempty"`
 	ChunksMetadata       []*ChunkMetadata      `json:"Metadata,omitempty"`
