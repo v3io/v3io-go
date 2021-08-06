@@ -85,28 +85,32 @@ func (i Item) GetFieldUint64(name string) (uint64, error) {
 }
 
 // For internal use only - DO NOT USE!
-func (i Item) GetShard() (map[uint64]*ItemChunk, *ItemCurrentChunkMetadata, error) {
+func (i Item) GetShard() (map[int]*ItemChunk, *ItemCurrentChunkMetadata, error) {
 	const streamDataPrefix = "__data_stream["
 	const streamMetadataPrefix = "__data_stream_metadata["
 	const offsetPrefix = "__data_stream[0000]["
 
 	currentChunkMetadata := ItemCurrentChunkMetadata{}
-	chunkMap := make(map[uint64]*ItemChunk)
+	chunkMap := make(map[int]*ItemChunk)
 
 	for k, v := range i {
 		if strings.HasPrefix(k, streamDataPrefix) {
-			chunkID, ok := strconv.ParseUint(k[len(streamDataPrefix):][:4], 16, 64)
+			chunkID64, ok := strconv.ParseUint(k[len(streamDataPrefix):][:4], 16, 64)
 			if ok != nil {
 				return nil, nil, v3ioerrors.ErrInvalidTypeConversion
 			}
+			chunkID := int(chunkID64)
+
 			offset, ok := strconv.ParseUint(k[len(offsetPrefix):][:16], 16, 64)
 			if ok != nil {
 				return nil, nil, v3ioerrors.ErrInvalidTypeConversion
 			}
-			data, ok2 := v.([]byte)
-			if !ok2 {
+
+			data, castingSuccess := v.([]byte)
+			if !castingSuccess {
 				return nil, nil, v3ioerrors.ErrInvalidTypeConversion
 			}
+
 			streamData := ItemChunkData{Offset: offset, Data: &data}
 			if _, ok := chunkMap[chunkID]; !ok {
 				chunkMap[chunkID] = &ItemChunk{}
@@ -115,21 +119,24 @@ func (i Item) GetShard() (map[uint64]*ItemChunk, *ItemCurrentChunkMetadata, erro
 		}
 
 		if strings.HasPrefix(k, streamMetadataPrefix) {
-			chunkID, ok := strconv.ParseUint(k[len(streamMetadataPrefix):][:4], 16, 64)
+			chunkID64, ok := strconv.ParseUint(k[len(streamMetadataPrefix):][:4], 16, 64)
 			if ok != nil {
 				return nil, nil, v3ioerrors.ErrInvalidTypeConversion
 			}
+			chunkID := int(chunkID64)
 
-			metadata, ok2 := v.([]byte)
-			if !ok2 {
+			metadata, castingSuccess := v.([]byte)
+			if !castingSuccess {
 				return nil, nil, v3ioerrors.ErrInvalidTypeConversion
 			}
+
 			buf := bytes.NewBuffer(metadata[8:64])
 			chunkMetaData := ItemChunkMetadata{}
 			err := binary.Read(buf, binary.LittleEndian, &chunkMetaData)
 			if err != nil {
 				return nil, nil, err
 			}
+
 			if _, ok := chunkMap[chunkID]; !ok {
 				chunkMap[chunkID] = &ItemChunk{}
 			}

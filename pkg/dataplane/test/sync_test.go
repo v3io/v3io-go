@@ -1420,7 +1420,7 @@ func (suite *syncStreamBackupRestoreTestSuite) TestStream() {
 	suite.Require().NoError(err)
 
 	type Shard struct {
-		Chunks       map[uint64]*v3io.ItemChunk
+		Chunks       map[int]*v3io.ItemChunk
 		CurrentChunk *v3io.ItemCurrentChunkMetadata
 	}
 	streamBackup := map[string]*Shard{}
@@ -1431,7 +1431,7 @@ func (suite *syncStreamBackupRestoreTestSuite) TestStream() {
 		suite.Require().NoError(err, "Failed to get stream")
 
 		if _, ok := streamBackup[shardName]; !ok {
-			streamBackup[shardName] = &Shard{Chunks: map[uint64]*v3io.ItemChunk{}}
+			streamBackup[shardName] = &Shard{Chunks: map[int]*v3io.ItemChunk{}}
 		}
 
 		for chunkId := range chunkMap {
