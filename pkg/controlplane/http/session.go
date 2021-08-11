@@ -226,6 +226,56 @@ func (s *session) DeleteAccessKeySync(deleteAccessKeyInput *v3ioc.DeleteAccessKe
 		&deleteAccessKeyInput.ControlPlaneInput)
 }
 
+// DeleteAccessKeySync deletes an access key (blocking)
+func (s *session) GetUserNameSync(getUserNameInput *v3ioc.GetUserNameInput) (*v3ioc.GetUserNameOutput, error) {
+
+	// prepare session response resource
+	userNameOutput := v3ioc.GetUserNameOutput{}
+
+	// allocate request
+	httpRequest := fasthttp.AcquireRequest()
+	defer fasthttp.ReleaseRequest(httpRequest)
+
+	responseInstance, err := s.sendRequest(getUserNameInput.ControlPlaneInput.Ctx,
+		&request{
+			method:      http.MethodGet,
+			path:        fmt.Sprintf("api/%s", "self"),
+			httpRequest: httpRequest,
+		}, getUserNameInput.ControlPlaneInput.Timeout)
+
+	if err != nil {
+		return nil, err
+	}
+
+	// if we got cookies, set them
+	if len(responseInstance.cookies) > 0 {
+		s.cookies = responseInstance.cookies
+	}
+
+	var objmap map[string]json.RawMessage
+	err = json.Unmarshal(responseInstance.body, &objmap)
+	if err != nil {
+		return nil, err
+	}
+
+	err = json.Unmarshal(objmap["data"], &objmap)
+	if err != nil {
+		return nil, err
+	}
+
+	err = json.Unmarshal(objmap["attributes"], &objmap)
+	if err != nil {
+		return nil, err
+	}
+
+	err = json.Unmarshal(objmap["username"], &userNameOutput.Username)
+	if err != nil {
+		return nil, err
+	}
+
+	return &userNameOutput, err
+}
+
 func (s *session) createResource(ctx context.Context,
 	path string,
 	kind string,
