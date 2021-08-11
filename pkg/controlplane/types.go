@@ -46,6 +46,9 @@ type Session interface {
 
 	// DeleteAccessKeySync deletes an access key (blocking)
 	DeleteAccessKeySync(*DeleteAccessKeyInput) error
+
+	// GetUserNameSync returns username related to session's access key (blocking)
+	GetUserNameSync(*GetUserNameInput) (*GetUserNameOutput, error)
 }
 
 type ControlPlaneInput struct {
@@ -136,4 +139,15 @@ type CreateAccessKeyOutput struct {
 // DeleteAccessKeyInput specifies how to delete an access key
 type DeleteAccessKeyInput struct {
 	ControlPlaneInput
+}
+
+// GetUserNameInput specifies what access key
+type GetUserNameInput struct {
+	ControlPlaneInput
+}
+
+// GetUserNameOutput holds the response from get username
+type GetUserNameOutput struct {
+	ControlPlaneOutput
+	Username string
 }

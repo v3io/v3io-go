@@ -172,6 +172,12 @@ func (suite *githubClientSuite) TestCreateEventUsingAccessKey() {
 	err = accessKeySession.CreateEventSync(&createEventInput)
 	suite.Require().NoError(err)
 
+	getUserNameInput := v3ioc.GetUserNameInput{}
+	getUserNameInput.Ctx = suite.ctx
+
+	_, err = accessKeySession.GetUserNameSync(&getUserNameInput)
+	suite.Require().NoError(err)
+
 	// Delete access key
 	deleteAccessKeyInput := v3ioc.DeleteAccessKeyInput{}
 	deleteAccessKeyInput.ID = createAccessKeyOutput.ID
