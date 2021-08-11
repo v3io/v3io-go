@@ -226,49 +226,18 @@ func (s *session) DeleteAccessKeySync(deleteAccessKeyInput *v3ioc.DeleteAccessKe
 		&deleteAccessKeyInput.ControlPlaneInput)
 }
 
-// DeleteAccessKeySync deletes an access key (blocking)
-func (s *session) GetUserNameSync(getUserNameInput *v3ioc.GetUserNameInput) (*v3ioc.GetUserNameOutput, error) {
+// GetRunningUserAttributesSync returns user's attributes related to session's access key (blocking)
+func (s *session) GetRunningUserAttributesSync(getRunningUserAttributesInput *v3ioc.GetRunningUserAttributesInput) (*v3ioc.GetRunningUserAttributesOutput, error) {
 
 	// prepare session response resource
-	userNameOutput := v3ioc.GetUserNameOutput{}
+	userNameOutput := v3ioc.GetRunningUserAttributesOutput{}
 
-	// allocate request
-	httpRequest := fasthttp.AcquireRequest()
-	defer fasthttp.ReleaseRequest(httpRequest)
+	err := s.getResource(getRunningUserAttributesInput.Ctx,
+		"self",
+		&getRunningUserAttributesInput.ControlPlaneInput,
+		&userNameOutput.ControlPlaneOutput,
+		&userNameOutput.UserAttributes)
 
-	responseInstance, err := s.sendRequest(getUserNameInput.ControlPlaneInput.Ctx,
-		&request{
-			method:      http.MethodGet,
-			path:        fmt.Sprintf("api/%s", "self"),
-			httpRequest: httpRequest,
-		}, getUserNameInput.ControlPlaneInput.Timeout)
-
-	if err != nil {
-		return nil, err
-	}
-
-	// if we got cookies, set them
-	if len(responseInstance.cookies) > 0 {
-		s.cookies = responseInstance.cookies
-	}
-
-	var objmap map[string]json.RawMessage
-	err = json.Unmarshal(responseInstance.body, &objmap)
-	if err != nil {
-		return nil, err
-	}
-
-	err = json.Unmarshal(objmap["data"], &objmap)
-	if err != nil {
-		return nil, err
-	}
-
-	err = json.Unmarshal(objmap["attributes"], &objmap)
-	if err != nil {
-		return nil, err
-	}
-
-	err = json.Unmarshal(objmap["username"], &userNameOutput.Username)
 	if err != nil {
 		return nil, err
 	}
@@ -359,6 +328,52 @@ func (s *session) createOrUpdateResource(ctx context.Context,
 	// if we got cookies, set them
 	if len(responseInstance.cookies) > 0 {
 		s.cookies = responseInstance.cookies
+	}
+
+	// unmarshal
+	if responseInstance.body != nil && controlPlaneOutput != nil {
+		responseBuffer := bytes.NewBuffer(responseInstance.body)
+
+		jsonAPIResponse := jsonapiResource{
+			Data: jsonapiData{
+				Attributes: responseAttributes,
+			},
+		}
+
+		if err := json.NewDecoder(responseBuffer).Decode(&jsonAPIResponse); err != nil {
+			return err
+		}
+
+		switch typedResponseID := jsonAPIResponse.Data.ID.(type) {
+		case string:
+			controlPlaneOutput.ID = typedResponseID
+		case float64:
+			controlPlaneOutput.IDNumeric = int(typedResponseID)
+		}
+	}
+
+	return nil
+}
+
+func (s *session) getResource(ctx context.Context,
+	path string,
+	controlPlaneInput *v3ioc.ControlPlaneInput,
+	controlPlaneOutput *v3ioc.ControlPlaneOutput,
+	responseAttributes interface{}) error {
+
+	// allocate request
+	httpRequest := fasthttp.AcquireRequest()
+	defer fasthttp.ReleaseRequest(httpRequest)
+
+	responseInstance, err := s.sendRequest(ctx,
+		&request{
+			method:      http.MethodGet,
+			path:        "api/" + path,
+			httpRequest: httpRequest,
+		}, controlPlaneInput.Timeout)
+
+	if err != nil {
+		return err
 	}
 
 	// unmarshal

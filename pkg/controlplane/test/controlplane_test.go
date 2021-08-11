@@ -38,12 +38,13 @@ func (suite *githubClientSuite) SetupSuite() {
 	suite.Require().NoError(err, fmt.Sprintf("\nInput: %v\n", newSessionInput))
 
 	// create a unique user for the tests
+	username := fmt.Sprintf("testuser-%d", ts)
 	ts := time.Now().Unix()
 	createUserInput := v3ioc.CreateUserInput{}
 	createUserInput.Ctx = suite.ctx
 	createUserInput.FirstName = fmt.Sprintf("Test-%d", ts)
 	createUserInput.LastName = fmt.Sprintf("User-%d", ts)
-	createUserInput.Username = fmt.Sprintf("testuser-%d", ts)
+	createUserInput.Username = username
 	createUserInput.Password = fmt.Sprintf("testpasswd-%d", ts)
 	createUserInput.Email = fmt.Sprintf("testuser-%d@user.com", ts)
 	createUserInput.Description = "A user created from tests"
@@ -54,6 +55,13 @@ func (suite *githubClientSuite) SetupSuite() {
 	suite.Require().NoError(err)
 	suite.Require().NotNil(createUserOutput.ID)
 	suite.userID = createUserOutput.ID
+
+	getRunningUserAttributesInput := v3ioc.GetRunningUserAttributesInput{}
+	getRunningUserAttributesInput.Ctx = suite.ctx
+
+	getRunningUserAttributesOutput, err := session.GetRunningUserAttributesSync(&getRunningUserAttributesInput)
+	suite.Require().NoError(err)
+	suite.Require().Equal(getRunningUserAttributesOutput.Username, username)
 
 	// create a session with that user
 	newSessionInput.Username = createUserInput.Username
@@ -170,12 +178,6 @@ func (suite *githubClientSuite) TestCreateEventUsingAccessKey() {
 	createEventInput.Source = "DummyService"
 
 	err = accessKeySession.CreateEventSync(&createEventInput)
-	suite.Require().NoError(err)
-
-	getUserNameInput := v3ioc.GetUserNameInput{}
-	getUserNameInput.Ctx = suite.ctx
-
-	_, err = accessKeySession.GetUserNameSync(&getUserNameInput)
 	suite.Require().NoError(err)
 
 	// Delete access key
