@@ -38,8 +38,8 @@ func (suite *githubClientSuite) SetupSuite() {
 	suite.Require().NoError(err, fmt.Sprintf("\nInput: %v\n", newSessionInput))
 
 	// create a unique user for the tests
-	username := fmt.Sprintf("testuser-%d", ts)
 	ts := time.Now().Unix()
+	username := fmt.Sprintf("testuser-%d", ts)
 	createUserInput := v3ioc.CreateUserInput{}
 	createUserInput.Ctx = suite.ctx
 	createUserInput.FirstName = fmt.Sprintf("Test-%d", ts)
