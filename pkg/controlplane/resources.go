@@ -117,9 +117,9 @@ type Visibility string
 
 const (
 	UnknownVisibility      Visibility = "unknown"
-	InternalVisibility     Severity   = "internal"
-	ExternalVisibility     Severity   = "external"
-	CustomerOnlyVisibility Severity   = "CustomerOnly"
+	InternalVisibility     Visibility = "internal"
+	ExternalVisibility     Visibility = "external"
+	CustomerOnlyVisibility Visibility = "customerOnly"
 )
 
 type Classification string
