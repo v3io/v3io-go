@@ -39,16 +39,15 @@ func (suite *githubClientSuite) SetupSuite() {
 
 	// create a unique user for the tests
 	ts := time.Now().Unix()
-	username := fmt.Sprintf("testuser-%d", ts)
 	createUserInput := v3ioc.CreateUserInput{}
 	createUserInput.Ctx = suite.ctx
 	createUserInput.FirstName = fmt.Sprintf("Test-%d", ts)
 	createUserInput.LastName = fmt.Sprintf("User-%d", ts)
-	createUserInput.Username = username
-	createUserInput.Password = fmt.Sprintf("testpasswd-%d", ts)
+	createUserInput.Username = fmt.Sprintf("testuser-%d", ts)
+	createUserInput.Password = fmt.Sprintf("Testpasswd-%d!", ts)
 	createUserInput.Email = fmt.Sprintf("testuser-%d@user.com", ts)
 	createUserInput.Description = "A user created from tests"
-	createUserInput.AssignedPolicies = []string{"Security Admin", "Data", "Application Admin", "Function Admin"}
+	createUserInput.AssignedPolicies = []string{"Security Admin", "Data", "Application Admin"}
 
 	// create a user with security session
 	createUserOutput, err := session.CreateUserSync(&createUserInput)
@@ -56,12 +55,21 @@ func (suite *githubClientSuite) SetupSuite() {
 	suite.Require().NotNil(createUserOutput.ID)
 	suite.userID = createUserOutput.ID
 
+	// create new user's session
+	newSessionInput = v3ioc.NewSessionInput{}
+	newSessionInput.Username = createUserInput.Username
+	newSessionInput.Password = createUserInput.Password
+	newSessionInput.Endpoints = []string{controlplaneURL}
+
+	newUserSession, err := v3iochttp.NewSession(suite.logger, &newSessionInput)
+	suite.Require().NoError(err, fmt.Sprintf("\nInput: %v\n", newSessionInput))
+
 	getRunningUserAttributesInput := v3ioc.GetRunningUserAttributesInput{}
 	getRunningUserAttributesInput.Ctx = suite.ctx
 
-	getRunningUserAttributesOutput, err := session.GetRunningUserAttributesSync(&getRunningUserAttributesInput)
+	getRunningUserAttributesOutput, err := newUserSession.GetRunningUserAttributesSync(&getRunningUserAttributesInput)
 	suite.Require().NoError(err)
-	suite.Require().Equal(getRunningUserAttributesOutput.Username, username)
+	suite.Require().Equal(getRunningUserAttributesOutput.Username, createUserInput.Username)
 
 	// create a session with that user
 	newSessionInput.Username = createUserInput.Username
@@ -83,7 +91,7 @@ func (suite *githubClientSuite) TearDownSuite() {
 }
 
 func (suite *githubClientSuite) SetupTest() {
-	suite.ctx = context.WithValue(nil, "RequestID", "test-0")
+	suite.ctx = context.WithValue(context.TODO(), "RequestID", "test-0")
 }
 
 func (suite *githubClientSuite) TestCreateContainerStringID() {
