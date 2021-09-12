@@ -946,7 +946,7 @@ func (suite *syncKVTestSuite) TestScatteredCursor() {
 
 				// count number of blob keys
 				blobCounter := 0
-				for key, _ := range retrievedItem {
+				for key := range retrievedItem {
 					if strings.HasPrefix(key, "blob_") {
 						blobCounter++
 					}
