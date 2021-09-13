@@ -29,10 +29,6 @@ type Config struct {
 			NumRecordsInBatch int                     `json:"numRecordsInBatch,omitempty"`
 			InitialLocation   v3io.SeekShardInputType `json:"initialLocation,omitempty"`
 		} `json:"recordBatchFetch,omitempty"`
-		GetShardLocationRetry struct {
-			Attempts int            `json:"attempts,omitempty"`
-			Backoff  common.Backoff `json:"backoff,omitempty"`
-		} `json:"getShardLocationRetry,omitempty"`
 	} `json:"claim,omitempty"`
 }
 
@@ -53,12 +49,6 @@ func NewConfig() *Config {
 	c.Claim.RecordBatchFetch.Interval = 250 * time.Millisecond
 	c.Claim.RecordBatchFetch.NumRecordsInBatch = 10
 	c.Claim.RecordBatchFetch.InitialLocation = v3io.SeekShardInputTypeEarliest
-	c.Claim.GetShardLocationRetry.Attempts = 100
-	c.Claim.GetShardLocationRetry.Backoff = common.Backoff{
-		Min:    50 * time.Millisecond,
-		Max:    1 * time.Second,
-		Factor: 2,
-	}
 
 	return c
 }
