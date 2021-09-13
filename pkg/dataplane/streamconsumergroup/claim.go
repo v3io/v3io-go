@@ -1,15 +1,12 @@
 package streamconsumergroup
 
 import (
-	"context"
 	"fmt"
-	"net"
 	"path"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/v3io/v3io-go/pkg/common"
 	"github.com/v3io/v3io-go/pkg/dataplane"
 	v3ioerrors "github.com/v3io/v3io-go/pkg/errors"
 
@@ -24,10 +21,6 @@ type claim struct {
 	recordBatchChan          chan *RecordBatch
 	stopRecordBatchFetchChan chan struct{}
 	currentShardLocation     string
-
-	// get shard location configuration
-	getShardLocationAttempts int
-	getShardLocationBackoff  common.Backoff
 }
 
 func newClaim(member *member, shardID int) (*claim, error) {
@@ -37,8 +30,6 @@ func newClaim(member *member, shardID int) (*claim, error) {
 		shardID:                  shardID,
 		recordBatchChan:          make(chan *RecordBatch, member.streamConsumerGroup.config.Claim.RecordBatchChanSize),
 		stopRecordBatchFetchChan: make(chan struct{}, 1),
-		getShardLocationAttempts: member.streamConsumerGroup.config.Claim.GetShardLocationRetry.Attempts,
-		getShardLocationBackoff:  member.streamConsumerGroup.config.Claim.GetShardLocationRetry.Backoff,
 	}, nil
 }
 
@@ -102,34 +93,12 @@ func (c *claim) fetchRecordBatches(stopChannel chan struct{}, fetchInterval time
 	var err error
 
 	// read initial location. use config if error. might need to wait until shard actually exists
-	if err := common.RetryFunc(context.TODO(),
-		c.logger,
-		c.getShardLocationAttempts,
-		nil,
-		&c.getShardLocationBackoff, func(attempt int) (bool, error) {
-			c.currentShardLocation, err = c.getCurrentShardLocation(c.shardID)
-			if err != nil {
+	c.currentShardLocation, err = c.getCurrentShardLocation(c.shardID)
+	if err != nil {
+		if err == v3ioerrors.ErrStopped {
+			return nil
+		}
 
-				// requested for an immediate stop
-				if err == v3ioerrors.ErrStopped {
-					return false, nil
-				}
-
-				switch errors.RootCause(err).(type) {
-
-				// in case of a network error, retry to avoid transient errors
-				case *net.OpError:
-					return true, errors.Wrap(err, "Failed to get shard location due to a network error")
-
-				// unknown error, fail now
-				default:
-					return false, errors.Wrap(err, "Failed to get shard location")
-				}
-			}
-
-			// we have shard location
-			return false, nil
-		}); err != nil {
 		return errors.Wrap(err, "Failed to get shard location")
 	}
 
