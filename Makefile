@@ -32,10 +32,6 @@ test: check-env
 	GO111MODULE=on \
 		go test -race -tags unit -count 1 ./...
 
-.PHONY: fmt
-fmt:
-	gofmt -s -w .
-
 .PHONY: lint
 lint:
 	docker run --rm \
