@@ -131,7 +131,7 @@ func (c *claim) fetchRecordBatches(stopChannel chan struct{}, fetchInterval time
 			return false, nil
 		}); err != nil {
 		return errors.Wrapf(err,
-			"Failed to get shard location state, attempts exhausted. shard id: %s",
+			"Failed to get shard location state, attempts exhausted. shard id: %d",
 			c.shardID)
 	}
 
