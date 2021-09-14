@@ -130,7 +130,9 @@ func (c *claim) fetchRecordBatches(stopChannel chan struct{}, fetchInterval time
 			// we have shard location
 			return false, nil
 		}); err != nil {
-		return errors.Wrap(err, "Failed to get shard location")
+		return errors.Wrapf(err,
+			"Failed to get shard location state, attempts exhausted. shard id: %s",
+			c.shardID)
 	}
 
 	for {
@@ -223,7 +225,7 @@ func (c *claim) getCurrentShardLocation(shardID int) (string, error) {
 	// get the location from persistency
 	currentShardLocation, err := c.member.streamConsumerGroup.getShardLocationFromPersistency(shardID)
 	if err != nil && errors.RootCause(err) != ErrShardNotFound {
-		return "", errors.Wrap(err, "Failed to get shard location")
+		return "", errors.Wrap(err, "Failed to get shard location from persistency")
 	}
 
 	// if shard wasn't found, try again periodically
@@ -243,7 +245,7 @@ func (c *claim) getCurrentShardLocation(shardID int) (string, error) {
 						continue
 					}
 
-					return "", errors.Wrap(err, "Failed to get shard location")
+					return "", errors.Wrap(err, "Failed to get shard location from persistency")
 				}
 
 				return currentShardLocation, nil
