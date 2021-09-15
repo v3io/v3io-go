@@ -222,14 +222,22 @@ func (c *claim) fetchRecordBatch(location string) (string, error) {
 
 func (c *claim) getCurrentShardLocation(shardID int) (string, error) {
 
+	initialLocation := c.member.streamConsumerGroup.config.Claim.RecordBatchFetch.InitialLocation
+
 	// get the location from persistency
-	currentShardLocation, err := c.member.streamConsumerGroup.getShardLocationFromPersistency(shardID)
+	currentShardLocation, err := c.member.streamConsumerGroup.getShardLocationFromPersistency(shardID, initialLocation)
 	if err != nil && errors.RootCause(err) != ErrShardNotFound {
 		return "", errors.Wrap(err, "Failed to get shard location from persistency")
 	}
 
 	// if shard wasn't found, try again periodically
 	if errors.RootCause(err) == ErrShardNotFound {
+
+		// if the shard does not exist yet, turn seek-latest to seek-earliest (IG-19366)
+		if initialLocation == v3io.SeekShardInputTypeLatest {
+			initialLocation = v3io.SeekShardInputTypeEarliest
+		}
+
 		for {
 			select {
 
@@ -237,7 +245,7 @@ func (c *claim) getCurrentShardLocation(shardID int) (string, error) {
 			case <-time.After(c.member.streamConsumerGroup.config.SequenceNumber.ShardWaitInterval):
 
 				// get the location from persistency
-				currentShardLocation, err = c.member.streamConsumerGroup.getShardLocationFromPersistency(shardID)
+				currentShardLocation, err = c.member.streamConsumerGroup.getShardLocationFromPersistency(shardID, initialLocation)
 				if err != nil {
 					if errors.RootCause(err) == ErrShardNotFound {
 
