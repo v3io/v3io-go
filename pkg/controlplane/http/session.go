@@ -270,7 +270,7 @@ func (s *session) ReloadAppServicesConfig(ctx context.Context) (string, error) {
 		"configurations/app_services/reloads",
 		"cluster_configuration_reload",
 		&reloadAppServicesConfigInput.ControlPlaneInput,
-		nil,
+		map[string]string{},
 		&reloadAppServicesConfigOutput.ControlPlaneOutput,
 		&reloadAppServicesConfigOutput.JobAttributes)
 
