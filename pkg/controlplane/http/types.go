@@ -37,10 +37,14 @@ type response struct {
 
 type jsonapiData struct {
 	ID         interface{} `json:"id,omitempty"`
-	Type       string      `json:"type,omitempty"`
-	Attributes interface{} `json:"attributes,omitempty"`
+
+	// no omitempty, platform api will fail if on of these is missing
+	Type       string      `json:"type"`
+	Attributes interface{} `json:"attributes"`
 }
 
 type jsonapiResource struct {
-	Data jsonapiData `json:"data,omitempty"`
+
+	// no omitempty, platform api will fail if this is missing
+	Data jsonapiData `json:"data"`
 }
