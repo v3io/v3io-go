@@ -53,14 +53,14 @@ type Session interface {
 	// ReloadAppServicesConfigAndWaitForCompletion reloads the app service config in the backend and waits for job completion (blocking)
 	ReloadAppServicesConfigAndWaitForCompletion(ctx context.Context, retryInterval, timeout time.Duration) error
 
-    // ReloadAppServicesConfig reloads the app service config in the backend (blocking)
-    ReloadAppServicesConfig(ctx context.Context) (string, error)
+	// ReloadAppServicesConfig reloads the app service config in the backend (blocking)
+	ReloadAppServicesConfig(ctx context.Context) (string, error)
 
-    // WaitForJobCompletion waits for completion of job with given id (blocking)
-    WaitForJobCompletion(ctx context.Context, jobId string, retryInterval, timeout time.Duration) error
+	// WaitForJobCompletion waits for completion of job with given id (blocking)
+	WaitForJobCompletion(ctx context.Context, jobId string, retryInterval, timeout time.Duration) error
 
-    // GetJobs gets jobs (blocking)
-    GetJobs(getJobsInput *GetJobsInput) (*GetJobsOutput, error)
+	// GetJobs gets jobs (blocking)
+	GetJobs(getJobsInput *GetJobsInput) (*GetJobsOutput, error)
 }
 
 type ControlPlaneInput struct {
