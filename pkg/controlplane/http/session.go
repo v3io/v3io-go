@@ -30,6 +30,7 @@ import (
 	"github.com/v3io/v3io-go/pkg/controlplane"
 	"github.com/v3io/v3io-go/pkg/errors"
 
+	"github.com/nuclio/errors"
 	"github.com/nuclio/logger"
 	"github.com/valyala/fasthttp"
 )
@@ -243,6 +244,99 @@ func (s *session) GetRunningUserAttributesSync(getRunningUserAttributesInput *v3
 	}
 
 	return &userNameOutput, err
+}
+
+// ReloadAppServicesConfigAndWaitForCompletion reloads the app service config in the backend and waits for job completion (blocking)
+func (s *session) ReloadAppServicesConfigAndWaitForCompletion(ctx context.Context, retryInterval, timeout time.Duration) error {
+	jobId, err := s.ReloadAppServicesConfig(ctx)
+	if err != nil {
+		return errors.Wrap(err, "Failed reloading app service config")
+	}
+
+	return s.WaitForJobCompletion(ctx, jobId, retryInterval, timeout)
+}
+
+// ReloadAppServicesConfig reloads the app service config in the backend (blocking)
+func (s *session) ReloadAppServicesConfig(ctx context.Context) (string, error) {
+	reloadAppServicesConfigInput := v3ioc.ReloadAppServicesConfigInput{
+		ControlPlaneInput: v3ioc.ControlPlaneInput{
+			Ctx: ctx,
+		},
+	}
+
+	reloadAppServicesConfigOutput := v3ioc.ReloadAppServicesConfigOutput{}
+
+	err := s.createResource(ctx,
+		"configurations/app_services/reloads",
+		"cluster_configuration_reload",
+		&reloadAppServicesConfigInput.ControlPlaneInput,
+		nil,
+		&reloadAppServicesConfigOutput.ControlPlaneOutput,
+		&reloadAppServicesConfigOutput.JobAttributes)
+
+	if err != nil {
+		return "", err
+	}
+
+	return reloadAppServicesConfigOutput.ID, nil
+}
+
+// WaitForJobCompletion waits for completion of job with given id (blocking)
+func (s *session) WaitForJobCompletion(ctx context.Context, jobId string, retryInterval, timeout time.Duration) error {
+	getJobsInput := v3ioc.GetJobsInput{
+		ControlPlaneInput: v3ioc.ControlPlaneInput{
+			ID:  jobId,
+			Ctx: ctx,
+		},
+	}
+
+	deadline := time.Now().Add(timeout)
+
+	for time.Now().Before(deadline) {
+		getJobsOutput, err := s.GetJobs(&getJobsInput)
+		if err != nil {
+			return errors.Wrap(err, "Failed getting job")
+		}
+
+		switch getJobsOutput.State {
+		case v3ioc.JobStateCompleted:
+			return nil
+		case v3ioc.JobStateFailed:
+			return errors.New("Job has failed")
+		case v3ioc.JobStateCanceled:
+			return errors.New("Job was canceled")
+		default:
+			s.logger.DebugWithCtx(ctx, "Job in progress",
+				"jobId", jobId,
+				"retryInterval", retryInterval,
+				"timeout", timeout)
+			time.Sleep(retryInterval)
+		}
+	}
+
+	return errors.New("Timed out waiting for job completion")
+}
+
+// GetJobs gets jobs (blocking)
+func (s *session) GetJobs(getJobsInput *v3ioc.GetJobsInput) (*v3ioc.GetJobsOutput, error) {
+
+	// prepare job response resource
+	getJobsOutput := v3ioc.GetJobsOutput{}
+
+	// specific path for job detail endpoint
+	detailPath := fmt.Sprintf("jobs/%s", getJobsInput.ID)
+
+	err := s.getResource(getJobsInput.Ctx,
+		detailPath,
+		&getJobsInput.ControlPlaneInput,
+		&getJobsOutput.ControlPlaneOutput,
+		&getJobsOutput.JobAttributes)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &getJobsOutput, err
 }
 
 func (s *session) createResource(ctx context.Context,
