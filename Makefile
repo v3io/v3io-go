@@ -18,6 +18,9 @@ endif
 ifndef V3IO_CONTROLPLANE_PASSWORD
 		$(error V3IO_CONTROLPLANE_PASSWORD is undefined)
 endif
+ifndef V3IO_CONTROLPLANE_IGZ_ADMIN_PASSWORD
+		$(error V3IO_CONTROLPLANE_IGZ_ADMIN_PASSWORD is undefined)
+endif
 
 .PHONY: generate-capnp
 generate-capnp:
@@ -36,6 +39,10 @@ test: check-env
 fmt:
 	gofmt -s -w .
 
+.PHONY: fmt
+fmt:
+	gofmt -s -w .
+
 .PHONY: lint
 lint:
 	docker run --rm \
@@ -46,6 +53,11 @@ lint:
 		bash /go/src/github.com/v3io/v3io-go/hack/lint.sh
 
 	@echo Done.
+
+.PHONY: test-controlplane
+test-controlplane: check-env
+	GO111MODULE=on \
+		go test -race -tags unit -count 1 ./pkg/controlplane/...
 
 .PHONY: build
 build: clean generate-capnp lint test

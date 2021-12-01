@@ -19,8 +19,9 @@
     - V3IO_DATAPLANE_USERNAME=<username>
     - V3IO_DATAPLANE_ACCESS_KEY=<access-key>
     - V3IO_CONTROLPLANE_URL=http://<data-node>:8001
-    - V3IO_CONTROLPLANE_USERNAME=<admin-username>
-    - V3IO_CONTROLPLANE_PASSWORD=<admin-password>
+    - V3IO_CONTROLPLANE_USERNAME=<username>
+    - V3IO_CONTROLPLANE_PASSWORD=<password>
+    - V3IO_CONTROLPLANE_IGZ_ADMIN_PASSWORD=<igz_admin-password>
 2. Run ``make test``
 3. Alternatively you can pass environment variables inline as you can see in the following example: 
     ```
@@ -30,5 +31,6 @@
     V3IO_CONTROLPLANE_URL=http://<data-node>:8001 \
     V3IO_CONTROLPLANE_USERNAME=<admin-username> \
     V3IO_CONTROLPLANE_PASSWORD=<admin-password> \
+    V3IO_CONTROLPLANE_IGZ_ADMIN_PASSWORD=<igz_admin-password> \
     make test
     ```

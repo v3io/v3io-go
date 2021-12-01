@@ -22,11 +22,13 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"net/url"
 	"strconv"
 	"time"
 
+	"github.com/v3io/v3io-go/pkg/common"
 	"github.com/v3io/v3io-go/pkg/controlplane"
 	"github.com/v3io/v3io-go/pkg/errors"
 
@@ -353,6 +355,171 @@ func (s *session) GetJobs(getJobsInput *v3ioc.GetJobsInput) (*v3ioc.GetJobsOutpu
 	}
 
 	return &getJobsOutput, err
+}
+
+// ReloadClusterConfiguration issues a reload to the internal cluster configuration (blocking)
+func (s *session) ReloadClusterConfiguration(reloadConfigurationInput *v3ioc.ReloadConfigurationInput,
+	jobWaitingTimeout *time.Duration) error {
+	return s.reloadConfiguration(reloadConfigurationInput, "cluster", jobWaitingTimeout)
+}
+// ReloadEventsConfiguration issues a reload to the internal events configuration (blocking)
+func (s *session) ReloadEventsConfiguration(reloadConfigurationInput *v3ioc.ReloadConfigurationInput,
+	jobWaitingTimeout *time.Duration) error {
+	return s.reloadConfiguration(reloadConfigurationInput, "events", jobWaitingTimeout)
+}
+// ReloadAppServicesConfiguration issues a reload to the internal app services configuration (blocking)
+func (s *session) ReloadAppServicesConfiguration(reloadConfigurationInput *v3ioc.ReloadConfigurationInput,
+	jobWaitingTimeout *time.Duration) error {
+	return s.reloadConfiguration(reloadConfigurationInput, "app_services", jobWaitingTimeout)
+}
+
+// ReloadArtifactVersionManifest issues a reload to the internal artifact version manifest configuration (blocking)
+func (s *session) ReloadArtifactVersionManifest(reloadConfigurationInput *v3ioc.ReloadConfigurationInput,
+	jobWaitingTimeout *time.Duration) error {
+	return s.reloadConfiguration(reloadConfigurationInput, "artifact_version_manifest", jobWaitingTimeout)
+}
+
+func (s *session) reloadConfiguration(reloadConfigurationInput *v3ioc.ReloadConfigurationInput,
+	configurationType string,
+	jobWaitingTimeout *time.Duration) error {
+
+	// prepare job response resource. Re-use ReloadClusterConfigurationOutput even though
+	// its attributes are only used for cluster configuration and not the rest
+	reloadConfigurationJobOutput := v3ioc.ReloadClusterConfigurationOutput{}
+	path := fmt.Sprintf("configurations/%s/reloads", configurationType)
+
+	// try to create the resource
+	err := s.createResource(reloadConfigurationInput.Ctx,
+		path,
+		"file",
+		&reloadConfigurationInput.ControlPlaneInput,
+		&struct{}{},
+		&reloadConfigurationJobOutput.ControlPlaneOutput,
+		&reloadConfigurationJobOutput.ClusterConfigurationReloadAttributes)
+
+	if err != nil {
+		return errors.Wrap(err, "Failed invoking configuration reload")
+	}
+
+	var jobId string
+	if configurationType == "cluster" {
+		jobId = reloadConfigurationJobOutput.ClusterConfigurationReloadAttributes.JobID
+	} else {
+		jobId = reloadConfigurationJobOutput.ID
+	}
+
+	// sanity
+	if jobId == "" {
+		return errors.New("Failed to retrieve configuration reload job ID")
+	}
+
+	s.logger.DebugWithCtx(reloadConfigurationInput.Ctx,
+		"Invoked configuration reload, waiting for job",
+		"configurationType", configurationType,
+		"jobID", jobId,
+		"jobWaitingTimeout", jobWaitingTimeout)
+	return s.waitForJob(jobId, jobWaitingTimeout)
+}
+
+func (s *session) waitForJob(jobID string, timeout *time.Duration) error {
+	retryInterval := 5 * time.Second
+	attempts := int(math.Ceil(timeout.Seconds() / retryInterval.Seconds()))
+
+	// for logging
+	var lastJobState v3ioc.JobState
+
+	err := common.RetryFunc(context.TODO(), s.logger, attempts, &retryInterval, nil, func(int) (bool, error) {
+		getJobInput := v3ioc.ControlPlaneInput{}
+		getJobOutput := v3ioc.JobOutput{}
+
+		err := s.getResourceDetail(getJobInput.Ctx,
+			fmt.Sprintf("jobs/%s", jobID),
+			&getJobInput,
+			&getJobOutput.ControlPlaneOutput,
+			&getJobOutput.JobAttributes)
+		if err != nil {
+			return true, errors.Wrapf(err, "Failed getting job details for jobID=%s", jobID)
+		}
+
+		lastJobState = getJobOutput.JobAttributes.State
+
+		if lastJobState == v3ioc.JobStateCompleted {
+			s.logger.InfoWithCtx(getJobOutput.Ctx,
+				"Job completed successfully",
+				"JobAttributes", getJobOutput.JobAttributes)
+			return false, nil
+		}
+
+		if !common.StringSliceContainsString([]string{
+			string(v3ioc.JobStateCanceled),
+			string(v3ioc.JobStateCompleted),
+			string(v3ioc.JobStateFailed),
+		},
+			string(lastJobState)) {
+			return true, errors.Wrapf(err, "Job still in progress (%s)", lastJobState)
+		}
+
+		s.logger.WarnWithCtx(getJobOutput.Ctx, "Job completed unsuccessfully", "state", lastJobState)
+		return false, errors.Errorf("Job completed with unsuccessful state (%s)", lastJobState)
+	})
+
+	if err != nil {
+		return errors.Wrapf(err,
+			"Failed waiting for job to finish successfully, attempts exhausted. state(%s)", lastJobState)
+	}
+
+	return nil
+}
+
+func (s *session) getResourceDetail(ctx context.Context,
+	path string,
+	controlPlaneInput *v3ioc.ControlPlaneInput,
+	controlPlaneOutput *v3ioc.ControlPlaneOutput,
+	responseAttributes interface{}) error {
+
+	// allocate request, no need for body
+	httpRequest := fasthttp.AcquireRequest()
+	defer fasthttp.ReleaseRequest(httpRequest)
+
+	responseInstance, err := s.sendRequest(ctx,
+		&request{
+			method:      http.MethodGet,
+			path:        "api/" + path,
+			httpRequest: httpRequest,
+		}, controlPlaneInput.Timeout)
+
+	if err != nil {
+		return errors.Wrapf(err, "Failed to get resource (%s)", path)
+	}
+
+	// if we got cookies, set them
+	if len(responseInstance.cookies) > 0 {
+		s.cookies = responseInstance.cookies
+	}
+
+	// unmarshal
+	if responseInstance.body != nil && controlPlaneOutput != nil {
+		responseBuffer := bytes.NewBuffer(responseInstance.body)
+
+		jsonAPIResponse := jsonapiResource{
+			Data: jsonapiData{
+				Attributes: responseAttributes,
+			},
+		}
+
+		if err := json.NewDecoder(responseBuffer).Decode(&jsonAPIResponse); err != nil {
+			return err
+		}
+
+		switch typedResponseID := jsonAPIResponse.Data.ID.(type) {
+		case string:
+			controlPlaneOutput.ID = typedResponseID
+		case float64:
+			controlPlaneOutput.IDNumeric = int(typedResponseID)
+		}
+	}
+
+	return nil
 }
 
 func (s *session) createResource(ctx context.Context,

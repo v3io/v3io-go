@@ -56,6 +56,15 @@ type Session interface {
 	// ReloadAppServicesConfig reloads the app service config in the backend (blocking)
 	ReloadAppServicesConfig(ctx context.Context) (string, error)
 
+	// ReloadClusterConfigurationAndWaitForCompletion issues a reload to the internal cluster configuration (blocking)
+	ReloadClusterConfigurationAndWaitForCompletion(*ReloadConfigurationInput, *time.Duration) error
+
+	// ReloadEventsConfigurationAndWaitForCompletion issues a reload to the internal events configuration (blocking)
+	ReloadEventsConfigurationAndWaitForCompletion(*ReloadConfigurationInput, *time.Duration) error
+
+	// ReloadArtifactVersionManifest issues a reload to the internal artifact version manifest configuration (blocking)
+	ReloadArtifactVersionManifest(*ReloadConfigurationInput, *time.Duration) error
+
 	// WaitForJobCompletion waits for completion of job with given id (blocking)
 	WaitForJobCompletion(ctx context.Context, jobId string, retryInterval, timeout time.Duration) error
 
@@ -182,6 +191,23 @@ type ReloadAppServicesConfigInput struct {
 
 // ReloadAppServicesConfigJobOutput specifies holds the response from reload app services config
 type ReloadAppServicesConfigJobOutput struct {
+	ControlPlaneOutput
+	JobAttributes
+}
+
+// ReloadConfigurationInput holds the input for reloading a configuration
+type ReloadConfigurationInput struct {
+	ControlPlaneInput
+}
+
+// ReloadClusterConfigurationOutput holds the output for reloading a cluster configuration
+type ReloadClusterConfigurationOutput struct {
+	ControlPlaneOutput
+	ClusterConfigurationReloadAttributes
+}
+
+// JobOutput holds the response from creating a job
+type JobOutput struct {
 	ControlPlaneOutput
 	JobAttributes
 }

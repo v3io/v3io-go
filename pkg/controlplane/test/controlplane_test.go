@@ -16,23 +16,24 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-type githubClientSuite struct {
+type testSuite struct {
 	suite.Suite
-	logger  logger.Logger
-	session v3ioc.Session
-	userID  string
-	ctx     context.Context
+	logger          logger.Logger
+	session         v3ioc.Session
+	controlplaneURL string
+	userID          string
+	ctx             context.Context
 }
 
-func (suite *githubClientSuite) SetupSuite() {
-	controlplaneURL := os.Getenv("V3IO_CONTROLPLANE_URL")
+func (suite *testSuite) SetupSuite() {
+	suite.controlplaneURL = os.Getenv("V3IO_CONTROLPLANE_URL")
 	suite.logger, _ = nucliozap.NewNuclioZapTest("test")
 
 	// create a security admin session
 	newSessionInput := v3ioc.NewSessionInput{}
 	newSessionInput.Username = os.Getenv("V3IO_CONTROLPLANE_USERNAME")
 	newSessionInput.Password = os.Getenv("V3IO_CONTROLPLANE_PASSWORD")
-	newSessionInput.Endpoints = []string{controlplaneURL}
+	newSessionInput.Endpoints = []string{suite.controlplaneURL}
 
 	session, err := v3iochttp.NewSession(suite.logger, &newSessionInput)
 	suite.Require().NoError(err, fmt.Sprintf("\nInput: %v\n", newSessionInput))
@@ -74,7 +75,7 @@ func (suite *githubClientSuite) SetupSuite() {
 	// create a session with that user
 	newSessionInput.Username = createUserInput.Username
 	newSessionInput.Password = createUserInput.Password
-	newSessionInput.Endpoints = []string{controlplaneURL}
+	newSessionInput.Endpoints = []string{suite.controlplaneURL}
 
 	suite.session, err = v3iochttp.NewSession(suite.logger, &newSessionInput)
 	suite.Require().NoError(err)
@@ -82,7 +83,7 @@ func (suite *githubClientSuite) SetupSuite() {
 	time.Sleep(30 * time.Second)
 }
 
-func (suite *githubClientSuite) TearDownSuite() {
+func (suite *testSuite) TearDownSuite() {
 	deleteUserInput := v3ioc.DeleteUserInput{}
 	deleteUserInput.ID = suite.userID
 
@@ -90,11 +91,11 @@ func (suite *githubClientSuite) TearDownSuite() {
 	suite.Require().NoError(err)
 }
 
-func (suite *githubClientSuite) SetupTest() {
+func (suite *testSuite) SetupTest() {
 	suite.ctx = context.WithValue(context.TODO(), "RequestID", "test-0")
 }
 
-func (suite *githubClientSuite) TestCreateContainerStringID() {
+func (suite *testSuite) TestCreateContainerStringID() {
 	createContainerInput := v3ioc.CreateContainerInput{}
 	createContainerInput.Ctx = suite.ctx
 	createContainerInput.Name = "container-string"
@@ -113,7 +114,8 @@ func (suite *githubClientSuite) TestCreateContainerStringID() {
 	suite.Require().NoError(err)
 }
 
-func (suite *githubClientSuite) TestCreateContainerNumericID() {
+// will be deprecated in upcoming versions
+func (suite *testSuite) TestCreateContainerNumericID() {
 	createContainerInput := v3ioc.CreateContainerInput{}
 	createContainerInput.Ctx = suite.ctx
 	createContainerInput.IDNumeric = 300
@@ -133,7 +135,7 @@ func (suite *githubClientSuite) TestCreateContainerNumericID() {
 	suite.Require().NoError(err)
 }
 
-func (suite *githubClientSuite) TestCreateSessionWithTimeout() {
+func (suite *testSuite) TestCreateSessionWithTimeout() {
 
 	// create a security admin session
 	newSessionInput := v3ioc.NewSessionInput{}
@@ -147,7 +149,7 @@ func (suite *githubClientSuite) TestCreateSessionWithTimeout() {
 	suite.Require().Nil(session)
 }
 
-func (suite *githubClientSuite) TestCreateSessionWithBadPassword() {
+func (suite *testSuite) TestCreateSessionWithBadPassword() {
 
 	// create a security admin session
 	newSessionInput := v3ioc.NewSessionInput{}
@@ -160,7 +162,7 @@ func (suite *githubClientSuite) TestCreateSessionWithBadPassword() {
 	suite.Require().Nil(session)
 }
 
-func (suite *githubClientSuite) TestCreateEventUsingAccessKey() {
+func (suite *testSuite) TestCreateEventUsingAccessKey() {
 
 	// Create new access key
 	createAccessKeyInput := v3ioc.CreateAccessKeyInput{}
@@ -196,6 +198,39 @@ func (suite *githubClientSuite) TestCreateEventUsingAccessKey() {
 	suite.Require().NoError(err)
 }
 
+func (suite *testSuite) TestReloadConfigurations() {
+
+	// only igz_admin can reload configurations, it is a maintenance operation
+	session := suite.createIGZAdminSession()
+	reloadInput := v3ioc.ReloadConfigurationInput{}
+	timeout := 2 * time.Minute
+	var err error
+
+	err = session.ReloadClusterConfiguration(&reloadInput, &timeout)
+	suite.Require().NoError(err)
+
+	err = session.ReloadEventsConfiguration(&reloadInput, &timeout)
+	suite.Require().NoError(err)
+
+	err = session.ReloadAppServicesConfiguration(&reloadInput, &timeout)
+	suite.Require().NoError(err)
+
+	err = session.ReloadArtifactVersionManifest(&reloadInput, &timeout)
+	suite.Require().NoError(err)
+}
+
+func (suite *testSuite) createIGZAdminSession() v3ioc.Session {
+	igzAdminSessionInput := v3ioc.NewSessionInput{}
+	igzAdminSessionInput.Username = "igz_admin"
+	igzAdminSessionInput.Password = os.Getenv("V3IO_CONTROLPLANE_IGZ_ADMIN_PASSWORD")
+	igzAdminSessionInput.Endpoints = []string{suite.controlplaneURL}
+
+	session, err := v3iochttp.NewSession(suite.logger, &igzAdminSessionInput)
+	suite.Require().NoError(err, fmt.Sprintf("\nInput: %v\n", igzAdminSessionInput))
+	suite.logger.InfoWith("Successfully created session for igz_admin", "session", session)
+	return session
+}
+
 func TestGithubClientTestSuite(t *testing.T) {
-	suite.Run(t, new(githubClientSuite))
+	suite.Run(t, new(testSuite))
 }

@@ -153,6 +153,21 @@ type AccessKeyAttributes struct {
 	Label         string   `json:"label,omitempty"`
 }
 
+// JobAttributes holds info about a job
+type JobAttributes struct {
+	CreatedAt string   `json:"created_at,omitempty"`
+	UpdatedAt string   `json:"updated_at,omitempty"`
+	Kind      string   `json:"kind,omitempty"`
+	Params    string   `json:"params,omitempty"`
+	Delay     float64  `json:"delay,omitempty"`
+	State     JobState `json:"state,omitempty"`
+	Result    string   `json:"result,omitempty"`
+}
+
+type ClusterConfigurationReloadAttributes struct {
+	JobID string   `json:"job_id,omitempty"`
+}
+
 type Plane string
 
 const (
