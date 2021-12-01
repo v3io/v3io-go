@@ -300,22 +300,27 @@ func (s *session) WaitForJobCompletion(ctx context.Context, jobId string, retryI
 
 		switch getJobsOutput.State {
 		case v3ioc.JobStateCompleted:
-			s.logger.DebugWithCtx(ctx, "Job Completed",
+			s.logger.DebugWithCtx(ctx,
+				"Job Completed",
 				"jobId", jobId,
 				"jobResult", getJobsOutput.Result)
 			return nil
 		case v3ioc.JobStateFailed:
-			s.logger.WarnWithCtx(ctx, "Job has failed",
+			s.logger.WarnWithCtx(ctx,
+				"Job has failed",
 				"jobId", jobId,
 				"jobResult", getJobsOutput.Result)
-			return errors.New("Job has failed")
+			return errors.New(
+				"Job has failed")
 		case v3ioc.JobStateCanceled:
-			s.logger.WarnWithCtx(ctx, "Job was canceled",
+			s.logger.WarnWithCtx(ctx,
+				"Job was canceled",
 				"jobId", jobId,
 				"jobResult", getJobsOutput.Result)
 			return errors.New("Job was canceled")
 		default:
-			s.logger.DebugWithCtx(ctx, "Job in progress",
+			s.logger.DebugWithCtx(ctx,
+				"Job in progress",
 				"jobId", jobId,
 				"retryInterval", retryInterval,
 				"timeout", timeout)
