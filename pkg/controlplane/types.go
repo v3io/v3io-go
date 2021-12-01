@@ -49,6 +49,18 @@ type Session interface {
 
 	// GetRunningUserAttributesSync returns user's attributes related to session's access key (blocking)
 	GetRunningUserAttributesSync(*GetRunningUserAttributesInput) (*GetRunningUserAttributesOutput, error)
+
+	// ReloadAppServicesConfigAndWaitForCompletion reloads the app service config in the backend and waits for job completion (blocking)
+	ReloadAppServicesConfigAndWaitForCompletion(ctx context.Context, retryInterval, timeout time.Duration) error
+
+	// ReloadAppServicesConfig reloads the app service config in the backend (blocking)
+	ReloadAppServicesConfig(ctx context.Context) (string, error)
+
+	// WaitForJobCompletion waits for completion of job with given id (blocking)
+	WaitForJobCompletion(ctx context.Context, jobId string, retryInterval, timeout time.Duration) error
+
+	// GetJobs gets jobs (blocking)
+	GetJobs(getJobsInput *GetJobsInput) (*GetJobsOutput, error)
 }
 
 type ControlPlaneInput struct {
@@ -150,4 +162,26 @@ type GetRunningUserAttributesInput struct {
 type GetRunningUserAttributesOutput struct {
 	ControlPlaneOutput
 	UserAttributes
+}
+
+// GetJobsInput specifies how to get a job
+type GetJobsInput struct {
+	ControlPlaneInput
+}
+
+// GetJobsOutput specifies holds the response from get jobs
+type GetJobsOutput struct {
+	ControlPlaneOutput
+	JobAttributes
+}
+
+// ReloadAppServicesConfigInput specifies how to reload the app services configuration
+type ReloadAppServicesConfigInput struct {
+	ControlPlaneInput
+}
+
+// ReloadAppServicesConfigJobOutput specifies holds the response from reload app services config
+type ReloadAppServicesConfigJobOutput struct {
+	ControlPlaneOutput
+	JobAttributes
 }
