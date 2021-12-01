@@ -300,16 +300,24 @@ func (s *session) WaitForJobCompletion(ctx context.Context, jobId string, retryI
 
 		switch getJobsOutput.State {
 		case v3ioc.JobStateCompleted:
+			s.logger.DebugWithCtx(ctx, "Job Completed",
+				"jobId", jobId)
 			return nil
 		case v3ioc.JobStateFailed:
+			s.logger.WarnWithCtx(ctx, "Job has failed",
+				"jobId", jobId)
 			return errors.New("Job has failed")
 		case v3ioc.JobStateCanceled:
+			s.logger.WarnWithCtx(ctx, "Job was canceled",
+				"jobId", jobId)
 			return errors.New("Job was canceled")
 		default:
 			s.logger.DebugWithCtx(ctx, "Job in progress",
 				"jobId", jobId,
 				"retryInterval", retryInterval,
 				"timeout", timeout)
+
+			// TODO: create and use backoff
 			time.Sleep(retryInterval)
 		}
 	}
