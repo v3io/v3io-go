@@ -180,8 +180,8 @@ type ReloadAppServicesConfigInput struct {
 	ControlPlaneInput
 }
 
-// ReloadAppServicesConfigOutput specifies holds the response from reload app services config
-type ReloadAppServicesConfigOutput struct {
+// ReloadAppServicesConfigJobOutput specifies holds the response from reload app services config
+type ReloadAppServicesConfigJobOutput struct {
 	ControlPlaneOutput
 	JobAttributes
 }

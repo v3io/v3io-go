@@ -264,21 +264,21 @@ func (s *session) ReloadAppServicesConfig(ctx context.Context) (string, error) {
 		},
 	}
 
-	reloadAppServicesConfigOutput := v3ioc.ReloadAppServicesConfigOutput{}
+	reloadAppServicesConfigJobOutput := v3ioc.ReloadAppServicesConfigJobOutput{}
 
 	err := s.createResource(ctx,
 		"configurations/app_services/reloads",
 		"cluster_configuration_reload",
 		&reloadAppServicesConfigInput.ControlPlaneInput,
 		map[string]string{},
-		&reloadAppServicesConfigOutput.ControlPlaneOutput,
-		&reloadAppServicesConfigOutput.JobAttributes)
+		&reloadAppServicesConfigJobOutput.ControlPlaneOutput,
+		&reloadAppServicesConfigJobOutput.JobAttributes)
 
 	if err != nil {
 		return "", err
 	}
 
-	return reloadAppServicesConfigOutput.ID, nil
+	return reloadAppServicesConfigJobOutput.ID, nil
 }
 
 // WaitForJobCompletion waits for completion of job with given id (blocking)
