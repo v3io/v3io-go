@@ -1,17 +1,17 @@
 # Project: v3io-go
 
 ## Description:
-**v3io-go** is an interface to V3IO API for Golang
+**v3io-go** is an interface to V3IO API (data & control planes) for Golang
 
 ## Prerequisites:
-1. Captain proto compiler
+1. Cap'n proto compiler
     * MacOS: `brew install capnp`
     * Debian / Ubuntu: `apt-get install capnproto`
     * Other: Follow the guidelines https://capnproto.org/install.html
 
 ## Dependencies:
-1. go-capnproto2
-    * `git clone git@github.com:iguazio/go-capnproto2.git`
+1. Using go modules
+    * `go mod download`
 
 ## Running the tests
 1. **Define the following environment variables:**

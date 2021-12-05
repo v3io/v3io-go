@@ -21,7 +21,7 @@ import (
 	"time"
 )
 
-// ControlplaneSession allows operations over a controlplane session
+// Session allows operations over a controlplane session
 type Session interface {
 	// CreateUserSync creates a user (blocking)
 	CreateUserSync(*CreateUserInput) (*CreateUserOutput, error)
@@ -32,7 +32,7 @@ type Session interface {
 	// CreateContainerSync creates a container (blocking)
 	CreateContainerSync(*CreateContainerInput) (*CreateContainerOutput, error)
 
-	// DeleteUserSync deletes a user (blocking)
+	// DeleteContainerSync deletes a user (blocking)
 	DeleteContainerSync(*DeleteContainerInput) error
 
 	// UpdateClusterInfoSync updates a cluster info record (blocking)
@@ -50,22 +50,31 @@ type Session interface {
 	// GetRunningUserAttributesSync returns user's attributes related to session's access key (blocking)
 	GetRunningUserAttributesSync(*GetRunningUserAttributesInput) (*GetRunningUserAttributesOutput, error)
 
-	// ReloadAppServicesConfigAndWaitForCompletion reloads the app service config in the backend and waits for job completion (blocking)
-	ReloadAppServicesConfigAndWaitForCompletion(ctx context.Context, retryInterval, timeout time.Duration) error
+	// ReloadClusterConfig reloads the platform cluster configuration (blocking)
+	ReloadClusterConfig(ctx context.Context) (string, error)
 
-	// ReloadAppServicesConfig reloads the app service config in the backend (blocking)
+	// ReloadEventsConfig reloads the platform events configuration (blocking)
+	ReloadEventsConfig(ctx context.Context) (string, error)
+
+	// ReloadAppServicesConfig reloads the platform app services configuration (blocking)
 	ReloadAppServicesConfig(ctx context.Context) (string, error)
 
-	// ReloadClusterConfigurationAndWaitForCompletion issues a reload to the internal cluster configuration (blocking)
-	ReloadClusterConfigurationAndWaitForCompletion(*ReloadConfigurationInput, *time.Duration) error
-
-	// ReloadEventsConfigurationAndWaitForCompletion issues a reload to the internal events configuration (blocking)
-	ReloadEventsConfigurationAndWaitForCompletion(*ReloadConfigurationInput, *time.Duration) error
-
-	// ReloadArtifactVersionManifest issues a reload to the internal artifact version manifest configuration (blocking)
+	// ReloadArtifactVersionManifest reloads the platform artifact version manifest configuration (blocking)
 	ReloadArtifactVersionManifest(*ReloadConfigurationInput, *time.Duration) error
 
-	// WaitForJobCompletion waits for completion of job with given id (blocking)
+	// ReloadClusterConfigAndWaitForCompletion reloads the platform cluster configuration and waits for completion (blocking)
+	ReloadClusterConfigAndWaitForCompletion(*ReloadConfigurationInput, *time.Duration) error
+
+	// ReloadEventsConfigAndWaitForCompletion reloads the platform events configuration and waits for completion (blocking)
+	ReloadEventsConfigAndWaitForCompletion(*ReloadConfigurationInput, *time.Duration) error
+
+	// ReloadAppServicesConfigAndWaitForCompletion reloads the platform app services configuration and waits for completion (blocking)
+	ReloadAppServicesConfigAndWaitForCompletion(ctx context.Context, retryInterval, timeout time.Duration) error
+
+	// ReloadArtifactVersionManifestAndWaitForCompletion reloads the platform artifact version manifest and waits for completion (blocking)
+	ReloadArtifactVersionManifestAndWaitForCompletion(*ReloadConfigurationInput, *time.Duration) error
+
+	// WaitForJobCompletion waits for completion of a job with a given id (blocking)
 	WaitForJobCompletion(ctx context.Context, jobId string, retryInterval, timeout time.Duration) error
 
 	// GetJobs gets jobs (blocking)

@@ -153,24 +153,6 @@ type AccessKeyAttributes struct {
 	Label         string   `json:"label,omitempty"`
 }
 
-// JobAttributes holds info about a job
-type JobAttributes struct {
-	Kind                   string       `json:"kind,omitempty"`
-	Params                 string       `json:"params,omitempty"`
-	UIFields               string       `json:"ui_fields,omitempty"`
-	MaxTotalExecutionTime  int          `json:"max_total_execution_time,omitempty"`
-	MaxWorkerExecutionTime int          `json:"max_worker_execution_time,omitempty"`
-	Delay                  float64      `json:"delay,omitempty"`
-	State                  JobState     `json:"state,omitempty"`
-	Result                 string       `json:"result,omitempty"`
-	CreatedAt              string       `json:"created_at,omitempty"`
-	OnSuccess              []JobWebHook `json:"on_success,omitempty"`
-	OnFailure              []JobWebHook `json:"on_failure,omitempty"`
-	LinkedResources        string       `json:"linked_resources,omitempty"`
-	UpdatedAt              string       `json:"updated_at,omitempty"`
-	Handler                string       `json:"handler,omitempty"`
-}
-
 type ClusterConfigurationReloadAttributes struct {
 	JobID string `json:"job_id,omitempty"`
 }
@@ -207,4 +189,21 @@ type JobWebHook struct {
 	Resource string `json:"resource,omitempty"`
 	Status   int    `json:"status,omitempty"`
 	Payload  string `json:"payload,omitempty"`
+}
+
+type JobAttributes struct {
+	Kind                   string       `json:"kind,omitempty"`
+	Params                 string       `json:"params,omitempty"`
+	UIFields               string       `json:"ui_fields,omitempty"`
+	MaxTotalExecutionTime  int          `json:"max_total_execution_time,omitempty"`
+	MaxWorkerExecutionTime int          `json:"max_worker_execution_time,omitempty"`
+	Delay                  float64      `json:"delay,omitempty"`
+	State                  JobState     `json:"state,omitempty"`
+	Result                 string       `json:"result,omitempty"`
+	CreatedAt              string       `json:"created_at,omitempty"`
+	OnSuccess              []JobWebHook `json:"on_success,omitempty"`
+	OnFailure              []JobWebHook `json:"on_failure,omitempty"`
+	LinkedResources        string       `json:"linked_resources,omitempty"`
+	UpdatedAt              string       `json:"updated_at,omitempty"`
+	Handler                string       `json:"handler,omitempty"`
 }
