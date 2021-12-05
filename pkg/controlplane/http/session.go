@@ -362,11 +362,13 @@ func (s *session) ReloadClusterConfiguration(reloadConfigurationInput *v3ioc.Rel
 	jobWaitingTimeout *time.Duration) error {
 	return s.reloadConfiguration(reloadConfigurationInput, "cluster", jobWaitingTimeout)
 }
+
 // ReloadEventsConfiguration issues a reload to the internal events configuration (blocking)
 func (s *session) ReloadEventsConfiguration(reloadConfigurationInput *v3ioc.ReloadConfigurationInput,
 	jobWaitingTimeout *time.Duration) error {
 	return s.reloadConfiguration(reloadConfigurationInput, "events", jobWaitingTimeout)
 }
+
 // ReloadAppServicesConfiguration issues a reload to the internal app services configuration (blocking)
 func (s *session) ReloadAppServicesConfiguration(reloadConfigurationInput *v3ioc.ReloadConfigurationInput,
 	jobWaitingTimeout *time.Duration) error {

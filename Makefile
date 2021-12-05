@@ -39,10 +39,6 @@ test: check-env
 fmt:
 	gofmt -s -w .
 
-.PHONY: fmt
-fmt:
-	gofmt -s -w .
-
 .PHONY: lint
 lint:
 	docker run --rm \

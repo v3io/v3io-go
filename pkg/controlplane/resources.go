@@ -165,7 +165,7 @@ type JobAttributes struct {
 }
 
 type ClusterConfigurationReloadAttributes struct {
-	JobID string   `json:"job_id,omitempty"`
+	JobID string `json:"job_id,omitempty"`
 }
 
 type Plane string
