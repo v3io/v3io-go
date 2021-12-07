@@ -60,25 +60,25 @@ type Session interface {
 	ReloadAppServicesConfig(ctx context.Context) (string, error)
 
 	// ReloadArtifactVersionManifest reloads the platform artifact version manifest configuration (blocking)
-	ReloadArtifactVersionManifest(*ReloadConfigurationInput, *time.Duration) error
+	ReloadArtifactVersionManifest(ctx context.Context) (string, error)
 
 	// ReloadClusterConfigAndWaitForCompletion reloads the platform cluster configuration and waits for completion (blocking)
-	ReloadClusterConfigAndWaitForCompletion(*ReloadConfigurationInput, *time.Duration) error
+	ReloadClusterConfigAndWaitForCompletion(ctx context.Context, retryInterval, timeout time.Duration) error
 
 	// ReloadEventsConfigAndWaitForCompletion reloads the platform events configuration and waits for completion (blocking)
-	ReloadEventsConfigAndWaitForCompletion(*ReloadConfigurationInput, *time.Duration) error
+	ReloadEventsConfigAndWaitForCompletion(ctx context.Context, retryInterval, timeout time.Duration) error
 
 	// ReloadAppServicesConfigAndWaitForCompletion reloads the platform app services configuration and waits for completion (blocking)
 	ReloadAppServicesConfigAndWaitForCompletion(ctx context.Context, retryInterval, timeout time.Duration) error
 
 	// ReloadArtifactVersionManifestAndWaitForCompletion reloads the platform artifact version manifest and waits for completion (blocking)
-	ReloadArtifactVersionManifestAndWaitForCompletion(*ReloadConfigurationInput, *time.Duration) error
+	ReloadArtifactVersionManifestAndWaitForCompletion(ctx context.Context, retryInterval, timeout time.Duration) error
 
 	// WaitForJobCompletion waits for completion of a job with a given id (blocking)
-	WaitForJobCompletion(ctx context.Context, jobId string, retryInterval, timeout time.Duration) error
+	WaitForJobCompletion(ctx context.Context, jobID string, retryInterval, timeout time.Duration) error
 
-	// GetJobs gets jobs (blocking)
-	GetJobs(getJobsInput *GetJobsInput) (*GetJobsOutput, error)
+	// GetJob gets a job (blocking)
+	GetJob(getJobsInput *GetJobInput) (*GetJobOutput, error)
 }
 
 type ControlPlaneInput struct {
@@ -182,20 +182,15 @@ type GetRunningUserAttributesOutput struct {
 	UserAttributes
 }
 
-// GetJobsInput specifies how to get a job
-type GetJobsInput struct {
+// GetJobInput specifies how to get a job
+type GetJobInput struct {
 	ControlPlaneInput
 }
 
-// GetJobsOutput specifies holds the response from get jobs
-type GetJobsOutput struct {
+// GetJobOutput specifies holds the response from get jobs
+type GetJobOutput struct {
 	ControlPlaneOutput
 	JobAttributes
-}
-
-// ReloadAppServicesConfigInput specifies how to reload the app services configuration
-type ReloadAppServicesConfigInput struct {
-	ControlPlaneInput
 }
 
 // ReloadAppServicesConfigJobOutput specifies holds the response from reload app services config
@@ -204,13 +199,13 @@ type ReloadAppServicesConfigJobOutput struct {
 	JobAttributes
 }
 
-// ReloadConfigurationInput holds the input for reloading a configuration
-type ReloadConfigurationInput struct {
+// ReloadConfigInput holds the input for reloading a configuration
+type ReloadConfigInput struct {
 	ControlPlaneInput
 }
 
-// ReloadClusterConfigurationOutput holds the output for reloading a cluster configuration
-type ReloadClusterConfigurationOutput struct {
+// ReloadClusterConfigOutput holds the output for reloading a cluster configuration
+type ReloadClusterConfigOutput struct {
 	ControlPlaneOutput
 	ClusterConfigurationReloadAttributes
 }

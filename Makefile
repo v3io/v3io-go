@@ -21,6 +21,7 @@ endif
 ifndef V3IO_CONTROLPLANE_IGZ_ADMIN_PASSWORD
 		$(error V3IO_CONTROLPLANE_IGZ_ADMIN_PASSWORD is undefined)
 endif
+	@echo "All required env vars populated"
 
 .PHONY: generate-capnp
 generate-capnp:
@@ -32,8 +33,7 @@ clean:
 
 .PHONY: test
 test: check-env
-	GO111MODULE=on \
-		go test -race -tags unit -count 1 ./...
+	go test -race -tags unit -count 1 ./...
 
 .PHONY: fmt
 fmt:
@@ -41,19 +41,12 @@ fmt:
 
 .PHONY: lint
 lint:
-	docker run --rm \
-		--volume ${shell pwd}:/go/src/github.com/v3io/v3io-go \
-		--env GOPATH=/go \
-		--env GO111MODULE=off \
-		golang:1.16.5 \
-		bash /go/src/github.com/v3io/v3io-go/hack/lint.sh
-
-	@echo Done.
+	./hack/lint/install.sh
+	./hack/lint/run.sh
 
 .PHONY: test-controlplane
 test-controlplane: check-env
-	GO111MODULE=on \
-		go test -race -tags unit -count 1 ./pkg/controlplane/...
+	go test -race -tags unit -count 1 ./pkg/controlplane/...
 
 .PHONY: build
 build: clean generate-capnp lint test

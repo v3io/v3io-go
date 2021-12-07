@@ -60,7 +60,7 @@ func (suite *testSuite) SetupSuite() {
 	newSessionInput = v3ioc.NewSessionInput{}
 	newSessionInput.Username = createUserInput.Username
 	newSessionInput.Password = createUserInput.Password
-	newSessionInput.Endpoints = []string{controlplaneURL}
+	newSessionInput.Endpoints = []string{suite.controlplaneURL}
 
 	newUserSession, err := v3iochttp.NewSession(suite.logger, &newSessionInput)
 	suite.Require().NoError(err, fmt.Sprintf("\nInput: %v\n", newSessionInput))
@@ -202,20 +202,20 @@ func (suite *testSuite) TestReloadConfigurations() {
 
 	// only igz_admin can reload configurations, it is a maintenance operation
 	session := suite.createIGZAdminSession()
-	reloadInput := v3ioc.ReloadConfigurationInput{}
+	retryInterval := 3 * time.Second
 	timeout := 2 * time.Minute
 	var err error
 
-	err = session.ReloadClusterConfiguration(&reloadInput, &timeout)
+	err = session.ReloadClusterConfigAndWaitForCompletion(context.TODO(), retryInterval, timeout)
 	suite.Require().NoError(err)
 
-	err = session.ReloadEventsConfiguration(&reloadInput, &timeout)
+	err = session.ReloadEventsConfigAndWaitForCompletion(context.TODO(), retryInterval, timeout)
 	suite.Require().NoError(err)
 
-	err = session.ReloadAppServicesConfiguration(&reloadInput, &timeout)
+	err = session.ReloadAppServicesConfigAndWaitForCompletion(context.TODO(), retryInterval, timeout)
 	suite.Require().NoError(err)
 
-	err = session.ReloadArtifactVersionManifest(&reloadInput, &timeout)
+	err = session.ReloadArtifactVersionManifestAndWaitForCompletion(context.TODO(), 3*time.Second, 5*time.Minute)
 	suite.Require().NoError(err)
 }
 
