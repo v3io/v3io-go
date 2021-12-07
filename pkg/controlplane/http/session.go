@@ -305,7 +305,7 @@ func (s *session) ReloadClusterConfig(ctx context.Context) (string, error) {
 		&clusterConfigurationReloadOutput.ClusterConfigurationReloadAttributes)
 
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "Failed to invoke cluster config reload")
 	}
 
 	return clusterConfigurationReloadOutput.JobID, nil
@@ -330,7 +330,7 @@ func (s *session) ReloadEventsConfig(ctx context.Context) (string, error) {
 		&jobOutput.JobAttributes)
 
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "Failed to invoke events config reload")
 	}
 
 	return jobOutput.ID, nil
@@ -355,7 +355,7 @@ func (s *session) ReloadAppServicesConfig(ctx context.Context) (string, error) {
 		&jobOutput.JobAttributes)
 
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "Failed to invoke app services config reload")
 	}
 
 	return jobOutput.ID, nil
@@ -380,7 +380,7 @@ func (s *session) ReloadArtifactVersionManifest(ctx context.Context) (string, er
 		&jobOutput.JobAttributes)
 
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "Failed to invoke artifact version manifest reload")
 	}
 
 	return jobOutput.ID, nil
