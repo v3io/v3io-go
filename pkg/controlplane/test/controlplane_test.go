@@ -206,16 +206,20 @@ func (suite *testSuite) TestReloadConfigurations() {
 	timeout := 2 * time.Minute
 	var err error
 
+	suite.logger.InfoWith(context.TODO(), "Reloading cluster configuration")
 	err = session.ReloadClusterConfigAndWaitForCompletion(context.TODO(), retryInterval, timeout)
 	suite.Require().NoError(err)
 
+	suite.logger.InfoWith(context.TODO(), "Reloading events configuration")
 	err = session.ReloadEventsConfigAndWaitForCompletion(context.TODO(), retryInterval, timeout)
 	suite.Require().NoError(err)
 
+	suite.logger.InfoWith(context.TODO(), "Reloading app services configuration")
 	err = session.ReloadAppServicesConfigAndWaitForCompletion(context.TODO(), retryInterval, timeout)
 	suite.Require().NoError(err)
 
-	err = session.ReloadArtifactVersionManifestAndWaitForCompletion(context.TODO(), 3*time.Second, 5*time.Minute)
+	suite.logger.InfoWith(context.TODO(), "Reloading artifact version manifest configuration")
+	err = session.ReloadArtifactVersionManifestAndWaitForCompletion(context.TODO(), retryInterval, timeout)
 	suite.Require().NoError(err)
 }
 
@@ -231,6 +235,6 @@ func (suite *testSuite) createIGZAdminSession() v3ioc.Session {
 	return session
 }
 
-func TestGithubClientTestSuite(t *testing.T) {
+func TestControlPlaneTestSuite(t *testing.T) {
 	suite.Run(t, new(testSuite))
 }
