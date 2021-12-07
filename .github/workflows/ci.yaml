@@ -11,7 +11,7 @@ on:
   push:
     branches:
     - master
-
+    - add_reload_configs
 jobs:
   lint:
     name: Lint & Build
