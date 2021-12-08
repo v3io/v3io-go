@@ -21,7 +21,7 @@ import (
 	"time"
 )
 
-// ControlplaneSession allows operations over a controlplane session
+// Session allows operations over a controlplane session
 type Session interface {
 	// CreateUserSync creates a user (blocking)
 	CreateUserSync(*CreateUserInput) (*CreateUserOutput, error)
@@ -32,7 +32,7 @@ type Session interface {
 	// CreateContainerSync creates a container (blocking)
 	CreateContainerSync(*CreateContainerInput) (*CreateContainerOutput, error)
 
-	// DeleteUserSync deletes a user (blocking)
+	// DeleteContainerSync deletes a user (blocking)
 	DeleteContainerSync(*DeleteContainerInput) error
 
 	// UpdateClusterInfoSync updates a cluster info record (blocking)
@@ -50,17 +50,35 @@ type Session interface {
 	// GetRunningUserAttributesSync returns user's attributes related to session's access key (blocking)
 	GetRunningUserAttributesSync(*GetRunningUserAttributesInput) (*GetRunningUserAttributesOutput, error)
 
-	// ReloadAppServicesConfigAndWaitForCompletion reloads the app service config in the backend and waits for job completion (blocking)
-	ReloadAppServicesConfigAndWaitForCompletion(ctx context.Context, retryInterval, timeout time.Duration) error
+	// ReloadClusterConfig reloads the platform cluster configuration (blocking)
+	ReloadClusterConfig(ctx context.Context) (string, error)
 
-	// ReloadAppServicesConfig reloads the app service config in the backend (blocking)
+	// ReloadEventsConfig reloads the platform events configuration (blocking)
+	ReloadEventsConfig(ctx context.Context) (string, error)
+
+	// ReloadAppServicesConfig reloads the platform app services configuration (blocking)
 	ReloadAppServicesConfig(ctx context.Context) (string, error)
 
-	// WaitForJobCompletion waits for completion of job with given id (blocking)
-	WaitForJobCompletion(ctx context.Context, jobId string, retryInterval, timeout time.Duration) error
+	// ReloadArtifactVersionManifest reloads the platform artifact version manifest configuration (blocking)
+	ReloadArtifactVersionManifest(ctx context.Context) (string, error)
 
-	// GetJobs gets jobs (blocking)
-	GetJobs(getJobsInput *GetJobsInput) (*GetJobsOutput, error)
+	// ReloadClusterConfigAndWaitForCompletion reloads the platform cluster configuration and waits for completion (blocking)
+	ReloadClusterConfigAndWaitForCompletion(ctx context.Context, retryInterval, timeout time.Duration) error
+
+	// ReloadEventsConfigAndWaitForCompletion reloads the platform events configuration and waits for completion (blocking)
+	ReloadEventsConfigAndWaitForCompletion(ctx context.Context, retryInterval, timeout time.Duration) error
+
+	// ReloadAppServicesConfigAndWaitForCompletion reloads the platform app services configuration and waits for completion (blocking)
+	ReloadAppServicesConfigAndWaitForCompletion(ctx context.Context, retryInterval, timeout time.Duration) error
+
+	// ReloadArtifactVersionManifestAndWaitForCompletion reloads the platform artifact version manifest and waits for completion (blocking)
+	ReloadArtifactVersionManifestAndWaitForCompletion(ctx context.Context, retryInterval, timeout time.Duration) error
+
+	// WaitForJobCompletion waits for completion of a job with a given id (blocking)
+	WaitForJobCompletion(ctx context.Context, jobID string, retryInterval, timeout time.Duration) error
+
+	// GetJob gets a job (blocking)
+	GetJob(getJobsInput *GetJobInput) (*GetJobOutput, error)
 }
 
 type ControlPlaneInput struct {
@@ -164,24 +182,36 @@ type GetRunningUserAttributesOutput struct {
 	UserAttributes
 }
 
-// GetJobsInput specifies how to get a job
-type GetJobsInput struct {
+// GetJobInput specifies how to get a job
+type GetJobInput struct {
 	ControlPlaneInput
 }
 
-// GetJobsOutput specifies holds the response from get jobs
-type GetJobsOutput struct {
+// GetJobOutput specifies holds the response from get jobs
+type GetJobOutput struct {
 	ControlPlaneOutput
 	JobAttributes
 }
 
-// ReloadAppServicesConfigInput specifies how to reload the app services configuration
-type ReloadAppServicesConfigInput struct {
+// ReloadAppServicesConfigJobOutput specifies holds the response from reload app services config
+type ReloadAppServicesConfigJobOutput struct {
+	ControlPlaneOutput
+	JobAttributes
+}
+
+// ReloadConfigInput holds the input for reloading a configuration
+type ReloadConfigInput struct {
 	ControlPlaneInput
 }
 
-// ReloadAppServicesConfigJobOutput specifies holds the response from reload app services config
-type ReloadAppServicesConfigJobOutput struct {
+// ReloadClusterConfigOutput holds the output for reloading a cluster configuration
+type ReloadClusterConfigOutput struct {
+	ControlPlaneOutput
+	ClusterConfigurationReloadAttributes
+}
+
+// JobOutput holds the response from creating a job
+type JobOutput struct {
 	ControlPlaneOutput
 	JobAttributes
 }

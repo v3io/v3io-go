@@ -89,6 +89,16 @@ func MakeRange(min, max int) []int {
 	return a
 }
 
+func StringSliceContainsString(slice []string, stringToCheck string) bool {
+	for _, StringInSlice := range slice {
+		if StringInSlice == stringToCheck {
+			return true
+		}
+	}
+
+	return false
+}
+
 func IntSliceContainsInt(slice []int, number int) bool {
 	for _, intInSlice := range slice {
 		if intInSlice == number {

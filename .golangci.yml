@@ -1,0 +1,35 @@
+linters:
+  disable-all: true
+  enable:
+    - deadcode
+    - gofmt
+    - golint
+    - gosimple
+    - ineffassign
+    - interfacer
+    - misspell
+    - staticcheck
+    - unconvert
+    - varcheck
+    - vet
+    - vetshadow
+    - errcheck
+
+run:
+
+  # timeout for analysis
+  timeout: 10m
+
+  skip-dirs:
+    - hack
+    - docs
+    - test
+    - vendor
+
+issues:
+
+  # List of regexps of issue texts to exclude
+  exclude:
+    - "comment on"
+    - "error should be the last"
+    - "should have comment"

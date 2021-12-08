@@ -34,7 +34,7 @@ var updateItemHeaders = map[string]string{
 	"X-v3io-function": updateItemFunctionName,
 }
 
-// headers for update item
+// headers for get item
 var getItemHeaders = map[string]string{
 	"Content-Type":    "application/json",
 	"X-v3io-function": getItemFunctionName,

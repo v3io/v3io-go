@@ -137,7 +137,7 @@ const (
 	SystemClassification  Classification = "system"
 )
 
-// AccessKey holds info about a access key
+// AccessKeyAttributes holds info about a access key
 type AccessKeyAttributes struct {
 	TTL           int      `json:"ttl,omitempty"`
 	CreatedAt     string   `json:"created_at,omitempty"`
@@ -151,6 +151,10 @@ type AccessKeyAttributes struct {
 	Plane         Plane    `json:"plane,omitempty"`
 	InterfaceKind string   `json:"interface_kind,omitempty"`
 	Label         string   `json:"label,omitempty"`
+}
+
+type ClusterConfigurationReloadAttributes struct {
+	JobID string `json:"job_id,omitempty"`
 }
 
 type Plane string

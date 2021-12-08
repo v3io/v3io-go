@@ -246,46 +246,151 @@ func (s *session) GetRunningUserAttributesSync(getRunningUserAttributesInput *v3
 	return &userNameOutput, err
 }
 
-// ReloadAppServicesConfigAndWaitForCompletion reloads the app service config in the backend and waits for job completion (blocking)
-func (s *session) ReloadAppServicesConfigAndWaitForCompletion(ctx context.Context, retryInterval, timeout time.Duration) error {
-	jobId, err := s.ReloadAppServicesConfig(ctx)
+// ReloadClusterConfigAndWaitForCompletion reloads the platform cluster configuration and waits for completion (blocking)
+func (s *session) ReloadClusterConfigAndWaitForCompletion(ctx context.Context, retryInterval, timeout time.Duration) error {
+	jobID, err := s.ReloadClusterConfig(ctx)
 	if err != nil {
-		return errors.Wrap(err, "Failed reloading app service config")
+		return errors.Wrap(err, "Failed reloading cluster config")
 	}
 
-	return s.WaitForJobCompletion(ctx, jobId, retryInterval, timeout)
+	return s.WaitForJobCompletion(ctx, jobID, retryInterval, timeout)
 }
 
-// ReloadAppServicesConfig reloads the app service config in the backend (blocking)
-func (s *session) ReloadAppServicesConfig(ctx context.Context) (string, error) {
-	reloadAppServicesConfigInput := v3ioc.ReloadAppServicesConfigInput{
+// ReloadEventsConfigAndWaitForCompletion reloads the platform events configuration and waits for completion (blocking)
+func (s *session) ReloadEventsConfigAndWaitForCompletion(ctx context.Context, retryInterval, timeout time.Duration) error {
+	jobID, err := s.ReloadEventsConfig(ctx)
+	if err != nil {
+		return errors.Wrap(err, "Failed reloading events config")
+	}
+
+	return s.WaitForJobCompletion(ctx, jobID, retryInterval, timeout)
+}
+
+// ReloadAppServicesConfigAndWaitForCompletion reloads the platform app services configuration and waits for completion (blocking)
+func (s *session) ReloadAppServicesConfigAndWaitForCompletion(ctx context.Context, retryInterval, timeout time.Duration) error {
+	jobID, err := s.ReloadAppServicesConfig(ctx)
+	if err != nil {
+		return errors.Wrap(err, "Failed reloading app services config")
+	}
+
+	return s.WaitForJobCompletion(ctx, jobID, retryInterval, timeout)
+}
+
+// ReloadArtifactVersionManifestAndWaitForCompletion reloads the platform artifact version manifest and waits for completion (blocking)
+func (s *session) ReloadArtifactVersionManifestAndWaitForCompletion(ctx context.Context, retryInterval, timeout time.Duration) error {
+	jobID, err := s.ReloadArtifactVersionManifest(ctx)
+	if err != nil {
+		return errors.Wrap(err, "Failed reloading artifact version manifest")
+	}
+
+	return s.WaitForJobCompletion(ctx, jobID, retryInterval, timeout)
+}
+
+// ReloadClusterConfig reloads the platform cluster configuration (blocking)
+func (s *session) ReloadClusterConfig(ctx context.Context) (string, error) {
+	reloadConfigInput := v3ioc.ReloadConfigInput{
 		ControlPlaneInput: v3ioc.ControlPlaneInput{
 			Ctx: ctx,
 		},
 	}
 
-	reloadAppServicesConfigJobOutput := v3ioc.ReloadAppServicesConfigJobOutput{}
+	clusterConfigurationReloadOutput := v3ioc.ReloadClusterConfigOutput{}
+
+	err := s.createResource(ctx,
+		"configurations/cluster/reloads",
+		"cluster_configuration_reload", // placeholder, empty input
+		&reloadConfigInput.ControlPlaneInput,
+		map[string]string{},
+		&clusterConfigurationReloadOutput.ControlPlaneOutput,
+		&clusterConfigurationReloadOutput.ClusterConfigurationReloadAttributes)
+
+	if err != nil {
+		return "", errors.Wrap(err, "Failed to invoke cluster config reload")
+	}
+
+	return clusterConfigurationReloadOutput.JobID, nil
+}
+
+// ReloadEventsConfig reloads the platform events configuration (blocking)
+func (s *session) ReloadEventsConfig(ctx context.Context) (string, error) {
+	reloadConfigInput := v3ioc.ReloadConfigInput{
+		ControlPlaneInput: v3ioc.ControlPlaneInput{
+			Ctx: ctx,
+		},
+	}
+
+	jobOutput := v3ioc.JobOutput{}
+
+	err := s.createResource(ctx,
+		"configurations/events/reloads",
+		"cluster_configuration_reload", // placeholder, empty input
+		&reloadConfigInput.ControlPlaneInput,
+		map[string]string{},
+		&jobOutput.ControlPlaneOutput,
+		&jobOutput.JobAttributes)
+
+	if err != nil {
+		return "", errors.Wrap(err, "Failed to invoke events config reload")
+	}
+
+	return jobOutput.ID, nil
+}
+
+// ReloadAppServicesConfig reloads the app service config in the backend (blocking)
+func (s *session) ReloadAppServicesConfig(ctx context.Context) (string, error) {
+	reloadConfigInput := v3ioc.ReloadConfigInput{
+		ControlPlaneInput: v3ioc.ControlPlaneInput{
+			Ctx: ctx,
+		},
+	}
+
+	jobOutput := v3ioc.JobOutput{}
 
 	err := s.createResource(ctx,
 		"configurations/app_services/reloads",
-		"cluster_configuration_reload",
-		&reloadAppServicesConfigInput.ControlPlaneInput,
+		"cluster_configuration_reload", // placeholder, empty input
+		&reloadConfigInput.ControlPlaneInput,
 		map[string]string{},
-		&reloadAppServicesConfigJobOutput.ControlPlaneOutput,
-		&reloadAppServicesConfigJobOutput.JobAttributes)
+		&jobOutput.ControlPlaneOutput,
+		&jobOutput.JobAttributes)
 
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "Failed to invoke app services config reload")
 	}
 
-	return reloadAppServicesConfigJobOutput.ID, nil
+	return jobOutput.ID, nil
+}
+
+// ReloadArtifactVersionManifest reloads artifact version manifest (blocking)
+func (s *session) ReloadArtifactVersionManifest(ctx context.Context) (string, error) {
+	reloadConfigInput := v3ioc.ReloadConfigInput{
+		ControlPlaneInput: v3ioc.ControlPlaneInput{
+			Ctx: ctx,
+		},
+	}
+
+	jobOutput := v3ioc.JobOutput{}
+
+	err := s.createResource(ctx,
+		"configurations/artifact_version_manifest/reloads",
+		"cluster_configuration_reload", // placeholder, empty input
+		&reloadConfigInput.ControlPlaneInput,
+		map[string]string{},
+		&jobOutput.ControlPlaneOutput,
+		&jobOutput.JobAttributes)
+
+	if err != nil {
+		return "", errors.Wrap(err, "Failed to invoke artifact version manifest reload")
+	}
+
+	return jobOutput.ID, nil
 }
 
 // WaitForJobCompletion waits for completion of job with given id (blocking)
-func (s *session) WaitForJobCompletion(ctx context.Context, jobId string, retryInterval, timeout time.Duration) error {
-	getJobsInput := v3ioc.GetJobsInput{
+func (s *session) WaitForJobCompletion(ctx context.Context, jobID string, retryInterval, timeout time.Duration) error {
+	getJobInput := v3ioc.GetJobInput{
 		ControlPlaneInput: v3ioc.ControlPlaneInput{
-			ID:  jobId,
+			ID:  jobID,
 			Ctx: ctx,
 		},
 	}
@@ -293,35 +398,35 @@ func (s *session) WaitForJobCompletion(ctx context.Context, jobId string, retryI
 	deadline := time.Now().Add(timeout)
 
 	for time.Now().Before(deadline) {
-		getJobsOutput, err := s.GetJobs(&getJobsInput)
+		getJobOutput, err := s.GetJob(&getJobInput)
 		if err != nil {
 			return errors.Wrap(err, "Failed getting job")
 		}
 
-		switch getJobsOutput.State {
+		switch getJobOutput.State {
 		case v3ioc.JobStateCompleted:
 			s.logger.DebugWithCtx(ctx,
 				"Job Completed",
-				"jobId", jobId,
-				"jobResult", getJobsOutput.Result)
+				"jobID", jobID,
+				"jobResult", getJobOutput.Result)
 			return nil
 		case v3ioc.JobStateFailed:
 			s.logger.WarnWithCtx(ctx,
 				"Job has failed",
-				"jobId", jobId,
-				"jobResult", getJobsOutput.Result)
+				"jobID", jobID,
+				"jobResult", getJobOutput.Result)
 			return errors.New(
 				"Job has failed")
 		case v3ioc.JobStateCanceled:
 			s.logger.WarnWithCtx(ctx,
 				"Job was canceled",
-				"jobId", jobId,
-				"jobResult", getJobsOutput.Result)
+				"jobID", jobID,
+				"jobResult", getJobOutput.Result)
 			return errors.New("Job was canceled")
 		default:
 			s.logger.DebugWithCtx(ctx,
 				"Job in progress",
-				"jobId", jobId,
+				"jobID", jobID,
 				"retryInterval", retryInterval,
 				"timeout", timeout)
 
@@ -333,11 +438,11 @@ func (s *session) WaitForJobCompletion(ctx context.Context, jobId string, retryI
 	return errors.New("Timed out waiting for job completion")
 }
 
-// GetJobs gets jobs (blocking)
-func (s *session) GetJobs(getJobsInput *v3ioc.GetJobsInput) (*v3ioc.GetJobsOutput, error) {
+// GetJob gets a job (blocking)
+func (s *session) GetJob(getJobsInput *v3ioc.GetJobInput) (*v3ioc.GetJobOutput, error) {
 
 	// prepare job response resource
-	getJobsOutput := v3ioc.GetJobsOutput{}
+	getJobsOutput := v3ioc.GetJobOutput{}
 
 	// specific path for job detail endpoint
 	detailPath := fmt.Sprintf("jobs/%s", getJobsInput.ID)
@@ -353,6 +458,57 @@ func (s *session) GetJobs(getJobsInput *v3ioc.GetJobsInput) (*v3ioc.GetJobsOutpu
 	}
 
 	return &getJobsOutput, err
+}
+
+func (s *session) getResourceDetail(ctx context.Context,
+	path string,
+	controlPlaneInput *v3ioc.ControlPlaneInput,
+	controlPlaneOutput *v3ioc.ControlPlaneOutput,
+	responseAttributes interface{}) error {
+
+	// allocate request, no need for body
+	httpRequest := fasthttp.AcquireRequest()
+	defer fasthttp.ReleaseRequest(httpRequest)
+
+	responseInstance, err := s.sendRequest(ctx,
+		&request{
+			method:      http.MethodGet,
+			path:        "api/" + path,
+			httpRequest: httpRequest,
+		}, controlPlaneInput.Timeout)
+
+	if err != nil {
+		return errors.Wrapf(err, "Failed to get resource (%s)", path)
+	}
+
+	// if we got cookies, set them
+	if len(responseInstance.cookies) > 0 {
+		s.cookies = responseInstance.cookies
+	}
+
+	// unmarshal
+	if responseInstance.body != nil && controlPlaneOutput != nil {
+		responseBuffer := bytes.NewBuffer(responseInstance.body)
+
+		jsonAPIResponse := jsonapiResource{
+			Data: jsonapiData{
+				Attributes: responseAttributes,
+			},
+		}
+
+		if err := json.NewDecoder(responseBuffer).Decode(&jsonAPIResponse); err != nil {
+			return err
+		}
+
+		switch typedResponseID := jsonAPIResponse.Data.ID.(type) {
+		case string:
+			controlPlaneOutput.ID = typedResponseID
+		case float64:
+			controlPlaneOutput.IDNumeric = int(typedResponseID)
+		}
+	}
+
+	return nil
 }
 
 func (s *session) createResource(ctx context.Context,
