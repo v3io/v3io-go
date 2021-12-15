@@ -93,7 +93,7 @@ func (scg *streamConsumerGroup) setState(modifier stateModifier) (*State, error)
 	backoff := scg.config.State.ModifyRetry.Backoff
 	attempts := scg.config.State.ModifyRetry.Attempts
 
-	err := common.RetryFunc(context.TODO(), scg.logger, attempts, nil, &backoff, func(int) (bool, error) {
+	err := common.RetryFunc(context.TODO(), scg.logger, attempts, nil, &backoff, func(attempt int) (bool, error) {
 		state, mtime, err := scg.getStateFromPersistency()
 		if err != nil && err != v3ioerrors.ErrNotFound {
 			return true, errors.Wrap(err, "Failed getting current state from persistency")
@@ -117,12 +117,17 @@ func (scg *streamConsumerGroup) setState(modifier stateModifier) (*State, error)
 		// log only on change
 		if !scg.statesEqual(previousState, modifiedState) {
 			scg.logger.DebugWith("Modified state, saving",
+				"mtime", mtime,
 				"previousState", previousState,
 				"modifiedState", modifiedState)
 		}
 
-		err = scg.setStateInPersistency(modifiedState, mtime)
-		if err != nil {
+		if err := scg.setStateInPersistency(modifiedState, mtime); err != nil {
+			if attempt%10 == 0 {
+				scg.logger.DebugWith("Failed to set state in persistency",
+					"attempt", attempt,
+					"err", errors.RootCause(err).Error())
+			}
 			return true, errors.Wrap(err, "Failed setting state in persistency state")
 		}
 
@@ -145,16 +150,22 @@ func (scg *streamConsumerGroup) setStateInPersistency(state *State, mtime *int) 
 	var condition string
 	if mtime != nil {
 		condition = fmt.Sprintf("__mtime_nsecs == %v", *mtime)
+	} else {
+
+		// mtime does not exist => file does not exist => create it
+		// we want the file to be created by one replica only and thus
+		// we condition the creation of it by checking if the state attribute
+		// does not exist
+		condition = fmt.Sprintf("not(exists(%s))", stateContentsAttributeKey)
 	}
 
-	_, err = scg.container.UpdateItemSync(&v3io.UpdateItemInput{
+	if _, err := scg.container.UpdateItemSync(&v3io.UpdateItemInput{
 		Path:      scg.getStateFilePath(),
 		Condition: condition,
 		Attributes: map[string]interface{}{
 			stateContentsAttributeKey: string(stateContents),
 		},
-	})
-	if err != nil {
+	}); err != nil {
 		return errors.Wrap(err, "Failed setting state in persistency")
 	}
 
