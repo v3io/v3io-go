@@ -57,8 +57,7 @@ func NewStreamConsumerGroup(parentLogger logger.Logger,
 }
 
 func (scg *streamConsumerGroup) GetState() (*State, error) {
-	state, _, err := scg.getStateFromPersistency()
-
+	state, _, _, err := scg.getStateFromPersistency()
 	return state, err
 }
 
@@ -94,7 +93,7 @@ func (scg *streamConsumerGroup) setState(modifier stateModifier) (*State, error)
 	attempts := scg.config.State.ModifyRetry.Attempts
 
 	err := common.RetryFunc(context.TODO(), scg.logger, attempts, nil, &backoff, func(attempt int) (bool, error) {
-		state, mtime, err := scg.getStateFromPersistency()
+		state, stateMtimeNanoSeconds, stateMtimeSeconds, err := scg.getStateFromPersistency()
 		if err != nil && err != v3ioerrors.ErrNotFound {
 			return true, errors.Wrap(err, "Failed getting current state from persistency")
 		}
@@ -117,12 +116,13 @@ func (scg *streamConsumerGroup) setState(modifier stateModifier) (*State, error)
 		// log only on change
 		if !scg.statesEqual(previousState, modifiedState) {
 			scg.logger.DebugWith("Modified state, saving",
-				"mtime", mtime,
+				"stateMtimeNanoSeconds", stateMtimeNanoSeconds,
+				"stateMtimeSeconds", stateMtimeSeconds,
 				"previousState", previousState,
 				"modifiedState", modifiedState)
 		}
 
-		if err := scg.setStateInPersistency(modifiedState, mtime); err != nil {
+		if err := scg.setStateInPersistency(modifiedState, stateMtimeNanoSeconds, stateMtimeSeconds); err != nil {
 			if attempt%10 == 0 {
 				scg.logger.DebugWith("Failed to set state in persistency",
 					"attempt", attempt,
@@ -141,15 +141,20 @@ func (scg *streamConsumerGroup) setState(modifier stateModifier) (*State, error)
 	return modifiedState, nil
 }
 
-func (scg *streamConsumerGroup) setStateInPersistency(state *State, mtime *int) error {
+func (scg *streamConsumerGroup) setStateInPersistency(
+	state *State,
+	stateMtimeNanoSeconds *int,
+	stateMtimeSeconds *int) error {
 	stateContents, err := json.Marshal(state)
 	if err != nil {
 		return errors.Wrap(err, "Failed marshaling state file contents")
 	}
 
 	var condition string
-	if mtime != nil {
-		condition = fmt.Sprintf("__mtime_nsecs == %v", *mtime)
+	if stateMtimeNanoSeconds != nil && stateMtimeSeconds != nil {
+		condition = fmt.Sprintf("(__mtime_nsecs == %v) AND (__mtime_secs == %v)",
+			*stateMtimeNanoSeconds,
+			*stateMtimeSeconds)
 	} else {
 
 		// mtime does not exist => file does not exist => create it
@@ -172,23 +177,27 @@ func (scg *streamConsumerGroup) setStateInPersistency(state *State, mtime *int) 
 	return nil
 }
 
-func (scg *streamConsumerGroup) getStateFromPersistency() (*State, *int, error) {
+func (scg *streamConsumerGroup) getStateFromPersistency() (*State, *int, *int, error) {
 	response, err := scg.container.GetItemSync(&v3io.GetItemInput{
-		Path:           scg.getStateFilePath(),
-		AttributeNames: []string{"__mtime_nsecs", stateContentsAttributeKey},
+		Path: scg.getStateFilePath(),
+		AttributeNames: []string{
+			"__mtime_nsecs",
+			"__mtime_secs",
+			stateContentsAttributeKey,
+		},
 	})
 
 	if err != nil {
 		errWithStatusCode, errHasStatusCode := err.(v3ioerrors.ErrorWithStatusCode)
 		if !errHasStatusCode {
-			return nil, nil, errors.Wrap(err, "Got error without status code")
+			return nil, nil, nil, errors.Wrap(err, "Got error without status code")
 		}
 
 		if errWithStatusCode.StatusCode() != 404 {
-			return nil, nil, errors.Wrap(err, "Failed getting state item")
+			return nil, nil, nil, errors.Wrap(err, "Failed getting state item")
 		}
 
-		return nil, nil, v3ioerrors.ErrNotFound
+		return nil, nil, nil, v3ioerrors.ErrNotFound
 	}
 
 	defer response.Release()
@@ -197,22 +206,26 @@ func (scg *streamConsumerGroup) getStateFromPersistency() (*State, *int, error) 
 
 	stateContents, err := getItemOutput.Item.GetFieldString(stateContentsAttributeKey)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "Failed getting state attribute")
+		return nil, nil, nil, errors.Wrap(err, "Failed getting state attribute")
 	}
 
 	var state State
 
-	err = json.Unmarshal([]byte(stateContents), &state)
-	if err != nil {
-		return nil, nil, errors.Wrapf(err, "Failed unmarshalling state contents: %s", stateContents)
+	if err := json.Unmarshal([]byte(stateContents), &state); err != nil {
+		return nil, nil, nil, errors.Wrapf(err, "Failed unmarshalling state contents: %s", stateContents)
 	}
 
-	stateMtime, err := getItemOutput.Item.GetFieldInt("__mtime_nsecs")
+	stateMtimeNanoSeconds, err := getItemOutput.Item.GetFieldInt("__mtime_nsecs")
 	if err != nil {
-		return nil, nil, errors.New("Failed getting mtime attribute")
+		return nil, nil, nil, errors.New("Failed getting mtime attribute")
 	}
 
-	return &state, &stateMtime, nil
+	stateMtimeSeconds, err := getItemOutput.Item.GetFieldInt("__mtime_secs")
+	if err != nil {
+		return nil, nil, nil, errors.New("Failed getting mtime attribute")
+	}
+
+	return &state, &stateMtimeNanoSeconds, &stateMtimeSeconds, nil
 }
 
 func (scg *streamConsumerGroup) getStateFilePath() string {
