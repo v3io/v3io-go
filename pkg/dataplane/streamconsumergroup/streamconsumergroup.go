@@ -117,12 +117,12 @@ func (scg *streamConsumerGroup) setState(modifier stateModifier) (*State, error)
 		// log only on change
 		if !scg.statesEqual(previousState, modifiedState) {
 			scg.logger.DebugWith("Modified state, saving",
+				"mtime", mtime,
 				"previousState", previousState,
 				"modifiedState", modifiedState)
 		}
 
-		err = scg.setStateInPersistency(modifiedState, mtime)
-		if err != nil {
+		if err := scg.setStateInPersistency(modifiedState, mtime); err != nil {
 			return true, errors.Wrap(err, "Failed setting state in persistency state")
 		}
 
@@ -145,16 +145,22 @@ func (scg *streamConsumerGroup) setStateInPersistency(state *State, mtime *int) 
 	var condition string
 	if mtime != nil {
 		condition = fmt.Sprintf("__mtime_nsecs == %v", *mtime)
+	} else {
+
+		// mtime does not exist => file does not exist => create it
+		// we want the file to be created by one replica only and thus
+		// we condition the creation of it by checking if the state attribute
+		// does not exist
+		condition = fmt.Sprintf("not(exists(%s))", stateContentsAttributeKey)
 	}
 
-	_, err = scg.container.UpdateItemSync(&v3io.UpdateItemInput{
+	if _, err := scg.container.UpdateItemSync(&v3io.UpdateItemInput{
 		Path:      scg.getStateFilePath(),
 		Condition: condition,
 		Attributes: map[string]interface{}{
 			stateContentsAttributeKey: string(stateContents),
 		},
-	})
-	if err != nil {
+	}); err != nil {
 		return errors.Wrap(err, "Failed setting state in persistency")
 	}
 
