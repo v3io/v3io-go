@@ -125,6 +125,7 @@ func (scg *streamConsumerGroup) setState(modifier stateModifier) (*State, error)
 		if err := scg.setStateInPersistency(modifiedState, mtime); err != nil {
 			if attempt%10 == 0 {
 				scg.logger.DebugWith("Failed to set state in persistency",
+					"attempt", attempt,
 					"err", errors.RootCause(err).Error())
 			}
 			return true, errors.Wrap(err, "Failed setting state in persistency state")
@@ -157,8 +158,6 @@ func (scg *streamConsumerGroup) setStateInPersistency(state *State, mtime *int) 
 		// does not exist
 		condition = fmt.Sprintf("not(exists(%s))", stateContentsAttributeKey)
 	}
-
-	condition = fmt.Sprintf("not(exists(%s))", stateContentsAttributeKey)
 
 	if _, err := scg.container.UpdateItemSync(&v3io.UpdateItemInput{
 		Path:      scg.getStateFilePath(),
