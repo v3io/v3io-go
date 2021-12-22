@@ -316,7 +316,10 @@ func (scg *streamConsumerGroup) getShardLocationWithSeek(seekShardInput *v3io.Se
 
 	location := response.Output.(*v3io.SeekShardOutput).Location
 
-	scg.logger.DebugWith("Seek shard succeeded", "shardPath", seekShardInput.Path, "location", location)
+	scg.logger.DebugWith("Seek shard succeeded",
+		"startingSequenceNumber", seekShardInput.StartingSequenceNumber,
+		"shardPath", seekShardInput.Path,
+		"location", location)
 
 	return location, nil
 }
