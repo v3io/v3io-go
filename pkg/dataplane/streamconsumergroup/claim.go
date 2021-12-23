@@ -240,8 +240,6 @@ func (c *claim) getCurrentShardLocation(shardID int) (string, error) {
 
 		for {
 			select {
-
-			// TODO: from configuration
 			case <-time.After(c.member.streamConsumerGroup.config.SequenceNumber.ShardWaitInterval):
 
 				// get the location from persistency
