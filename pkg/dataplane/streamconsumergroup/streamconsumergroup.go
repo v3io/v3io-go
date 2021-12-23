@@ -232,7 +232,8 @@ func (scg *streamConsumerGroup) getStateFilePath() string {
 	return path.Join(scg.streamPath, fmt.Sprintf("%s-state.json", scg.name))
 }
 
-func (scg *streamConsumerGroup) getShardLocationFromPersistency(shardID int, initialLocation v3io.SeekShardInputType) (string, error) {
+func (scg *streamConsumerGroup) getShardLocationFromPersistency(shardID int,
+	initialLocation v3io.SeekShardInputType) (string, error) {
 	scg.logger.DebugWith("Getting shard sequenceNumber from persistency", "shardID", shardID)
 
 	seekShardInput := v3io.SeekShardInput{}
