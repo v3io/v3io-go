@@ -1,5 +1,9 @@
 FROM gcr.io/iguazio/golang:1.14
 
+ENV GOPATH=/go
+WORKDIR /v3io-go
+
+
 RUN apt-get update --allow-releaseinfo-change \
     && apt-get install -y capnproto \
     && apt-get clean
