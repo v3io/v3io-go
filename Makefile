@@ -33,10 +33,6 @@ generate-capnp:
 clean:
 	pushd ./pkg/dataplane/schemas/; ./clean; popd
 
-.PHONY: test
-test: check-env
-	go test -race -tags unit -count 1 ./...
-
 .PHONY: fmt
 fmt:
 	gofmt -s -w .
@@ -46,9 +42,24 @@ lint:
 	./hack/lint/install.sh
 	./hack/lint/run.sh
 
+.PHONY: test
+test: check-env
+	go test -race -tags unit -count 1 ./...
+
+.PHONY: test-system
+test-system: test-controlplane test-dataplane-simple
+
 .PHONY: test-controlplane
 test-controlplane: check-env
 	go test -test.v=true -race -tags unit -count 1 ./pkg/controlplane/...
+
+.PHONY: test-dataplane
+test-dataplane: check-env
+	go test -test.v=true -race -tags unit -count 1 ./pkg/dataplane/...
+
+.PHONY: test-dataplane-simple
+test-dataplane-simple: check-env
+	go test -test.v=true -tags unit -count 1 ./pkg/dataplane/...
 
 .PHONY: build
 build: clean generate-capnp lint test
