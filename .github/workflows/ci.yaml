@@ -37,3 +37,5 @@ jobs:
           ${{ runner.os }}-go-
     - name: Lint
       run: make lint
+    - name: Generate Capnp
+      run: make generate-capnp
