@@ -95,7 +95,7 @@ func (suite *testSuite) SetupTest() {
 	suite.ctx = context.WithValue(context.TODO(), "RequestID", "test-0")
 }
 
-func (suite *testSuite) TestCreateContainerStringID() {
+func (suite *testSuite) TestCreateContainer() {
 	createContainerInput := v3ioc.CreateContainerInput{}
 	createContainerInput.Ctx = suite.ctx
 	createContainerInput.Name = "container-string"
@@ -103,27 +103,6 @@ func (suite *testSuite) TestCreateContainerStringID() {
 	createContainerOutput, err := suite.session.CreateContainerSync(&createContainerInput)
 	suite.Require().NoError(err)
 	suite.Require().NotEqual(0, createContainerOutput.IDNumeric)
-
-	time.Sleep(5 * time.Second)
-
-	deleteContainerInput := v3ioc.DeleteContainerInput{}
-	deleteContainerInput.Ctx = suite.ctx
-	deleteContainerInput.IDNumeric = createContainerOutput.IDNumeric
-
-	err = suite.session.DeleteContainerSync(&deleteContainerInput)
-	suite.Require().NoError(err)
-}
-
-// will be deprecated in upcoming versions
-func (suite *testSuite) TestCreateContainerNumericID() {
-	createContainerInput := v3ioc.CreateContainerInput{}
-	createContainerInput.Ctx = suite.ctx
-	createContainerInput.IDNumeric = 300
-	createContainerInput.Name = "container-int"
-
-	createContainerOutput, err := suite.session.CreateContainerSync(&createContainerInput)
-	suite.Require().NoError(err)
-	suite.Require().Equal(createContainerInput.IDNumeric, createContainerOutput.IDNumeric)
 
 	time.Sleep(5 * time.Second)
 
@@ -206,19 +185,19 @@ func (suite *testSuite) TestReloadConfigurations() {
 	timeout := 2 * time.Minute
 	var err error
 
-	suite.logger.InfoWith(context.TODO(), "Reloading cluster configuration")
+	suite.logger.InfoWith("Reloading cluster configuration")
 	err = session.ReloadClusterConfigAndWaitForCompletion(context.TODO(), retryInterval, timeout)
 	suite.Require().NoError(err)
 
-	suite.logger.InfoWith(context.TODO(), "Reloading events configuration")
+	suite.logger.InfoWith("Reloading events configuration")
 	err = session.ReloadEventsConfigAndWaitForCompletion(context.TODO(), retryInterval, timeout)
 	suite.Require().NoError(err)
 
-	suite.logger.InfoWith(context.TODO(), "Reloading app services configuration")
+	suite.logger.InfoWith("Reloading app services configuration")
 	err = session.ReloadAppServicesConfigAndWaitForCompletion(context.TODO(), retryInterval, timeout)
 	suite.Require().NoError(err)
 
-	suite.logger.InfoWith(context.TODO(), "Reloading artifact version manifest configuration")
+	suite.logger.InfoWith("Reloading artifact version manifest configuration")
 	err = session.ReloadArtifactVersionManifestAndWaitForCompletion(context.TODO(), retryInterval, timeout)
 	suite.Require().NoError(err)
 }

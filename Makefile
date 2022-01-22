@@ -1,3 +1,5 @@
+# To setup env locally on your dev box, run:
+# $ export $(grep -v '^#' ./hack/test.env | xargs)
 .PHONY: check-env
 check-env:
 ifndef V3IO_DATAPLANE_URL
@@ -46,7 +48,7 @@ lint:
 
 .PHONY: test-controlplane
 test-controlplane: check-env
-	go test -race -tags unit -count 1 ./pkg/controlplane/...
+	go test -test.v=true -race -tags unit -count 1 ./pkg/controlplane/...
 
 .PHONY: build
 build: clean generate-capnp lint test
