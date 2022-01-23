@@ -66,12 +66,11 @@ build-test-container:
 	@echo Building test container...
 	docker build \
 		--file hack/test/docker/Dockerfile \
-		--tag provazio-test:latest \
+		--tag v3io-go-test:latest \
 		.
 
 .PHONY: test-system-in-docker
 test-system-in-docker: build-test-container
-test-system-in-docker:
 	@echo "Running system test in docker container..."
 	docker run --rm \
 		--env V3IO_DATAPLANE_URL="${V3IO_DATAPLANE_URL}" \
@@ -81,7 +80,7 @@ test-system-in-docker:
 		--env V3IO_CONTROLPLANE_USERNAME="${V3IO_CONTROLPLANE_USERNAME}" \
 		--env V3IO_CONTROLPLANE_PASSWORD="${V3IO_CONTROLPLANE_PASSWORD}" \
 		--env V3IO_CONTROLPLANE_IGZ_ADMIN_PASSWORD="${V3IO_CONTROLPLANE_IGZ_ADMIN_PASSWORD}" \
-		provazio-test:latest make test-system
+		v3io-go-test:latest make test-system
 	@echo Done.
 
 .PHONY: build
