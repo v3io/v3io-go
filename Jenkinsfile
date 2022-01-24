@@ -90,15 +90,7 @@ timestamps {
                 env.V3IO_CONTROLPLANE_PASSWORD = system_config['spec']['tenants'][1]['spec']['resources'][0]['users'][0]['password']
                 env.V3IO_DATAPLANE_ACCESS_KEY = sh(script: "./hack/script/generate_access_key.sh", returnStdout: true).split('=')[1].trim()
 
-                withCredentials([
-                        usernamePassword(credentialsId: 'igz_admin', usernameVariable: 'V3IO_CONTROLPLANE_IGZ_ADMIN_USERNAME', passwordVariable: 'V3IO_CONTROLPLANE_IGZ_ADMIN_PASSWORD'),
-                ]) {
 
-                    sh """
-                echo "testting"
-                echo ${V3IO_DATAPLANE_URL}
-                """
-                }
 
             }
 
@@ -106,7 +98,17 @@ timestamps {
 //
 //
             stage('build') {
-                sh "make test-system-in-docker"
+
+                withCredentials([
+                        usernamePassword(credentialsId: 'igz_admin', usernameVariable: 'V3IO_CONTROLPLANE_IGZ_ADMIN_USERNAME', passwordVariable: 'V3IO_CONTROLPLANE_IGZ_ADMIN_PASSWORD'),
+                ]) {
+
+                    sh """
+                echo "testting"
+                make test-system-in-docker"
+                """
+                }
+
             }
 //
 //
