@@ -105,9 +105,9 @@ timestamps {
 //
 //
 //
-//            stage('build') {
-//                sh "ls -ltrh "
-//            }
+            stage('build') {
+                sh "make test-system-in-docker"
+            }
 //
 //
 //
