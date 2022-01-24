@@ -79,7 +79,7 @@ timestamps {
                 currentBuild.description = "hash = ${env.git_hash}"
             }
 
-            stage('set_evn') {
+            stage('set_env') {
 
                 def sys_conf = sh(script: "http --verify no --check-status -b GET http://dashboard.dev.provazio.iguazio.com/api/systems/${system_id}",returnStdout: true)
                 system_config = readJSON(text: sys_conf)
