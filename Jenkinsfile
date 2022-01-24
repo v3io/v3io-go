@@ -33,7 +33,7 @@ podTemplate(label: "${git_project}-${label}", inheritFrom: "jnlp-docker-golang")
                         pwd
                         ls -ltrh 
                         """
-                        echo "$MAIN_TAG_VERSION"
+//                        echo "$MAIN_TAG_VERSION"
 //                    }
                 }
             }
