@@ -105,7 +105,7 @@ timestamps {
 
                     sh """
                 echo "testting"
-                make test-system-in-docker"
+                make test-system-in-docker
                 """
                 }
 
