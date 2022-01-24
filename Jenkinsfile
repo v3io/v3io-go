@@ -123,9 +123,9 @@ timestamps {
 //
 //            }
 
-//            stage('Delete  system') {
-//                stages.delete_system(system_id)
-//            }
+            stage('Delete  system') {
+                stages.delete_system(system_id)
+            }
 
 
 
