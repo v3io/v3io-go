@@ -9,7 +9,7 @@ properties([
         buildDiscarder(logRotator(artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '5', numToKeepStr: '10')),
         parameters([
                 string(name: 'deploy', defaultValue: 'false',
-                        description: 'Name that consist of lower case alphanumeric chars, "-" or "." and must start and end with an alphanumeric char', trim: true)
+                        description: 'for create new system', trim: true)
 
         ]),
 
@@ -75,11 +75,6 @@ timestamps {
                 echo err.getMessage()
                 echo "will continue to next stage"
             }
-//                currentBuild.result='FAILURE'
-//            } finally {
-//                    echo "delete sysytem:  ${system_id}"
-////                    stages.delete_system(system_id)
-//            }
 
             stage('git clone') {
                 deleteDir()
@@ -88,24 +83,7 @@ timestamps {
                 currentBuild.description = "hash = ${env.git_hash}"
             }
 
-//            stage('set_env') {
-//
-//                def sys_conf = sh(script: "http --verify no --check-status -b GET http://dashboard.dev.provazio.iguazio.com/api/systems/${system_id}",returnStdout: true)
-//                system_config = readJSON(text: sys_conf)
-//                env.V3IO_DATAPLANE_URL = system_config['status']['tenants'][1]['status']['services']['webapi']['api_urls']['https']
-//                env.V3IO_DATAPLANE_USERNAME = system_config['spec']['tenants'][1]['spec']['resources'][0]['users'][0]['username']
-//                env.V3IO_CONTROLPLANE_URL = system_config['status']['tenants'][1]['status']['services']['dashboard']['urls']['https']
-//                env.V3IO_CONTROLPLANE_USERNAME = system_config['spec']['tenants'][1]['spec']['resources'][0]['users'][0]['username']
-//                env.V3IO_CONTROLPLANE_PASSWORD = system_config['spec']['tenants'][1]['spec']['resources'][0]['users'][0]['password']
-//                env.V3IO_DATAPLANE_ACCESS_KEY = sh(script: "./hack/script/generate_access_key.sh", returnStdout: true).split('=')[1].trim()
-//
-//            }
-
-
-//
-//
-//
-            stage('build') {
+            stage('build-and-test') {
 
                 def sys_conf = sh(script: "http --verify no --check-status -b GET http://dashboard.dev.provazio.iguazio.com/api/systems/${system_id}", returnStdout: true)
                 system_config = readJSON(text: sys_conf)
@@ -122,10 +100,9 @@ timestamps {
                         try {
 
                         sh """
-                echo "testting"
-                sleep 400
-                make test-system-in-docker
-                """
+                            sleep 400
+                            make test-system-in-docker
+                            """
                     } catch (err) {
                         echo err.getMessage()
                         echo "will continue to next stage"
@@ -137,22 +114,6 @@ timestamps {
 
                 }
             }
-//
-//
-//
-//            stage('run Test') {
-//                sh "ls -ltrh "
-//
-//            }
-
-//            stage('Git Merge') {
-//               stages.git_merge_pr(system_id,"iguazio","devops-functions")
-//
-//            }
-//
-//            stage('Delete  system') {
-//
-//            }
 
 
         }
