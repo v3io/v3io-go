@@ -8,7 +8,7 @@ def props = [
 properties([
         buildDiscarder(logRotator(artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '5', numToKeepStr: '10')),
         parameters([
-                string(name: 'system_id', defaultValue: 'REPLACE-ME1',
+                string(name: 'system_id', defaultValue: 'REPLACE-ME',
                         description: 'Name that consist of lower case alphanumeric chars, "-" or "." and must start and end with an alphanumeric char', trim: true)
 
         ]),
@@ -100,6 +100,7 @@ timestamps {
 //                env.V3IO_DATAPLANE_ACCESS_KEY = sh(script: "./hack/script/generate_access_key.sh", returnStdout: true).split('=')[1].trim()
 //
 //            }
+
 
 //
 //
