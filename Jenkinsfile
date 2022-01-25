@@ -8,7 +8,7 @@ def props = [
 properties([
         buildDiscarder(logRotator(artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '5', numToKeepStr: '10')),
         parameters([
-                string(name: 'system_id', defaultValue: '',
+                string(name: 'deploy', defaultValue: 'false',
                         description: 'Name that consist of lower case alphanumeric chars, "-" or "." and must start and end with an alphanumeric char', trim: true)
 
         ]),
@@ -23,7 +23,7 @@ timestamps {
             prnumber_split = "${JOB_NAME.substring(JOB_NAME.lastIndexOf('/') + 1, JOB_NAME.length()).toLowerCase()}"
             prnumber = "${prnumber_split.substring(prnumber_split.lastIndexOf('-') + 1, prnumber_split.length()).toLowerCase()}"
             try {
-                if (env.BUILD_NUMBER == "1") {
+                if (env.BUILD_NUMBER == "1" || param.deploy == "true") {
                     system_id = "${JOB_NAME.substring(JOB_NAME.lastIndexOf('/') + 1, JOB_NAME.length()).toLowerCase()}-${BUILD_NUMBER}"
                     common.conditional_stage('deploy eks', true) {
                         common.run_job("customer_deploy_aws/development", [
