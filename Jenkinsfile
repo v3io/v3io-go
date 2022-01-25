@@ -129,6 +129,7 @@ timestamps {
                         echo "will continue to next stage"
                     } finally {
                         echo "delete sysytem:  ${system_id}"
+                         stages.delete_system(system_id)
                     }
 
 
@@ -146,10 +147,10 @@ timestamps {
 //               stages.git_merge_pr(system_id,"iguazio","devops-functions")
 //
 //            }
-
-            stage('Delete  system') {
-                stages.delete_system(system_id)
-            }
+//
+//            stage('Delete  system') {
+//
+//            }
 
 
         }
