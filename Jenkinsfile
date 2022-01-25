@@ -74,18 +74,19 @@ timestamps {
             catch (err) {
                 echo err.getMessage()
                 echo "will continue to next stage"
+            }
 //                currentBuild.result='FAILURE'
 //            } finally {
 //                    echo "delete sysytem:  ${system_id}"
 ////                    stages.delete_system(system_id)
 //            }
 
-                stage('git clone') {
-                    deleteDir()
-                    def scm_vars = checkout scm
-                    env.git_hash = scm_vars.GIT_COMMIT
-                    currentBuild.description = "hash = ${env.git_hash}"
-                }
+            stage('git clone') {
+                deleteDir()
+                def scm_vars = checkout scm
+                env.git_hash = scm_vars.GIT_COMMIT
+                currentBuild.description = "hash = ${env.git_hash}"
+            }
 
 //            stage('set_env') {
 //
@@ -103,36 +104,36 @@ timestamps {
 //
 //
 //
-                stage('build') {
+            stage('build') {
 
-                    def sys_conf = sh(script: "http --verify no --check-status -b GET http://dashboard.dev.provazio.iguazio.com/api/systems/${system_id}", returnStdout: true)
-                    system_config = readJSON(text: sys_conf)
-                    env.V3IO_DATAPLANE_URL = system_config['status']['tenants'][1]['status']['services']['webapi']['api_urls']['https']
-                    env.V3IO_DATAPLANE_USERNAME = system_config['spec']['tenants'][1]['spec']['resources'][0]['users'][0]['username']
-                    env.V3IO_CONTROLPLANE_URL = system_config['status']['tenants'][1]['status']['services']['dashboard']['urls']['https']
-                    env.V3IO_CONTROLPLANE_USERNAME = system_config['spec']['tenants'][1]['spec']['resources'][0]['users'][0]['username']
-                    env.V3IO_CONTROLPLANE_PASSWORD = system_config['spec']['tenants'][1]['spec']['resources'][0]['users'][0]['password']
-                    env.V3IO_DATAPLANE_ACCESS_KEY = sh(script: "./hack/script/generate_access_key.sh", returnStdout: true).split('=')[1].trim()
+                def sys_conf = sh(script: "http --verify no --check-status -b GET http://dashboard.dev.provazio.iguazio.com/api/systems/${system_id}", returnStdout: true)
+                system_config = readJSON(text: sys_conf)
+                env.V3IO_DATAPLANE_URL = system_config['status']['tenants'][1]['status']['services']['webapi']['api_urls']['https']
+                env.V3IO_DATAPLANE_USERNAME = system_config['spec']['tenants'][1]['spec']['resources'][0]['users'][0]['username']
+                env.V3IO_CONTROLPLANE_URL = system_config['status']['tenants'][1]['status']['services']['dashboard']['urls']['https']
+                env.V3IO_CONTROLPLANE_USERNAME = system_config['spec']['tenants'][1]['spec']['resources'][0]['users'][0]['username']
+                env.V3IO_CONTROLPLANE_PASSWORD = system_config['spec']['tenants'][1]['spec']['resources'][0]['users'][0]['password']
+                env.V3IO_DATAPLANE_ACCESS_KEY = sh(script: "./hack/script/generate_access_key.sh", returnStdout: true).split('=')[1].trim()
 
-                    try {
-                        withCredentials([
-                                usernamePassword(credentialsId: 'igz_admin', usernameVariable: 'V3IO_CONTROLPLANE_IGZ_ADMIN_USERNAME', passwordVariable: 'V3IO_CONTROLPLANE_IGZ_ADMIN_PASSWORD'),
-                        ]) {
+                    withCredentials([
+                            usernamePassword(credentialsId: 'igz_admin', usernameVariable: 'V3IO_CONTROLPLANE_IGZ_ADMIN_USERNAME', passwordVariable: 'V3IO_CONTROLPLANE_IGZ_ADMIN_PASSWORD'),
+                    ]) {
+                        try {
 
-                            sh """
+                        sh """
                 echo "testting"
                 make test-system-in-docker
                 """
-                        } catch (err) {
-                            echo err.getMessage()
-                            echo "will continue to next stage"
-                        } finally {
-                            echo "delete sysytem:  ${system_id}"
-                        }
-
-
+                    } catch (err) {
+                        echo err.getMessage()
+                        echo "will continue to next stage"
+                    } finally {
+                        echo "delete sysytem:  ${system_id}"
                     }
+
+
                 }
+            }
 //
 //
 //
@@ -146,11 +147,8 @@ timestamps {
 //
 //            }
 
-                stage('Delete  system') {
-                    stages.delete_system(system_id)
-                }
-
-
+            stage('Delete  system') {
+                stages.delete_system(system_id)
             }
 
 
@@ -158,4 +156,7 @@ timestamps {
 
 
     }
+
+
+}
 
