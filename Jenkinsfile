@@ -20,8 +20,8 @@ sys_conf = ""
 timestamps {
     common.main {
         node('centos76_runner') {
-            prnumber_split="${JOB_NAME.substring(JOB_NAME.lastIndexOf('/') + 1, JOB_NAME.length()).toLowerCase()}"
-            prnumber="${prnumber_split.substring(prnumber_split.lastIndexOf('-') + 1, prnumber_split.length()).toLowerCase()}"
+            prnumber_split = "${JOB_NAME.substring(JOB_NAME.lastIndexOf('/') + 1, JOB_NAME.length()).toLowerCase()}"
+            prnumber = "${prnumber_split.substring(prnumber_split.lastIndexOf('-') + 1, prnumber_split.length()).toLowerCase()}"
             try {
                 if (env.system_id == "REPLACE-ME") {
                     system_id = "${JOB_NAME.substring(JOB_NAME.lastIndexOf('/') + 1, JOB_NAME.length()).toLowerCase()}-${BUILD_NUMBER}"
@@ -75,46 +75,64 @@ timestamps {
                 echo err.getMessage()
                 echo "will continue to next stage"
 //                currentBuild.result='FAILURE'
-            }
+//            } finally {
+//                    echo "delete sysytem:  ${system_id}"
+////                    stages.delete_system(system_id)
+//            }
 
-            stage('git clone') {
-                deleteDir()
-                def scm_vars = checkout scm
-                env.git_hash = scm_vars.GIT_COMMIT
-                currentBuild.description = "hash = ${env.git_hash}"
-            }
+                stage('git clone') {
+                    deleteDir()
+                    def scm_vars = checkout scm
+                    env.git_hash = scm_vars.GIT_COMMIT
+                    currentBuild.description = "hash = ${env.git_hash}"
+                }
 
-            stage('set_env') {
-
-                def sys_conf = sh(script: "http --verify no --check-status -b GET http://dashboard.dev.provazio.iguazio.com/api/systems/${system_id}",returnStdout: true)
-                system_config = readJSON(text: sys_conf)
-                env.V3IO_DATAPLANE_URL = system_config['status']['tenants'][1]['status']['services']['webapi']['api_urls']['https']
-                env.V3IO_DATAPLANE_USERNAME = system_config['spec']['tenants'][1]['spec']['resources'][0]['users'][0]['username']
-                env.V3IO_CONTROLPLANE_URL = system_config['status']['tenants'][1]['status']['services']['dashboard']['urls']['https']
-                env.V3IO_CONTROLPLANE_USERNAME = system_config['spec']['tenants'][1]['spec']['resources'][0]['users'][0]['username']
-                env.V3IO_CONTROLPLANE_PASSWORD = system_config['spec']['tenants'][1]['spec']['resources'][0]['users'][0]['password']
-                env.V3IO_DATAPLANE_ACCESS_KEY = sh(script: "./hack/script/generate_access_key.sh", returnStdout: true).split('=')[1].trim()
-
-
-
-            }
+//            stage('set_env') {
+//
+//                def sys_conf = sh(script: "http --verify no --check-status -b GET http://dashboard.dev.provazio.iguazio.com/api/systems/${system_id}",returnStdout: true)
+//                system_config = readJSON(text: sys_conf)
+//                env.V3IO_DATAPLANE_URL = system_config['status']['tenants'][1]['status']['services']['webapi']['api_urls']['https']
+//                env.V3IO_DATAPLANE_USERNAME = system_config['spec']['tenants'][1]['spec']['resources'][0]['users'][0]['username']
+//                env.V3IO_CONTROLPLANE_URL = system_config['status']['tenants'][1]['status']['services']['dashboard']['urls']['https']
+//                env.V3IO_CONTROLPLANE_USERNAME = system_config['spec']['tenants'][1]['spec']['resources'][0]['users'][0]['username']
+//                env.V3IO_CONTROLPLANE_PASSWORD = system_config['spec']['tenants'][1]['spec']['resources'][0]['users'][0]['password']
+//                env.V3IO_DATAPLANE_ACCESS_KEY = sh(script: "./hack/script/generate_access_key.sh", returnStdout: true).split('=')[1].trim()
+//
+//            }
 
 //
 //
 //
-            stage('build') {
+                stage('build') {
 
-                withCredentials([
-                        usernamePassword(credentialsId: 'igz_admin', usernameVariable: 'V3IO_CONTROLPLANE_IGZ_ADMIN_USERNAME', passwordVariable: 'V3IO_CONTROLPLANE_IGZ_ADMIN_PASSWORD'),
-                ]) {
+                    def sys_conf = sh(script: "http --verify no --check-status -b GET http://dashboard.dev.provazio.iguazio.com/api/systems/${system_id}", returnStdout: true)
+                    system_config = readJSON(text: sys_conf)
+                    env.V3IO_DATAPLANE_URL = system_config['status']['tenants'][1]['status']['services']['webapi']['api_urls']['https']
+                    env.V3IO_DATAPLANE_USERNAME = system_config['spec']['tenants'][1]['spec']['resources'][0]['users'][0]['username']
+                    env.V3IO_CONTROLPLANE_URL = system_config['status']['tenants'][1]['status']['services']['dashboard']['urls']['https']
+                    env.V3IO_CONTROLPLANE_USERNAME = system_config['spec']['tenants'][1]['spec']['resources'][0]['users'][0]['username']
+                    env.V3IO_CONTROLPLANE_PASSWORD = system_config['spec']['tenants'][1]['spec']['resources'][0]['users'][0]['password']
+                    env.V3IO_DATAPLANE_ACCESS_KEY = sh(script: "./hack/script/generate_access_key.sh", returnStdout: true).split('=')[1].trim()
 
-                    sh """
+                    try {
+                        withCredentials([
+                                usernamePassword(credentialsId: 'igz_admin', usernameVariable: 'V3IO_CONTROLPLANE_IGZ_ADMIN_USERNAME', passwordVariable: 'V3IO_CONTROLPLANE_IGZ_ADMIN_PASSWORD'),
+                        ]) {
+
+                            sh """
                 echo "testting"
                 make test-system-in-docker
                 """
-                }
+                        } catch (err) {
+                            echo err.getMessage()
+                            echo "will continue to next stage"
+                        } finally {
+                            echo "delete sysytem:  ${system_id}"
+                        }
 
-            }
+
+                    }
+                }
 //
 //
 //
@@ -128,17 +146,16 @@ timestamps {
 //
 //            }
 
-            stage('Delete  system') {
-                stages.delete_system(system_id)
-            }
+                stage('Delete  system') {
+                    stages.delete_system(system_id)
+                }
 
+
+            }
 
 
         }
 
 
     }
-
-
-}
 
