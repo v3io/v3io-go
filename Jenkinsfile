@@ -5,15 +5,6 @@ def props = [
         disableConcurrentBuilds()
 ]
 
-properties([
-        buildDiscarder(logRotator(artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '5', numToKeepStr: '10')),
-        parameters([
-                string(name: 'deploy', defaultValue: 'false',
-                        description: 'for create new system', trim: true)
-
-        ]),
-
-])
 
 sys_conf = ""
 
