@@ -94,14 +94,17 @@ type Content struct {
 }
 
 type CommonPrefix struct {
-	Prefix       string   `xml:"Prefix"`       // directory name
-	LastModified string   `xml:"LastModified"` // Date in format time.RFC3339: "2019-06-02T14:30:39.18Z"
-	AccessTime   string   `xml:"AccessTime"`   // Date in format time.RFC3339: "2019-06-02T14:30:39.18Z"
-	CreatingTime string   `xml:"CreatingTime"` // Date in format time.RFC3339: "2019-06-02T14:30:39.18Z"
-	Mode         FileMode `xml:"Mode"`         // octal number, e.g. 040775
-	GID          string   `xml:"GID"`          // Hexadecimal representation of GID (e.g. "3e8" -> i.e. "0x3e8" == 1000)
-	UID          string   `xml:"UID"`          // Hexadecimal representation of UID (e.g. "3e8" -> i.e. "0x3e8" == 1000)
-	InodeNumber  *uint64  `xml:"InodeNumber"`  // iNode number
+	Prefix                 string   `xml:"Prefix"`               // directory name
+	LastModified           string   `xml:"LastModified"`         // Date in format time.RFC3339: "2019-06-02T14:30:39.18Z"
+	AccessTime             string   `xml:"AccessTime"`           // Date in format time.RFC3339: "2019-06-02T14:30:39.18Z"
+	CreatingTime           string   `xml:"CreatingTime"`         // Date in format time.RFC3339: "2019-06-02T14:30:39.18Z"
+	Mode                   FileMode `xml:"Mode"`                 // octal number, e.g. 040775
+	GID                    string   `xml:"GID"`                  // Hexadecimal representation of GID (e.g. "3e8" -> i.e. "0x3e8" == 1000)
+	UID                    string   `xml:"UID"`                  // Hexadecimal representation of UID (e.g. "3e8" -> i.e. "0x3e8" == 1000)
+	InodeNumber            *uint64  `xml:"InodeNumber"`          // iNode number
+	ShardCount             int      `xml:"ShardCount"`           // For stream-dirs only - the number of shards in the stream
+	RetentionPeriodHours   int      `xml:"RetentionPeriodHours"` // For stream-dirs only - the shard retention (in hours)
+	RetentionPeriodSeconds int      `xml:"RetentionPeriodSec"`   // For stream-dirs only - the shard retention (in seconds)
 }
 
 type FileMode string
