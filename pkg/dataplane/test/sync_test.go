@@ -212,6 +212,55 @@ func (suite *syncContainerTestSuite) TestGetContainerContentsDirsWithAllAttrs() 
 	}
 }
 
+func (suite *syncContainerTestSuite) TestGetContainerContentsStreamDirsWithAllAttrs() {
+	path := fmt.Sprintf("tmp/test/sync_test/TestGetContainerContentsStreamDirsWithAllAttrs/%d/", time.Now().Unix())
+
+	const (
+		shard_count            = 12
+		retention_period_hours = 2
+	)
+
+	// Create some stream content (stream directory and shards)
+	createStreamInput := &v3io.CreateStreamInput{}
+	for i := 1; i <= 10; i++ {
+		createStreamInput.Path = fmt.Sprintf("%sstream-%d/", path, i)
+		createStreamInput.ShardCount = shard_count
+		createStreamInput.RetentionPeriodHours = retention_period_hours
+
+		// when run against a context
+		suite.populateDataPlaneInput(&createStreamInput.DataPlaneInput)
+		err := suite.container.CreateStreamSync(createStreamInput)
+		suite.Require().NoError(err, "Failed to create test content")
+	}
+
+	getContainerContentsInput := v3io.GetContainerContentsInput{
+		Path:             path,
+		GetAllAttributes: true,
+		DirectoriesOnly:  true,
+		Limit:            10,
+	}
+
+	// when run against a context
+	suite.populateDataPlaneInput(&getContainerContentsInput.DataPlaneInput)
+
+	// get container contents
+	response, err := suite.container.GetContainerContentsSync(&getContainerContentsInput)
+	suite.Require().NoError(err, "Failed to get container contents")
+	response.Release()
+
+	getContainerContentsOutput := response.Output.(*v3io.GetContainerContentsOutput)
+	suite.Require().Empty(len(getContainerContentsOutput.Contents))
+	suite.Require().Equal(10, len(getContainerContentsOutput.CommonPrefixes))
+	suite.Require().Equal(path+"stream-9", getContainerContentsOutput.NextMarker)
+	suite.Require().Equal(false, getContainerContentsOutput.IsTruncated)
+
+	for _, prefix := range getContainerContentsOutput.CommonPrefixes {
+		validateCommonPrefix(suite, &prefix, true)
+		suite.Require().Equal(shard_count, prefix.ShardCount)
+		suite.Require().Equal(retention_period_hours, prefix.RetentionPeriodHours)
+	}
+}
+
 // TODO: fix. Broken with:
 // Messages:   	Failed to update test directory
 // due to:
