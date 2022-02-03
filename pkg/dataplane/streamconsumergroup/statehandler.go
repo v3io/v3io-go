@@ -12,7 +12,10 @@ import (
 
 const stateContentsAttributeKey string = "state"
 
-var errNoFreeShardGroups = errors.New("No free shard groups")
+var (
+	errNoFreeShardGroups = errors.New("No free shard groups")
+	errShardRetention    = errors.New("Could not retain shard group")
+)
 
 type stateHandler struct {
 	logger       logger.Logger
@@ -33,8 +36,16 @@ func newStateHandler(member *member) (*stateHandler, error) {
 func (sh *stateHandler) start() error {
 
 	// stops on stop()
-	go sh.refreshStatePeriodically()
+	//go sh.refreshStatePeriodically()
+	go func() {
+		err := sh.refreshStatePeriodically()
+		if err != nil {
 
+			// signal that the Handler needs to be restarted
+			// tell the consumer group Handler to shutdown (or restart)
+			sh.member.handler.SignalRestart(sh.member.session) // nolint: errcheck
+		}
+	}()
 	return nil
 }
 
@@ -77,7 +88,7 @@ func (sh *stateHandler) getSessionState(state *State, memberID string) (*Session
 	return nil, errors.Errorf("Member state not found: %s", memberID)
 }
 
-func (sh *stateHandler) refreshStatePeriodically() {
+func (sh *stateHandler) refreshStatePeriodically() error {
 	var err error
 
 	// guaranteed to only be REPLACED by a new instance - not edited. as such, once this is initialized
@@ -94,6 +105,13 @@ func (sh *stateHandler) refreshStatePeriodically() {
 			} else {
 				lastState, err = sh.refreshState()
 				if err != nil {
+
+					// in case of shard retention error we want to signal the member to restart
+					if errors.Cause(err) == errShardRetention {
+						sh.logger.WarnWith("Failed getting state on shard retention",
+							"err", errors.GetErrorStackString(err, 10))
+						return err
+					}
 					sh.logger.WarnWith("Failed getting state", "err", errors.GetErrorStackString(err, 10))
 				}
 
@@ -105,6 +123,13 @@ func (sh *stateHandler) refreshStatePeriodically() {
 		case <-time.After(sh.member.streamConsumerGroup.config.Session.HeartbeatInterval):
 			lastState, err = sh.refreshState()
 			if err != nil {
+
+				// in case of shard retention error we want to signal the member to restart
+				if errors.Cause(err) == errShardRetention {
+					sh.logger.WarnWith("Failed getting state on shard retention",
+						"err", errors.GetErrorStackString(err, 10))
+					return err
+				}
 				sh.logger.WarnWith("Failed refreshing state", "err", errors.GetErrorStackString(err, 10))
 				continue
 			}
@@ -112,7 +137,7 @@ func (sh *stateHandler) refreshStatePeriodically() {
 		// if we're told to stop, exit the loop
 		case <-sh.stopChan:
 			sh.logger.Debug("Stopping")
-			return
+			return nil
 		}
 	}
 }
@@ -150,15 +175,38 @@ func (sh *stateHandler) createSessionState(state *State) error {
 		state.SessionStates = []*SessionState{}
 	}
 
-	// assign shards
-	shards, err := sh.assignShards(sh.member.streamConsumerGroup.maxReplicas, sh.member.streamConsumerGroup.totalNumShards, state)
-	if err != nil {
-		return errors.Wrap(err, "Failed resolving shards for session")
+	var shards []int
+	var err error
+
+	if sh.member.retainShards {
+
+		// try to retain the originally assigned shard group
+		shards, err = sh.retainShards(sh.member.shardGroup, sh.member.id, state)
+
+		// shards were "stolen" - set retainShards flag to false and commit suicide
+		if err != nil {
+			sh.logger.DebugWith("Failed to retain shards",
+				"shards", shards,
+				"state", state)
+			sh.member.retainShards = false // TOMER - not sure if needed
+			return err
+		}
+	} else {
+
+		// assign shards
+		shards, err = sh.assignShards(sh.member.streamConsumerGroup.maxReplicas, sh.member.streamConsumerGroup.totalNumShards, state)
+		if err != nil {
+			return errors.Wrap(err, "Failed resolving shards for session")
+		}
 	}
 
 	sh.logger.DebugWith("Assigned shards",
 		"shards", shards,
 		"state", state)
+
+	// set retainShards flag to true
+	sh.member.retainShards = true
+	sh.member.shardGroup = shards
 
 	state.SessionStates = append(state.SessionStates, &SessionState{
 		MemberID:      sh.member.id,
@@ -207,6 +255,23 @@ func (sh *stateHandler) assignShards(maxReplicas int, numShards int, state *Stat
 	}
 
 	return nil, errNoFreeShardGroups
+}
+
+func (sh *stateHandler) retainShards(memberShardGroup []int, memberID string, state *State) ([]int, error) {
+
+	for _, sessionState := range state.SessionStates {
+		if common.IntSlicesEqual(memberShardGroup, sessionState.Shards) {
+			if sessionState.MemberID == memberID {
+				return memberShardGroup, nil
+			}
+
+			// original shard group was taken
+			return nil, errShardRetention
+		}
+	}
+
+	// should not get here
+	return nil, errors.New("Failed to retain shards, shard group not found")
 }
 
 func (sh *stateHandler) getReplicaShardGroups(maxReplicas int, numShards int) ([][]int, error) {

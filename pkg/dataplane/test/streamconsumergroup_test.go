@@ -393,6 +393,11 @@ func (m *member) ConsumeClaim(session streamconsumergroup.Session, claim streamc
 	return nil
 }
 
+func (m *member) SignalRestart(session streamconsumergroup.Session) error {
+	m.logger.DebugWith("SignalRestart called")
+	return nil
+}
+
 func (m *member) start(expectedStartRecordIndex []int, numberOfRecordToConsume []int) {
 	m.expectedStartRecordIndex = expectedStartRecordIndex
 	m.numberOfRecordToConsume = numberOfRecordToConsume

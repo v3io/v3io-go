@@ -110,6 +110,11 @@ func (scg *streamConsumerGroup) setState(modifier stateModifier) (*State, error)
 
 		modifiedState, err = modifier(state)
 		if err != nil {
+			if errors.Cause(err) == errShardRetention {
+
+				// if shard retention failed, member needs to be restarted, so we can stop retrying
+				return false, errors.Wrap(errShardRetention, "Failed modifying state")
+			}
 			return true, errors.Wrap(err, "Failed modifying state")
 		}
 

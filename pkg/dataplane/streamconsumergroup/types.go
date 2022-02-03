@@ -27,6 +27,9 @@ type Handler interface {
 	// Once the Messages() channel is closed, the Handler must finish its processing
 	// loop and exit.
 	ConsumeClaim(Session, Claim) error
+
+	// SignalRestart is used to signal that the handler needs to be restarted
+	SignalRestart(Session) error
 }
 
 type RecordBatch struct {

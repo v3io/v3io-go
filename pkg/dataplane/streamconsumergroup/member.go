@@ -16,6 +16,8 @@ type member struct {
 	sequenceNumberHandler *sequenceNumberHandler
 	handler               Handler
 	session               Session
+	retainShards          bool
+	shardGroup            []int
 }
 
 func NewMember(streamConsumerGroupInterface StreamConsumerGroup, name string) (Member, error) {
@@ -46,7 +48,7 @@ func NewMember(streamConsumerGroupInterface StreamConsumerGroup, name string) (M
 		return nil, errors.Wrap(err, "Failed starting stream consumer group state handler")
 	}
 
-	// create & start an location handler for the stream
+	// create & start a location handler for the stream
 	newMember.sequenceNumberHandler, err = newSequenceNumberHandler(&newMember)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed creating stream consumer group location handler")
