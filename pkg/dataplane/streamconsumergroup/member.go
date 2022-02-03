@@ -102,3 +102,8 @@ func (m *member) Close() error {
 
 	return nil
 }
+
+// TOMER - only for debugging
+func (m *member) GetShardGroup() []int {
+	return m.shardGroup
+}
