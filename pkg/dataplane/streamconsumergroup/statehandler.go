@@ -40,10 +40,11 @@ func (sh *stateHandler) start() error {
 	go func() {
 		err := sh.refreshStatePeriodically()
 		if err != nil {
+			if errors.RootCause(err) == errShardRetention {
 
-			// signal that the Handler needs to be restarted
-			// tell the consumer group Handler to shutdown (or restart)
-			sh.member.handler.SignalRestart(sh.member.session) // nolint: errcheck
+				// signal that the Handler needs to be restarted
+				sh.member.handler.Abort(sh.member.session) // nolint: errcheck
+			}
 		}
 	}()
 	return nil
@@ -107,10 +108,10 @@ func (sh *stateHandler) refreshStatePeriodically() error {
 				if err != nil {
 
 					// in case of shard retention error we want to signal the member to restart
-					if errors.Cause(err) == errShardRetention {
+					if errors.RootCause(err) == errShardRetention {
 						sh.logger.WarnWith("Failed getting state on shard retention",
 							"err", errors.GetErrorStackString(err, 10))
-						return err
+						return errors.Wrap(err, "Failed refreshing state")
 					}
 					sh.logger.WarnWith("Failed getting state", "err", errors.GetErrorStackString(err, 10))
 				}
@@ -125,10 +126,10 @@ func (sh *stateHandler) refreshStatePeriodically() error {
 			if err != nil {
 
 				// in case of shard retention error we want to signal the member to restart
-				if errors.Cause(err) == errShardRetention {
+				if errors.RootCause(err) == errShardRetention {
 					sh.logger.WarnWith("Failed getting state on shard retention",
 						"err", errors.GetErrorStackString(err, 10))
-					return err
+					return errors.Wrap(err, "Failed refreshing state")
 				}
 				sh.logger.WarnWith("Failed refreshing state", "err", errors.GetErrorStackString(err, 10))
 				continue
@@ -181,7 +182,7 @@ func (sh *stateHandler) createSessionState(state *State) error {
 	if sh.member.retainShards {
 
 		// try to retain the originally assigned shard group
-		shards, err = sh.retainShards(sh.member.shardGroup, sh.member.id, state)
+		shards, err = sh.retainShards(sh.member.shardGroupToRetain, sh.member.id, state)
 
 		// shards were "stolen" - set retainShards flag to false and commit suicide
 		if err != nil {
@@ -206,7 +207,7 @@ func (sh *stateHandler) createSessionState(state *State) error {
 
 	// set retainShards flag to true
 	sh.member.retainShards = true
-	sh.member.shardGroup = shards
+	sh.member.shardGroupToRetain = shards
 
 	state.SessionStates = append(state.SessionStates, &SessionState{
 		MemberID:      sh.member.id,

@@ -393,8 +393,8 @@ func (m *member) ConsumeClaim(session streamconsumergroup.Session, claim streamc
 	return nil
 }
 
-func (m *member) SignalRestart(session streamconsumergroup.Session) error {
-	m.logger.DebugWith("SignalRestart called")
+func (m *member) Abort(session streamconsumergroup.Session) error {
+	m.logger.DebugWith("Abort called")
 	return nil
 }
 

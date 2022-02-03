@@ -17,7 +17,7 @@ type member struct {
 	handler               Handler
 	session               Session
 	retainShards          bool
-	shardGroup            []int
+	shardGroupToRetain    []int
 }
 
 func NewMember(streamConsumerGroupInterface StreamConsumerGroup, name string) (Member, error) {
@@ -101,9 +101,4 @@ func (m *member) Close() error {
 	}
 
 	return nil
-}
-
-// TOMER - only for debugging
-func (m *member) GetShardGroup() []int {
-	return m.shardGroup
 }
