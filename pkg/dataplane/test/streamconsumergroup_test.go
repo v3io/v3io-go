@@ -203,6 +203,21 @@ func (suite *streamConsumerGroupTestSuite) verifyShardSequenceNumbers(numShards 
 	}
 }
 
+////
+//// shard retention tests
+////
+//
+//type shardRetentionTestSuite struct {
+//	testSuite
+//}
+//
+//func (suite *shardRetentionTestSuite) TestShardRetention() {
+//
+//	member := member{
+//
+//	}
+//}
+
 //
 // Orchestrates a group of members
 //
@@ -395,6 +410,7 @@ func (m *member) ConsumeClaim(session streamconsumergroup.Session, claim streamc
 
 func (m *member) Abort(session streamconsumergroup.Session) error {
 	m.logger.DebugWith("Abort called")
+	m.stop()
 	return nil
 }
 
@@ -424,4 +440,5 @@ func (m *member) getShardIDs() []int {
 
 func TestStreamConsumerGroupTestSuite(t *testing.T) {
 	suite.Run(t, new(streamConsumerGroupTestSuite))
+	//suite.Run(t, new(shardRetentionTestSuite))
 }
