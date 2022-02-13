@@ -1,17 +1,20 @@
 package test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/v3io/v3io-go/pkg/common"
 	v3io "github.com/v3io/v3io-go/pkg/dataplane"
 	"github.com/v3io/v3io-go/pkg/dataplane/streamconsumergroup"
 
 	"github.com/nuclio/logger"
 	"github.com/stretchr/testify/suite"
+	"golang.org/x/sync/errgroup"
 )
 
 type recordData struct {
@@ -122,12 +125,186 @@ func (suite *streamConsumerGroupTestSuite) TestLocationHandling() {
 	time.Sleep(3 * time.Second)
 }
 
+func (suite *streamConsumerGroupTestSuite) TestStateHandlerRetainShards() {
+	numShards := 32
+	members := 4
+	expectedInitialRecordIndex := make([]int, numShards)
+	numberOfRecordToConsume := make([]int, numShards)
+	for i := 0; i < len(numberOfRecordToConsume); i++ {
+		numberOfRecordToConsume[i] = 1
+	}
+	suite.createStream(suite.streamPath, numShards)
+	suite.writeRecords(numberOfRecordToConsume)
+	streamConsumerGroup := suite.createStreamConsumerGroup(members)
+	memberGroup := newMemberGroup(suite,
+		streamConsumerGroup,
+		numShards,
+		members,
+		expectedInitialRecordIndex,
+		numberOfRecordToConsume,
+	)
+
+	// wait a bit for things to happen - the members should all connect, get their partitions and start consuming
+	// but not actually consume anything
+	time.Sleep(10 * time.Second)
+
+	memberGroup.verifyClaimShards(numShards, []int{numShards / members})
+	memberGroup.verifyNumRecordsConsumed(numberOfRecordToConsume)
+
+	// get the num shards from the observer
+	observedNumShards, err := streamConsumerGroup.GetNumShards()
+	suite.Require().NoError(err)
+	suite.Require().Equal(numShards, observedNumShards)
+
+	// get the state from the observer
+	observedState, err := streamConsumerGroup.GetState()
+	suite.Require().NoError(err)
+	suite.Require().Len(observedState.SessionStates, members)
+
+	stopMembersErrGroup, _ := errgroup.WithContext(context.TODO())
+
+	originalShardGroups := map[string][]int{}
+
+	// stop
+	for i := 0; i < members/2; i++ {
+		member := memberGroup.members[i]
+		suite.logger.DebugWith("TOMER - Stopping member", "memberID", member.streamConsumerGroupMember.GetID())
+
+		// copy shardsToRetain list for every member
+		if member.streamConsumerGroupMember.GetRetainShardFlag() {
+			suite.logger.DebugWith("TOMER - member needs to retain flag, saving shardsToRetain",
+				"memberID", member.streamConsumerGroupMember.GetID(),
+				"shardsToRetain", member.streamConsumerGroupMember.GetShardsToRetain())
+			originalShardGroups[member.streamConsumerGroupMember.GetID()] = make([]int, len(member.streamConsumerGroupMember.GetShardsToRetain()))
+			copy(originalShardGroups[member.streamConsumerGroupMember.GetID()], member.streamConsumerGroupMember.GetShardsToRetain())
+		}
+
+		stopMembersErrGroup.Go(func() error {
+
+			// stall member from functioning
+			suite.logger.DebugWith("stopping member", "memberID", member.id)
+			member.stop()
+			suite.Require().NoError(err)
+
+			duration := 1 * time.Second
+			return common.RetryFunc(context.TODO(),
+				suite.logger,
+				30,
+				&duration,
+				nil,
+				func(attempt int) (bool, error) {
+					observedState, err := streamConsumerGroup.GetState()
+					suite.Require().NoError(err)
+					for _, sessionState := range observedState.SessionStates {
+						if sessionState.MemberID == member.streamConsumerGroupMember.GetID() {
+							suite.logger.DebugWith("Session state was not removed just yet")
+							return true, nil
+						}
+					}
+
+					suite.logger.DebugWith("Session state was removed",
+						"observedState", observedState,
+						"memberID", member.id)
+					return false, nil
+				})
+		})
+
+	}
+
+	suite.Require().NoError(stopMembersErrGroup.Wait())
+
+	// get the state from the observer again
+	observedState, err = streamConsumerGroup.GetState()
+	suite.Require().NoError(err)
+	suite.Require().Len(observedState.SessionStates, members/2)
+
+	suite.logger.DebugWith("Observed state after stopping members", "observedState", observedState)
+
+	// check retain shard flag
+	for _, member := range memberGroup.members {
+		suite.logger.DebugWith("Checking retainShard flags for member",
+			"memberID", member.streamConsumerGroupMember.GetID(),
+			"retainShardFlag", member.streamConsumerGroupMember.GetRetainShardFlag())
+	}
+
+	// start
+	startMembersErrGroup, _ := errgroup.WithContext(context.TODO())
+	for i := 0; i < members/2; i++ {
+		member := memberGroup.members[i]
+		suite.logger.DebugWith("TOMER - Starting member", "memberID", member.streamConsumerGroupMember.GetID())
+		startMembersErrGroup.Go(func() error {
+			if err := member.streamConsumerGroupMember.Start(); err != nil {
+				return err
+			}
+
+			// blocking
+			go func() {
+				suite.Require().NoError(member.streamConsumerGroupMember.Consume(member))
+			}()
+
+			duration := 1 * time.Second
+			return common.RetryFunc(context.TODO(),
+				suite.logger,
+				30,
+				&duration,
+				nil,
+				func(attempt int) (bool, error) {
+					observedState, err := streamConsumerGroup.GetState()
+					suite.Require().NoError(err)
+
+					for _, sessionState := range observedState.SessionStates {
+						if sessionState.MemberID == member.streamConsumerGroupMember.GetID() {
+							suite.logger.DebugWith("retained shards",
+								"shards", sessionState.Shards,
+								"memberID", sessionState.MemberID)
+							return false, nil
+						}
+					}
+
+					suite.logger.DebugWith("Session state shards were no retained just yet",
+						"sessionStates", observedState.SessionStates,
+						"memberID", member.streamConsumerGroupMember.GetID())
+					return true, nil
+
+				})
+		})
+	}
+	suite.Require().NoError(startMembersErrGroup.Wait())
+
+	// get the state from the observer again
+	observedState, err = streamConsumerGroup.GetState()
+	suite.Require().NoError(err)
+	suite.Require().Len(observedState.SessionStates, members)
+
+	suite.logger.DebugWith("Observed state after starting members", "observedState", observedState)
+
+	// check retain shard flag
+	for _, member := range memberGroup.members {
+		suite.logger.DebugWith("Checking retainShard flags for member",
+			"memberID", member.streamConsumerGroupMember.GetID(),
+			"retainShardFlag", member.streamConsumerGroupMember.GetRetainShardFlag())
+	}
+
+	// check if each member's shards are different from the original shards
+	for i := 0; i < members/2; i++ {
+		member := memberGroup.members[i]
+		memberID := member.streamConsumerGroupMember.GetID()
+		suite.logger.DebugWith("Shard comparison",
+			"memberID", memberID,
+			"memberShards", member.streamConsumerGroupMember.GetShardsToRetain(),
+			"originalShards", originalShardGroups[memberID])
+		suite.Require().ElementsMatch(originalShardGroups[memberID], member.streamConsumerGroupMember.GetShardsToRetain())
+	}
+}
+
 func (suite *streamConsumerGroupTestSuite) createStreamConsumerGroup(maxReplicas int) streamconsumergroup.StreamConsumerGroup {
 	consumerGroupName := "cg0"
 
 	streamConsumerGroupConfig := streamconsumergroup.NewConfig()
 	streamConsumerGroupConfig.Claim.RecordBatchFetch.NumRecordsInBatch = 10
 	streamConsumerGroupConfig.Claim.RecordBatchFetch.Interval = 50 * time.Millisecond
+	streamConsumerGroupConfig.Session.Timeout = 10 * time.Second
+	streamConsumerGroupConfig.Session.HeartbeatInterval = 50 * time.Millisecond
 
 	streamConsumerGroup, err := streamconsumergroup.NewStreamConsumerGroup(suite.logger,
 		consumerGroupName,
@@ -203,21 +380,6 @@ func (suite *streamConsumerGroupTestSuite) verifyShardSequenceNumbers(numShards 
 	}
 }
 
-////
-//// shard retention tests
-////
-//
-//type shardRetentionTestSuite struct {
-//	testSuite
-//}
-//
-//func (suite *shardRetentionTestSuite) TestShardRetention() {
-//
-//	member := member{
-//
-//	}
-//}
-
 //
 // Orchestrates a group of members
 //
@@ -242,6 +404,7 @@ func newMemberGroup(suite *streamConsumerGroupTestSuite,
 	memberChan := make(chan *member, numMembers)
 
 	for memberIdx := 0; memberIdx < numMembers; memberIdx++ {
+		memberIdx := memberIdx
 		go func() {
 			memberInstance := newMember(suite,
 				streamConsumerGroup,
@@ -409,8 +572,11 @@ func (m *member) ConsumeClaim(session streamconsumergroup.Session, claim streamc
 }
 
 func (m *member) Abort(session streamconsumergroup.Session) error {
-	m.logger.DebugWith("Abort called")
+	m.logger.DebugWith("Abort called", "memberID", m.streamConsumerGroupMember.GetID())
 	m.stop()
+	//expectedStartRecordIndex := m.expectedStartRecordIndex
+	//numberOfRecordToConsume := m.numberOfRecordToConsume
+	//m.start(expectedStartRecordIndex, numberOfRecordToConsume)
 	return nil
 }
 
@@ -440,5 +606,4 @@ func (m *member) getShardIDs() []int {
 
 func TestStreamConsumerGroupTestSuite(t *testing.T) {
 	suite.Run(t, new(streamConsumerGroupTestSuite))
-	//suite.Run(t, new(shardRetentionTestSuite))
 }

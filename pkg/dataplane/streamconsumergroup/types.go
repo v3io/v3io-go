@@ -48,6 +48,10 @@ type StreamConsumerGroup interface {
 type Member interface {
 	Consume(Handler) error
 	Close() error
+	Start() error
+	GetID() string
+	GetRetainShardFlag() bool
+	GetShardsToRetain() []int
 }
 
 type Session interface {

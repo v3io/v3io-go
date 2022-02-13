@@ -109,9 +109,9 @@ func (sh *stateHandler) refreshStatePeriodically() error {
 
 					// in case of shard retention error we want to signal the member to restart
 					if errors.RootCause(err) == errShardRetention {
-						sh.logger.WarnWith("Failed getting state on shard retention",
+						sh.logger.WarnWith("Failed getting state on shard retention (requested by member)",
 							"err", errors.GetErrorStackString(err, 10))
-						return errors.Wrap(err, "Failed refreshing state")
+						return errors.Wrap(err, "Failed refreshing")
 					}
 					sh.logger.WarnWith("Failed getting state", "err", errors.GetErrorStackString(err, 10))
 				}
@@ -127,7 +127,7 @@ func (sh *stateHandler) refreshStatePeriodically() error {
 
 				// in case of shard retention error we want to signal the member to restart
 				if errors.RootCause(err) == errShardRetention {
-					sh.logger.WarnWith("Failed getting state on shard retention",
+					sh.logger.WarnWith("Failed getting state on shard retention (periodic refresh)",
 						"err", errors.GetErrorStackString(err, 10))
 					return errors.Wrap(err, "Failed refreshing state")
 				}
@@ -152,15 +152,11 @@ func (sh *stateHandler) refreshState() (*State, error) {
 		}
 
 		// find our session by member ID
-		sh.logger.DebugWith("TOMER - finding session state by memberID", "memberID", sh.member.id)
 		sessionState := state.findSessionStateByMemberID(sh.member.id)
-		sh.logger.DebugWith("TOMER - Found session state by memberID",
-			"memberID", sh.member.id,
-			"sessionState", sessionState)
 
 		// session already exists - just set the last heartbeat
 		if sessionState != nil {
-			sh.logger.Debug("TOMER - session state exists, updating heartbeat")
+			//sh.logger.Debug("TOMER - session state exists, updating heartbeat")
 			sessionState.LastHeartbeat = time.Now()
 
 			// we're done
@@ -174,6 +170,13 @@ func (sh *stateHandler) refreshState() (*State, error) {
 		}
 
 		return state, nil
+
+	}, func() error {
+
+		// set retainShards flag to true
+		sh.member.retainShards = true
+
+		return nil
 	})
 }
 
@@ -196,14 +199,13 @@ func (sh *stateHandler) createSessionState(state *State) error {
 		// shards were "stolen" - set retainShards flag to false and commit suicide
 		if err != nil {
 			sh.logger.DebugWith("Failed to retain shards",
-				"shards", shards,
+				"memberID", sh.member.id,
+				"shardsToRetain", sh.member.shardGroupToRetain,
 				"state", state)
-			sh.member.retainShards = false // TOMER - not sure if needed
+			sh.member.retainShards = false
 			return err
 		}
 	} else {
-		sh.logger.DebugWith("TOMER - Member not retaining shards",
-			"memberID", sh.member.id)
 
 		// assign shards
 		shards, err = sh.assignShards(sh.member.streamConsumerGroup.maxReplicas, sh.member.streamConsumerGroup.totalNumShards, state)
@@ -216,8 +218,7 @@ func (sh *stateHandler) createSessionState(state *State) error {
 		"shards", shards,
 		"state", state)
 
-	// set retainShards flag to true
-	sh.member.retainShards = true
+	// save shards to retain on the member itself
 	sh.member.shardGroupToRetain = shards
 
 	state.SessionStates = append(state.SessionStates, &SessionState{
@@ -282,8 +283,8 @@ func (sh *stateHandler) retainShards(memberShardGroup []int, memberID string, st
 		}
 	}
 
-	// should not get here
-	return nil, errors.New("Failed to retain shards, shard group not found")
+	// shard group to retain is not taken by any member - original member can retain it
+	return memberShardGroup, nil
 }
 
 func (sh *stateHandler) getReplicaShardGroups(maxReplicas int, numShards int) ([][]int, error) {
@@ -323,7 +324,7 @@ func (sh *stateHandler) getAssignEmptyShardGroup(replicaShardGroups [][]int, sta
 }
 
 func (sh *stateHandler) removeStaleSessionStates(state *State) error {
-	sh.logger.Debug("TOMER - removing stale session states")
+	//sh.logger.Debug("TOMER - removing stale session states")
 
 	// clear out the sessions since we only want the valid sessions
 	var activeSessionStates []*SessionState

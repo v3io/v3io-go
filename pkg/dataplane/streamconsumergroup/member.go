@@ -43,10 +43,10 @@ func NewMember(streamConsumerGroupInterface StreamConsumerGroup, name string) (M
 		return nil, errors.Wrap(err, "Failed creating stream consumer group state handler")
 	}
 
-	err = newMember.stateHandler.start()
-	if err != nil {
-		return nil, errors.Wrap(err, "Failed starting stream consumer group state handler")
-	}
+	//err = newMember.stateHandler.start()
+	//if err != nil {
+	//	return nil, errors.Wrap(err, "Failed starting stream consumer group state handler")
+	//}
 
 	// create & start a location handler for the stream
 	newMember.sequenceNumberHandler, err = newSequenceNumberHandler(&newMember)
@@ -55,9 +55,14 @@ func NewMember(streamConsumerGroupInterface StreamConsumerGroup, name string) (M
 	}
 
 	// if there's no member name, just observe
-	err = newMember.sequenceNumberHandler.start()
+	//err = newMember.sequenceNumberHandler.start()
+	//if err != nil {
+	//	return nil, errors.Wrap(err, "Failed starting stream consumer group state handler")
+	//}
+
+	err = newMember.Start()
 	if err != nil {
-		return nil, errors.Wrap(err, "Failed starting stream consumer group state handler")
+		return nil, errors.Wrap(err, "Failed starting new member")
 	}
 
 	return &newMember, nil
@@ -87,6 +92,8 @@ func (m *member) Consume(handler Handler) error {
 func (m *member) Close() error {
 	m.logger.DebugWith("Closing consumer group")
 
+	m.retainShards = false
+
 	if err := m.stateHandler.stop(); err != nil {
 		return errors.Wrapf(err, "Failed stopping state handler")
 	}
@@ -101,4 +108,28 @@ func (m *member) Close() error {
 	}
 
 	return nil
+}
+
+func (m *member) Start() error {
+	if err := m.stateHandler.start(); err != nil {
+		return errors.Wrap(err, "Failed starting stream consumer group state handler")
+	}
+
+	if err := m.sequenceNumberHandler.start(); err != nil {
+		return errors.Wrap(err, "Failed starting stream consumer group state handler")
+	}
+
+	return nil
+}
+
+func (m *member) GetID() string {
+	return m.id
+}
+
+func (m *member) GetRetainShardFlag() bool {
+	return m.retainShards
+}
+
+func (m *member) GetShardsToRetain() []int {
+	return m.shardGroupToRetain
 }
