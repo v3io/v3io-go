@@ -43,6 +43,7 @@ func (sh *stateHandler) start() error {
 			if errors.RootCause(err) == errShardRetention {
 
 				// signal that the Handler needs to be restarted
+				sh.logger.DebugWith("Aborting member", "memberID", sh.member.id)
 				sh.member.handler.Abort(sh.member.session) // nolint: errcheck
 			}
 		}

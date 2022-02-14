@@ -92,8 +92,6 @@ func (m *member) Consume(handler Handler) error {
 func (m *member) Close() error {
 	m.logger.DebugWith("Closing consumer group")
 
-	m.retainShards = false
-
 	if err := m.stateHandler.stop(); err != nil {
 		return errors.Wrapf(err, "Failed stopping state handler")
 	}
