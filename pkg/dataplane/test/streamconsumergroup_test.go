@@ -126,8 +126,8 @@ func (suite *streamConsumerGroupTestSuite) TestLocationHandling() {
 }
 
 func (suite *streamConsumerGroupTestSuite) TestStateHandlerRetainShards() {
-	numShards := 32
-	members := 4
+	numShards := 64
+	members := 32
 	expectedInitialRecordIndex := make([]int, numShards)
 	numberOfRecordToConsume := make([]int, numShards)
 	for i := 0; i < len(numberOfRecordToConsume); i++ {
@@ -146,7 +146,7 @@ func (suite *streamConsumerGroupTestSuite) TestStateHandlerRetainShards() {
 
 	// wait a bit for things to happen - the members should all connect, get their partitions and start consuming
 	// but not actually consume anything
-	time.Sleep(10 * time.Second)
+	time.Sleep(25 * time.Second)
 
 	memberGroup.verifyClaimShards(numShards, []int{numShards / members})
 	memberGroup.verifyNumRecordsConsumed(numberOfRecordToConsume)
@@ -297,6 +297,51 @@ func (suite *streamConsumerGroupTestSuite) TestStateHandlerRetainShards() {
 	}
 }
 
+func (suite *streamConsumerGroupTestSuite) TestStateHandlerAbort() {
+	numShards := 32
+	members := 4
+	expectedInitialRecordIndex := make([]int, numShards)
+	numberOfRecordToConsume := make([]int, numShards)
+	for i := 0; i < len(numberOfRecordToConsume); i++ {
+		numberOfRecordToConsume[i] = 1
+	}
+	suite.createStream(suite.streamPath, numShards)
+	suite.writeRecords(numberOfRecordToConsume)
+	streamConsumerGroup := suite.createStreamConsumerGroup(members)
+	memberGroup := newMemberGroup(suite,
+		streamConsumerGroup,
+		numShards,
+		members,
+		expectedInitialRecordIndex,
+		numberOfRecordToConsume,
+	)
+
+	// wait a bit for things to happen - the members should all connect, get their partitions and start consuming
+	// but not actually consume anything
+	time.Sleep(10 * time.Second)
+
+	memberGroup.verifyClaimShards(numShards, []int{numShards / members})
+	memberGroup.verifyNumRecordsConsumed(numberOfRecordToConsume)
+
+	// get the num shards from the observer
+	observedNumShards, err := streamConsumerGroup.GetNumShards()
+	suite.Require().NoError(err)
+	suite.Require().Equal(numShards, observedNumShards)
+
+	// get the state from the observer
+	observedState, err := streamConsumerGroup.GetState()
+	suite.Require().NoError(err)
+	suite.Require().Len(observedState.SessionStates, members)
+
+	// read state file from persistency
+	//memberGroup.getStateFromPersistency()
+
+	// change name of one session
+
+	// make sure abort is called
+
+}
+
 func (suite *streamConsumerGroupTestSuite) createStreamConsumerGroup(maxReplicas int) streamconsumergroup.StreamConsumerGroup {
 	consumerGroupName := "cg0"
 
@@ -379,6 +424,46 @@ func (suite *streamConsumerGroupTestSuite) verifyShardSequenceNumbers(numShards 
 		suite.Require().Equal(uint64(expectedShardSequenceNumbers[shardID]), shardSequenceNumber)
 	}
 }
+
+//func (suite *streamConsumerGroupTestSuite) getStateFromPersistency(streamPath, consumerGroupName string) (*streamconsumergroup.State, error) {
+//
+//	response, err := suite.container.GetItemSync(&v3io.GetItemInput{
+//		Path: suite.getStateFilePath(streamPath, consumerGroupName),
+//		AttributeNames: []string{
+//			suite.stateContentsAttributeKey,
+//		},
+//	})
+//
+//	if err != nil {
+//		errWithStatusCode, errHasStatusCode := err.(v3ioerrors.ErrorWithStatusCode)
+//		if !errHasStatusCode {
+//			return nil, errors.Wrap(err, "Got error without status code")
+//		}
+//
+//		if errWithStatusCode.StatusCode() != 404 {
+//			return nil, errors.Wrap(err, "Failed getting state item")
+//		}
+//
+//		return nil, v3ioerrors.ErrNotFound
+//	}
+//
+//	defer response.Release()
+//
+//	getItemOutput := response.Output.(*v3io.GetItemOutput)
+//
+//	stateContents, err := getItemOutput.Item.GetFieldString(suite.stateContentsAttributeKey)
+//	if err != nil {
+//		return nil, errors.Wrap(err, "Failed getting state attribute")
+//	}
+//
+//	var state v3ioscg.State
+//
+//	if err := json.Unmarshal([]byte(stateContents), &state); err != nil {
+//		return nil, errors.Wrapf(err, "Failed unmarshalling state contents: %s", stateContents)
+//	}
+//
+//	return &state, nil
+//}
 
 //
 // Orchestrates a group of members
