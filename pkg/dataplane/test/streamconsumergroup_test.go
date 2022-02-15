@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"path"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/v3io/v3io-go/pkg/dataplane/streamconsumergroup"
 
 	"github.com/nuclio/logger"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 	"golang.org/x/sync/errgroup"
 )
@@ -333,12 +335,58 @@ func (suite *streamConsumerGroupTestSuite) TestStateHandlerAbort() {
 	suite.Require().NoError(err)
 	suite.Require().Len(observedState.SessionStates, members)
 
+	for _, member := range memberGroup.members {
+		member.On("Abort", mock.Anything).Return(nil)
+	}
+
 	// read state file from persistency
-	//memberGroup.getStateFromPersistency()
+	var state *streamconsumergroup.State
+	consumerGroupName := "cg0"
+	duration := 1 * time.Second
+	err = common.RetryFunc(context.TODO(),
+		suite.logger,
+		10,
+		&duration,
+		nil,
+		func(attempt int) (bool, error) {
+			state, err = suite.getStateFromPersistency(suite.streamPath, consumerGroupName)
+			if err != nil {
+				suite.logger.DebugWith("State was not retrieved from persistency",
+					"err", err)
+				return true, err
+			}
+			return false, nil
+		})
+	suite.Require().NoError(err)
+
+	suite.logger.DebugWith("Got state from persistency", "state", state)
 
 	// change name of one session
+	for i, sessionState := range state.SessionStates {
+		sessionState.MemberID = fmt.Sprintf("some-member-%v", i)
+	}
 
-	// make sure abort is called
+	err = common.RetryFunc(context.TODO(),
+		suite.logger,
+		10,
+		&duration,
+		nil,
+		func(attempt int) (bool, error) {
+			err = suite.setStateInPersistency(suite.streamPath, consumerGroupName, state)
+			if err != nil {
+				suite.logger.DebugWith("State was not set in persistency yet",
+					"err", err)
+				return true, err
+			}
+			return false, nil
+		})
+	suite.Require().NoError(err)
+
+	// make sure abort was called for all members
+	time.Sleep(5 * time.Second)
+	for _, member := range memberGroup.members {
+		member.AssertCalled(suite.T(), "Abort", mock.Anything)
+	}
 
 }
 
@@ -425,45 +473,57 @@ func (suite *streamConsumerGroupTestSuite) verifyShardSequenceNumbers(numShards 
 	}
 }
 
-//func (suite *streamConsumerGroupTestSuite) getStateFromPersistency(streamPath, consumerGroupName string) (*streamconsumergroup.State, error) {
-//
-//	response, err := suite.container.GetItemSync(&v3io.GetItemInput{
-//		Path: suite.getStateFilePath(streamPath, consumerGroupName),
-//		AttributeNames: []string{
-//			suite.stateContentsAttributeKey,
-//		},
-//	})
-//
-//	if err != nil {
-//		errWithStatusCode, errHasStatusCode := err.(v3ioerrors.ErrorWithStatusCode)
-//		if !errHasStatusCode {
-//			return nil, errors.Wrap(err, "Got error without status code")
-//		}
-//
-//		if errWithStatusCode.StatusCode() != 404 {
-//			return nil, errors.Wrap(err, "Failed getting state item")
-//		}
-//
-//		return nil, v3ioerrors.ErrNotFound
-//	}
-//
-//	defer response.Release()
-//
-//	getItemOutput := response.Output.(*v3io.GetItemOutput)
-//
-//	stateContents, err := getItemOutput.Item.GetFieldString(suite.stateContentsAttributeKey)
-//	if err != nil {
-//		return nil, errors.Wrap(err, "Failed getting state attribute")
-//	}
-//
-//	var state v3ioscg.State
-//
-//	if err := json.Unmarshal([]byte(stateContents), &state); err != nil {
-//		return nil, errors.Wrapf(err, "Failed unmarshalling state contents: %s", stateContents)
-//	}
-//
-//	return &state, nil
-//}
+func (suite *streamConsumerGroupTestSuite) getStateFromPersistency(streamPath, consumerGroupName string) (*streamconsumergroup.State, error) {
+	stateContentsAttributeKey := "state"
+
+	response, err := suite.container.GetItemSync(&v3io.GetItemInput{
+		Path: path.Join(streamPath, fmt.Sprintf("%s-state.json", consumerGroupName)),
+		AttributeNames: []string{
+			stateContentsAttributeKey,
+		},
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer response.Release()
+
+	getItemOutput := response.Output.(*v3io.GetItemOutput)
+
+	stateContents, err := getItemOutput.Item.GetFieldString(stateContentsAttributeKey)
+	if err != nil {
+		return nil, err
+	}
+
+	var state streamconsumergroup.State
+
+	err = json.Unmarshal([]byte(stateContents), &state)
+	if err != nil {
+		return nil, err
+	}
+
+	return &state, nil
+}
+
+func (suite *testSuite) setStateInPersistency(streamPath, consumerGroupName string, state *streamconsumergroup.State) error {
+	stateContents, err := json.Marshal(state)
+	if err != nil {
+		return err
+	}
+
+	_, err = suite.container.UpdateItemSync(&v3io.UpdateItemInput{
+		Path: path.Join(streamPath, fmt.Sprintf("%s-state.json", consumerGroupName)),
+		Attributes: map[string]interface{}{
+			"state": string(stateContents),
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
 
 //
 // Orchestrates a group of members
@@ -561,6 +621,7 @@ func (mg *memberGroup) stop() {
 //
 
 type member struct {
+	mock.Mock
 	suite                      *streamConsumerGroupTestSuite
 	logger                     logger.Logger
 	streamConsumerGroupMember  streamconsumergroup.Member
@@ -658,6 +719,7 @@ func (m *member) ConsumeClaim(session streamconsumergroup.Session, claim streamc
 
 func (m *member) Abort(session streamconsumergroup.Session) error {
 	m.logger.DebugWith("Abort called", "memberID", m.streamConsumerGroupMember.GetID())
+	m.Called(session)
 	m.stop()
 	//expectedStartRecordIndex := m.expectedStartRecordIndex
 	//numberOfRecordToConsume := m.numberOfRecordToConsume

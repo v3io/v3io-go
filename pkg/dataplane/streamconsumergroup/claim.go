@@ -43,7 +43,7 @@ func newClaim(member *member, shardID int) (*claim, error) {
 }
 
 func (c *claim) start() error {
-	c.logger.DebugWith("Starting claim")
+	c.logger.DebugWith("Starting claim", "shardID", c.shardID)
 
 	go func() {
 		err := c.fetchRecordBatches(c.stopRecordBatchFetchChan,
