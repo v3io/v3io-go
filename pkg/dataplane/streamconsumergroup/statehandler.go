@@ -157,7 +157,6 @@ func (sh *stateHandler) refreshState() (*State, error) {
 
 		// session already exists - just set the last heartbeat
 		if sessionState != nil {
-			//sh.logger.Debug("TOMER - session state exists, updating heartbeat")
 			sessionState.LastHeartbeat = time.Now()
 
 			// we're done
@@ -165,7 +164,6 @@ func (sh *stateHandler) refreshState() (*State, error) {
 		}
 
 		// session doesn't exist - create it
-		sh.logger.Debug("TOMER - session doesn't exist - create it")
 		if err := sh.createSessionState(state); err != nil {
 			return nil, errors.Wrap(err, "Failed to create session state")
 		}
@@ -190,9 +188,6 @@ func (sh *stateHandler) createSessionState(state *State) error {
 	var err error
 
 	if sh.member.retainShards {
-		sh.logger.DebugWith("TOMER - Member trying to retain shards",
-			"memberID", sh.member.id,
-			"shardGroupToRetain", sh.member.shardGroupToRetain)
 
 		// try to retain the originally assigned shard group
 		shards, err = sh.retainShards(sh.member.shardGroupToRetain, sh.member.id, state)
@@ -207,9 +202,6 @@ func (sh *stateHandler) createSessionState(state *State) error {
 			return err
 		}
 	} else {
-
-		sh.logger.DebugWith("TOMER - Member doesn't need to retain shards, assigning",
-			"memberID", sh.member.id)
 
 		// assign shards
 		shards, err = sh.assignShards(sh.member.streamConsumerGroup.maxReplicas, sh.member.streamConsumerGroup.totalNumShards, state)
@@ -328,7 +320,6 @@ func (sh *stateHandler) getAssignEmptyShardGroup(replicaShardGroups [][]int, sta
 }
 
 func (sh *stateHandler) removeStaleSessionStates(state *State) error {
-	//sh.logger.Debug("TOMER - removing stale session states")
 
 	// clear out the sessions since we only want the valid sessions
 	var activeSessionStates []*SessionState

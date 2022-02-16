@@ -170,11 +170,11 @@ func (suite *streamConsumerGroupTestSuite) TestStateHandlerRetainShards() {
 	// stop
 	for i := 0; i < members/2; i++ {
 		member := memberGroup.members[i]
-		suite.logger.DebugWith("TOMER - Stopping member", "memberID", member.streamConsumerGroupMember.GetID())
+		suite.logger.DebugWith("Stopping member", "memberID", member.streamConsumerGroupMember.GetID())
 
 		// copy shardsToRetain list for every member
 		if member.streamConsumerGroupMember.GetRetainShardFlag() {
-			suite.logger.DebugWith("TOMER - member needs to retain flag, saving shardsToRetain",
+			suite.logger.DebugWith("member needs to retain flag, saving shardsToRetain",
 				"memberID", member.streamConsumerGroupMember.GetID(),
 				"shardsToRetain", member.streamConsumerGroupMember.GetShardsToRetain())
 			originalShardGroups[member.streamConsumerGroupMember.GetID()] = make([]int, len(member.streamConsumerGroupMember.GetShardsToRetain()))
@@ -233,7 +233,7 @@ func (suite *streamConsumerGroupTestSuite) TestStateHandlerRetainShards() {
 	startMembersErrGroup, _ := errgroup.WithContext(context.TODO())
 	for i := 0; i < members/2; i++ {
 		member := memberGroup.members[i]
-		suite.logger.DebugWith("TOMER - Starting member", "memberID", member.streamConsumerGroupMember.GetID())
+		suite.logger.DebugWith("Starting member", "memberID", member.streamConsumerGroupMember.GetID())
 		startMembersErrGroup.Go(func() error {
 			if err := member.streamConsumerGroupMember.Start(); err != nil {
 				return err

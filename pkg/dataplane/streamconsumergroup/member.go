@@ -43,22 +43,11 @@ func NewMember(streamConsumerGroupInterface StreamConsumerGroup, name string) (M
 		return nil, errors.Wrap(err, "Failed creating stream consumer group state handler")
 	}
 
-	//err = newMember.stateHandler.start()
-	//if err != nil {
-	//	return nil, errors.Wrap(err, "Failed starting stream consumer group state handler")
-	//}
-
 	// create & start a location handler for the stream
 	newMember.sequenceNumberHandler, err = newSequenceNumberHandler(&newMember)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed creating stream consumer group location handler")
 	}
-
-	// if there's no member name, just observe
-	//err = newMember.sequenceNumberHandler.start()
-	//if err != nil {
-	//	return nil, errors.Wrap(err, "Failed starting stream consumer group state handler")
-	//}
 
 	err = newMember.Start()
 	if err != nil {
