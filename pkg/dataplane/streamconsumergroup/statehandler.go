@@ -208,6 +208,9 @@ func (sh *stateHandler) createSessionState(state *State) error {
 		}
 	} else {
 
+		sh.logger.DebugWith("TOMER - Member doesn't need to retain shards, assigning",
+			"memberID", sh.member.id)
+
 		// assign shards
 		shards, err = sh.assignShards(sh.member.streamConsumerGroup.maxReplicas, sh.member.streamConsumerGroup.totalNumShards, state)
 		if err != nil {
