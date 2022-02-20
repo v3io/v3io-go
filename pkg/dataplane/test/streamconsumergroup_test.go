@@ -498,8 +498,7 @@ func (suite *streamConsumerGroupTestSuite) getStateFromPersistency(streamPath, c
 
 	var state streamconsumergroup.State
 
-	err = json.Unmarshal([]byte(stateContents), &state)
-	if err != nil {
+	if err := json.Unmarshal([]byte(stateContents), &state); err != nil {
 		return nil, err
 	}
 
@@ -512,7 +511,7 @@ func (suite *testSuite) setStateInPersistency(streamPath, consumerGroupName stri
 		return err
 	}
 
-	if _, err = suite.container.UpdateItemSync(&v3io.UpdateItemInput{
+	if _, err := suite.container.UpdateItemSync(&v3io.UpdateItemInput{
 		Path: path.Join(streamPath, fmt.Sprintf("%s-state.json", consumerGroupName)),
 		Attributes: map[string]interface{}{
 			"state": string(stateContents),
