@@ -512,13 +512,12 @@ func (suite *testSuite) setStateInPersistency(streamPath, consumerGroupName stri
 		return err
 	}
 
-	_, err = suite.container.UpdateItemSync(&v3io.UpdateItemInput{
+	if _, err = suite.container.UpdateItemSync(&v3io.UpdateItemInput{
 		Path: path.Join(streamPath, fmt.Sprintf("%s-state.json", consumerGroupName)),
 		Attributes: map[string]interface{}{
 			"state": string(stateContents),
 		},
-	})
-	if err != nil {
+	}); err != nil {
 		return err
 	}
 
@@ -721,9 +720,6 @@ func (m *member) Abort(session streamconsumergroup.Session) error {
 	m.logger.DebugWith("Abort called", "memberID", m.streamConsumerGroupMember.GetID())
 	m.Called(session)
 	m.stop()
-	//expectedStartRecordIndex := m.expectedStartRecordIndex
-	//numberOfRecordToConsume := m.numberOfRecordToConsume
-	//m.start(expectedStartRecordIndex, numberOfRecordToConsume)
 	return nil
 }
 

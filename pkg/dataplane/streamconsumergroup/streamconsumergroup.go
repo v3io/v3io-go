@@ -86,7 +86,8 @@ func (scg *streamConsumerGroup) getTotalNumberOfShards() (int, error) {
 	return response.Output.(*v3io.DescribeStreamOutput).ShardCount, nil
 }
 
-func (scg *streamConsumerGroup) setState(modifier stateModifier, postSetStateInPersistencyModifier func() error) (*State, error) {
+func (scg *streamConsumerGroup) setState(modifier stateModifier,
+	handlePostSetStateInPersistency postSetStateInPersistencyHandler) (*State, error) {
 	var previousState, modifiedState *State
 
 	backoff := scg.config.State.ModifyRetry.Backoff
@@ -136,9 +137,8 @@ func (scg *streamConsumerGroup) setState(modifier stateModifier, postSetStateInP
 			return true, errors.Wrap(err, "Failed setting state in persistency state")
 		}
 
-		err = postSetStateInPersistencyModifier()
-		if err != nil {
-			return false, errors.Wrap(err, "Failed modifying retain shards flag")
+		if err := handlePostSetStateInPersistency(); err != nil {
+			return false, errors.Wrap(err, "Failed handling post set state in persistency")
 		}
 
 		return false, nil

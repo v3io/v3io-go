@@ -8,6 +8,8 @@ import (
 
 type stateModifier func(*State) (*State, error)
 
+type postSetStateInPersistencyHandler func() error
+
 type SessionState struct {
 	MemberID      string    `json:"member_id"`
 	LastHeartbeat time.Time `json:"last_heartbeat_time"`
@@ -28,7 +30,7 @@ type Handler interface {
 	// loop and exit.
 	ConsumeClaim(Session, Claim) error
 
-	// Abort is used to signal that the handler needs to be aborted
+	// Abort signals the handler to start abort procedure
 	Abort(Session) error
 }
 

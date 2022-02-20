@@ -36,14 +36,12 @@ func newStateHandler(member *member) (*stateHandler, error) {
 func (sh *stateHandler) start() error {
 
 	// stops on stop()
-	//go sh.refreshStatePeriodically()
 	go func() {
-		err := sh.refreshStatePeriodically()
-		if err != nil {
+		if err := sh.refreshStatePeriodically(); err != nil {
 			if errors.RootCause(err) == errShardRetention {
 
 				// signal that the Handler needs to be restarted
-				sh.logger.DebugWith("Aborting member", "memberID", sh.member.id)
+				sh.logger.ErrorWith("Aborting member", "memberID", sh.member.id)
 				sh.member.handler.Abort(sh.member.session) // nolint: errcheck
 			}
 		}
@@ -112,7 +110,7 @@ func (sh *stateHandler) refreshStatePeriodically() error {
 					if errors.RootCause(err) == errShardRetention {
 						sh.logger.WarnWith("Failed getting state on shard retention (requested by member)",
 							"err", errors.GetErrorStackString(err, 10))
-						return errors.Wrap(err, "Failed refreshing")
+						return errors.Wrap(err, "Failed refreshing state by demand")
 					}
 					sh.logger.WarnWith("Failed getting state", "err", errors.GetErrorStackString(err, 10))
 				}
@@ -130,7 +128,7 @@ func (sh *stateHandler) refreshStatePeriodically() error {
 				if errors.RootCause(err) == errShardRetention {
 					sh.logger.WarnWith("Failed getting state on shard retention (periodic refresh)",
 						"err", errors.GetErrorStackString(err, 10))
-					return errors.Wrap(err, "Failed refreshing state")
+					return errors.Wrap(err, "Failed refreshing state periodically")
 				}
 				sh.logger.WarnWith("Failed refreshing state", "err", errors.GetErrorStackString(err, 10))
 				continue
@@ -172,7 +170,8 @@ func (sh *stateHandler) refreshState() (*State, error) {
 
 	}, func() error {
 
-		// set retainShards flag to true
+		// set retainShards flag to true only after the new state has been saved in persistency
+		// (meaning the shards have been assigned successfully)
 		sh.member.retainShards = true
 
 		return nil
@@ -194,17 +193,20 @@ func (sh *stateHandler) createSessionState(state *State) error {
 
 		// shards were "stolen" - set retainShards flag to false and commit suicide
 		if err != nil {
-			sh.logger.DebugWith("Failed to retain shards",
+			sh.logger.ErrorWith("Failed to retain shards",
 				"memberID", sh.member.id,
 				"shardsToRetain", sh.member.shardGroupToRetain,
-				"state", state)
+				"state", state,
+				"error", err.Error())
 			sh.member.retainShards = false
 			return err
 		}
 	} else {
 
 		// assign shards
-		shards, err = sh.assignShards(sh.member.streamConsumerGroup.maxReplicas, sh.member.streamConsumerGroup.totalNumShards, state)
+		shards, err = sh.assignShards(sh.member.streamConsumerGroup.maxReplicas,
+			sh.member.streamConsumerGroup.totalNumShards,
+			state)
 		if err != nil {
 			return errors.Wrap(err, "Failed resolving shards for session")
 		}

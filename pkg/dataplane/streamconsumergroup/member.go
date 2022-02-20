@@ -49,8 +49,7 @@ func NewMember(streamConsumerGroupInterface StreamConsumerGroup, name string) (M
 		return nil, errors.Wrap(err, "Failed creating stream consumer group location handler")
 	}
 
-	err = newMember.Start()
-	if err != nil {
+	if err := newMember.Start(); err != nil {
 		return nil, errors.Wrap(err, "Failed starting new member")
 	}
 
