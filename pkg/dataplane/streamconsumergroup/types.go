@@ -8,6 +8,8 @@ import (
 
 type stateModifier func(*State) (*State, error)
 
+type postSetStateInPersistencyHandler func() error
+
 type SessionState struct {
 	MemberID      string    `json:"member_id"`
 	LastHeartbeat time.Time `json:"last_heartbeat_time"`
@@ -27,6 +29,9 @@ type Handler interface {
 	// Once the Messages() channel is closed, the Handler must finish its processing
 	// loop and exit.
 	ConsumeClaim(Session, Claim) error
+
+	// Abort signals the handler to start abort procedure
+	Abort(Session) error
 }
 
 type RecordBatch struct {
@@ -45,6 +50,10 @@ type StreamConsumerGroup interface {
 type Member interface {
 	Consume(Handler) error
 	Close() error
+	Start() error
+	GetID() string
+	GetRetainShardFlag() bool
+	GetShardsToRetain() []int
 }
 
 type Session interface {

@@ -5,7 +5,7 @@ import (
 
 	"github.com/v3io/v3io-go/pkg/dataplane"
 	"github.com/v3io/v3io-go/pkg/dataplane/http"
-	"github.com/v3io/v3io-go/pkg/errors"
+	v3ioerrors "github.com/v3io/v3io-go/pkg/errors"
 
 	"github.com/nuclio/logger"
 	"github.com/nuclio/zap"

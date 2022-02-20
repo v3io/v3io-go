@@ -25,7 +25,7 @@ func newSession(member *member,
 }
 
 func (s *session) start() error {
-	s.logger.DebugWith("Starting session")
+	s.logger.DebugWith("Starting session", "shards", s.state.Shards)
 
 	// for each shard we need handle, create a StreamConsumerGroupClaim object and start it
 	for _, shardID := range s.state.Shards {

@@ -16,6 +16,8 @@ type member struct {
 	sequenceNumberHandler *sequenceNumberHandler
 	handler               Handler
 	session               Session
+	retainShards          bool
+	shardGroupToRetain    []int
 }
 
 func NewMember(streamConsumerGroupInterface StreamConsumerGroup, name string) (Member, error) {
@@ -41,21 +43,14 @@ func NewMember(streamConsumerGroupInterface StreamConsumerGroup, name string) (M
 		return nil, errors.Wrap(err, "Failed creating stream consumer group state handler")
 	}
 
-	err = newMember.stateHandler.start()
-	if err != nil {
-		return nil, errors.Wrap(err, "Failed starting stream consumer group state handler")
-	}
-
-	// create & start an location handler for the stream
+	// create & start a location handler for the stream
 	newMember.sequenceNumberHandler, err = newSequenceNumberHandler(&newMember)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed creating stream consumer group location handler")
 	}
 
-	// if there's no member name, just observe
-	err = newMember.sequenceNumberHandler.start()
-	if err != nil {
-		return nil, errors.Wrap(err, "Failed starting stream consumer group state handler")
+	if err := newMember.Start(); err != nil {
+		return nil, errors.Wrap(err, "Failed starting new member")
 	}
 
 	return &newMember, nil
@@ -99,4 +94,28 @@ func (m *member) Close() error {
 	}
 
 	return nil
+}
+
+func (m *member) Start() error {
+	if err := m.stateHandler.start(); err != nil {
+		return errors.Wrap(err, "Failed starting stream consumer group state handler")
+	}
+
+	if err := m.sequenceNumberHandler.start(); err != nil {
+		return errors.Wrap(err, "Failed starting stream consumer group state handler")
+	}
+
+	return nil
+}
+
+func (m *member) GetID() string {
+	return m.id
+}
+
+func (m *member) GetRetainShardFlag() bool {
+	return m.retainShards
+}
+
+func (m *member) GetShardsToRetain() []int {
+	return m.shardGroupToRetain
 }
