@@ -215,3 +215,20 @@ type JobOutput struct {
 	ControlPlaneOutput
 	JobAttributes
 }
+
+// GetAppServicesManifestInput specifies how to get a app services manifests
+type GetAppServicesManifestInput struct {
+	ControlPlaneInput
+}
+
+// GetAppServicesManifestOutput holds the response from creating a job
+type GetAppServicesManifestOutput struct {
+	ControlPlaneOutput
+	AppServicesManifests []interface{}
+}
+
+// UpdateAppServicesManifestInput specifies how to get a app services manifests
+type UpdateAppServicesManifestInput struct {
+	ControlPlaneInput
+	AppServicesManifest interface{}
+}

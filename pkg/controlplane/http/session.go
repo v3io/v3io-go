@@ -386,6 +386,55 @@ func (s *session) ReloadArtifactVersionManifest(ctx context.Context) (string, er
 	return jobOutput.ID, nil
 }
 
+// GetAppServicesManifest returns app services manifests of tenant related to session's access key
+func (s *session) GetAppServicesManifest(
+	getAppServicesManifestInput *v3ioc.GetAppServicesManifestInput) (*v3ioc.GetAppServicesManifestOutput, error) {
+
+	// prepare app services manifest response resource
+	getAppServicesManifestOutput := v3ioc.GetAppServicesManifestOutput{}
+
+	// prepare path for app services manifest detail endpoint
+	detailPath := fmt.Sprintf("app_services_manifests/%s", getAppServicesManifestInput.ID)
+
+	err := s.getResource(getAppServicesManifestInput.Ctx,
+		detailPath,
+		&getAppServicesManifestInput.ControlPlaneInput,
+		&getAppServicesManifestOutput.ControlPlaneOutput,
+		&getAppServicesManifestOutput.AppServicesManifests)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &getAppServicesManifestOutput, err
+}
+
+// UpdateAppServicesManifest updates app services manifests of tenant related to session's access key
+func (s *session) UpdateAppServicesManifest(
+	updateAppServicesManifestInput *v3ioc.UpdateAppServicesManifestInput) (*v3ioc.GetJobOutput, error) {
+
+	// prepare session response resource
+	getJobOutput := v3ioc.GetJobOutput{}
+
+	// prepare path for app services manifest detail endpoint
+	detailPath := fmt.Sprintf("app_services_manifests/%s", updateAppServicesManifestInput.ID)
+
+	// try to update the resource
+	err := s.updateResource(updateAppServicesManifestInput.Ctx,
+		detailPath,
+		"app_services_manifests",
+		&updateAppServicesManifestInput.ControlPlaneInput,
+		&updateAppServicesManifestInput.AppServicesManifest,
+		&getJobOutput.ControlPlaneOutput,
+		&getJobOutput.JobAttributes)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &getJobOutput, nil
+}
+
 // WaitForJobCompletion waits for completion of job with given id (blocking)
 func (s *session) WaitForJobCompletion(ctx context.Context, jobID string, retryInterval, timeout time.Duration) error {
 	getJobInput := v3ioc.GetJobInput{
