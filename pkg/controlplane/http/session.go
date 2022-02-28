@@ -386,18 +386,15 @@ func (s *session) ReloadArtifactVersionManifest(ctx context.Context) (string, er
 	return jobOutput.ID, nil
 }
 
-// GetAppServicesManifest returns app services manifests of tenant related to session's access key
-func (s *session) GetAppServicesManifest(
-	getAppServicesManifestInput *v3ioc.GetAppServicesManifestInput) (*v3ioc.GetAppServicesManifestOutput, error) {
+// GetAppServicesManifests returns app services manifests of tenant related to session's access key
+func (s *session) GetAppServicesManifests(
+	getAppServicesManifestInput *v3ioc.GetAppServicesManifestsInput) (*v3ioc.GetAppServicesManifestsOutput, error) {
 
 	// prepare app services manifest response resource
-	getAppServicesManifestOutput := v3ioc.GetAppServicesManifestOutput{}
+	getAppServicesManifestOutput := v3ioc.GetAppServicesManifestsOutput{}
 
-	// prepare path for app services manifest detail endpoint
-	detailPath := fmt.Sprintf("app_services_manifests/%s", getAppServicesManifestInput.ID)
-
-	err := s.getResource(getAppServicesManifestInput.Ctx,
-		detailPath,
+	err := s.listResource(getAppServicesManifestInput.Ctx,
+		"app_services_manifests",
 		&getAppServicesManifestInput.ControlPlaneInput,
 		&getAppServicesManifestOutput.ControlPlaneOutput,
 		&getAppServicesManifestOutput.AppServicesManifests)
@@ -416,13 +413,10 @@ func (s *session) UpdateAppServicesManifest(
 	// prepare session response resource
 	getJobOutput := v3ioc.GetJobOutput{}
 
-	// prepare path for app services manifest detail endpoint
-	detailPath := fmt.Sprintf("app_services_manifests/%s", updateAppServicesManifestInput.ID)
-
 	// try to update the resource
 	err := s.updateResource(updateAppServicesManifestInput.Ctx,
-		detailPath,
 		"app_services_manifests",
+		"app_services_manifest",
 		&updateAppServicesManifestInput.ControlPlaneInput,
 		&updateAppServicesManifestInput.AppServicesManifest,
 		&getJobOutput.ControlPlaneOutput,
@@ -710,6 +704,43 @@ func (s *session) getResource(ctx context.Context,
 			controlPlaneOutput.ID = typedResponseID
 		case float64:
 			controlPlaneOutput.IDNumeric = int(typedResponseID)
+		}
+	}
+
+	return nil
+}
+
+func (s *session) listResource(ctx context.Context,
+	path string,
+	controlPlaneInput *v3ioc.ControlPlaneInput,
+	controlPlaneOutput *v3ioc.ControlPlaneOutput,
+	responseData interface{}) error {
+
+	// allocate request
+	httpRequest := fasthttp.AcquireRequest()
+	defer fasthttp.ReleaseRequest(httpRequest)
+
+	responseInstance, err := s.sendRequest(ctx,
+		&request{
+			method:      http.MethodGet,
+			path:        "api/" + path,
+			httpRequest: httpRequest,
+		}, controlPlaneInput.Timeout)
+
+	if err != nil {
+		return errors.Wrapf(err, "Failed to list resource (%s)", path)
+	}
+
+	// unmarshal
+	if responseInstance.body != nil && controlPlaneOutput != nil {
+		responseBuffer := bytes.NewBuffer(responseInstance.body)
+
+		jsonAPIResponse := jsonapiResources{
+			Data: responseData,
+		}
+
+		if err := json.NewDecoder(responseBuffer).Decode(&jsonAPIResponse); err != nil {
+			return err
 		}
 	}
 

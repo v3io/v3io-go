@@ -44,3 +44,7 @@ type jsonapiData struct {
 type jsonapiResource struct {
 	Data jsonapiData `json:"data,omitempty"`
 }
+
+type jsonapiResources struct {
+	Data interface{} `json:"data,omitempty"`
+}
