@@ -227,7 +227,7 @@ type GetAppServicesManifestsInput struct {
 	ControlPlaneInput
 }
 
-// GetAppServicesManifestsOutput holds the response from creating a job
+// GetAppServicesManifestsOutput holds the response from get app services manifests
 type GetAppServicesManifestsOutput struct {
 	ControlPlaneOutput
 	AppServicesManifests interface{}

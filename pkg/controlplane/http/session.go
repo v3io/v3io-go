@@ -410,7 +410,7 @@ func (s *session) GetAppServicesManifests(
 func (s *session) UpdateAppServicesManifest(
 	updateAppServicesManifestInput *v3ioc.UpdateAppServicesManifestInput) (*v3ioc.GetJobOutput, error) {
 
-	// prepare session response resource
+	// prepare job response resource
 	getJobOutput := v3ioc.GetJobOutput{}
 
 	// try to update the resource
@@ -729,6 +729,11 @@ func (s *session) listResource(ctx context.Context,
 
 	if err != nil {
 		return errors.Wrapf(err, "Failed to list resource (%s)", path)
+	}
+
+	// if we got cookies, set them
+	if len(responseInstance.cookies) > 0 {
+		s.cookies = responseInstance.cookies
 	}
 
 	// unmarshal
