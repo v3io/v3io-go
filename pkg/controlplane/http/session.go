@@ -388,20 +388,20 @@ func (s *session) ReloadArtifactVersionManifest(ctx context.Context) (string, er
 
 // GetAppServicesManifests returns app services manifests of tenant related to session's access key
 func (s *session) GetAppServicesManifests(
-	getAppServicesManifestInput *v3ioc.GetAppServicesManifestsInput) (*v3ioc.GetAppServicesManifestsOutput, error) {
+	getAppServicesManifestsInput *v3ioc.GetAppServicesManifestsInput) (*v3ioc.GetAppServicesManifestsOutput, error) {
 
 	// prepare app services manifests response resource
-	getAppServicesManifestOutput := v3ioc.GetAppServicesManifestsOutput{}
+	getAppServicesManifestsOutput := v3ioc.GetAppServicesManifestsOutput{}
 
-	if err := s.listResource(getAppServicesManifestInput.Ctx,
+	if err := s.listResource(getAppServicesManifestsInput.Ctx,
 		"app_services_manifests",
-		&getAppServicesManifestInput.ControlPlaneInput,
-		&getAppServicesManifestOutput.ControlPlaneOutput,
-		&getAppServicesManifestOutput.AppServicesManifests); err != nil {
+		&getAppServicesManifestsInput.ControlPlaneInput,
+		&getAppServicesManifestsOutput.ControlPlaneOutput,
+		&getAppServicesManifestsOutput.AppServicesManifests); err != nil {
 		return nil, errors.Wrap(err, "Failed to list app services manifests resource")
 	}
 
-	return &getAppServicesManifestOutput, nil
+	return &getAppServicesManifestsOutput, nil
 }
 
 // UpdateAppServicesManifest updates app services manifests of tenant related to session's access key
