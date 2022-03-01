@@ -390,7 +390,7 @@ func (s *session) ReloadArtifactVersionManifest(ctx context.Context) (string, er
 func (s *session) GetAppServicesManifests(
 	getAppServicesManifestInput *v3ioc.GetAppServicesManifestsInput) (*v3ioc.GetAppServicesManifestsOutput, error) {
 
-	// prepare app services manifest response resource
+	// prepare app services manifests response resource
 	getAppServicesManifestOutput := v3ioc.GetAppServicesManifestsOutput{}
 
 	if err := s.listResource(getAppServicesManifestInput.Ctx,
