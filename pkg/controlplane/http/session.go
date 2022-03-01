@@ -393,17 +393,15 @@ func (s *session) GetAppServicesManifests(
 	// prepare app services manifest response resource
 	getAppServicesManifestOutput := v3ioc.GetAppServicesManifestsOutput{}
 
-	err := s.listResource(getAppServicesManifestInput.Ctx,
+	if err := s.listResource(getAppServicesManifestInput.Ctx,
 		"app_services_manifests",
 		&getAppServicesManifestInput.ControlPlaneInput,
 		&getAppServicesManifestOutput.ControlPlaneOutput,
-		&getAppServicesManifestOutput.AppServicesManifests)
-
-	if err != nil {
+		&getAppServicesManifestOutput.AppServicesManifests); err != nil {
 		return nil, err
 	}
 
-	return &getAppServicesManifestOutput, err
+	return &getAppServicesManifestOutput, nil
 }
 
 // UpdateAppServicesManifest updates app services manifests of tenant related to session's access key
@@ -414,15 +412,13 @@ func (s *session) UpdateAppServicesManifest(
 	getJobOutput := v3ioc.GetJobOutput{}
 
 	// try to update the resource
-	err := s.updateResource(updateAppServicesManifestInput.Ctx,
+	if err := s.updateResource(updateAppServicesManifestInput.Ctx,
 		"app_services_manifests",
 		"app_services_manifest",
 		&updateAppServicesManifestInput.ControlPlaneInput,
 		&updateAppServicesManifestInput.AppServicesManifest,
 		&getJobOutput.ControlPlaneOutput,
-		&getJobOutput.JobAttributes)
-
-	if err != nil {
+		&getJobOutput.JobAttributes); err != nil {
 		return nil, err
 	}
 
@@ -745,7 +741,7 @@ func (s *session) listResource(ctx context.Context,
 		}
 
 		if err := json.NewDecoder(responseBuffer).Decode(&jsonAPIResponse); err != nil {
-			return err
+			return errors.Wrap(err, "Failed to decode json api response")
 		}
 	}
 
