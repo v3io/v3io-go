@@ -74,6 +74,12 @@ type Session interface {
 	// ReloadArtifactVersionManifestAndWaitForCompletion reloads the platform artifact version manifest and waits for completion (blocking)
 	ReloadArtifactVersionManifestAndWaitForCompletion(ctx context.Context, retryInterval, timeout time.Duration) error
 
+	// UpdateAppServicesManifest updates app services manifests of tenant related to session's access key
+	UpdateAppServicesManifest(*UpdateAppServicesManifestInput) (*GetJobOutput, error)
+
+	// GetAppServicesManifests returns app services manifests of tenant related to session's access key
+	GetAppServicesManifests(*GetAppServicesManifestsInput) (*GetAppServicesManifestsOutput, error)
+
 	// WaitForJobCompletion waits for completion of a job with a given id (blocking)
 	WaitForJobCompletion(ctx context.Context, jobID string, retryInterval, timeout time.Duration) error
 
@@ -214,4 +220,21 @@ type ReloadClusterConfigOutput struct {
 type JobOutput struct {
 	ControlPlaneOutput
 	JobAttributes
+}
+
+// GetAppServicesManifestsInput specifies how to get a app services manifests
+type GetAppServicesManifestsInput struct {
+	ControlPlaneInput
+}
+
+// GetAppServicesManifestsOutput holds the response from get app services manifests
+type GetAppServicesManifestsOutput struct {
+	ControlPlaneOutput
+	AppServicesManifests []AppServicesManifest
+}
+
+// UpdateAppServicesManifestInput specifies how to get a app services manifests
+type UpdateAppServicesManifestInput struct {
+	ControlPlaneInput
+	AppServicesManifestAttributes
 }
