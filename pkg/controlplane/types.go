@@ -236,5 +236,5 @@ type GetAppServicesManifestsOutput struct {
 // UpdateAppServicesManifestInput specifies how to get a app services manifests
 type UpdateAppServicesManifestInput struct {
 	ControlPlaneInput
-	AppServicesManifest interface{}
+	AppServicesManifestAttributes
 }

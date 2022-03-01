@@ -207,3 +207,5 @@ type JobAttributes struct {
 	UpdatedAt              string       `json:"updated_at,omitempty"`
 	Handler                string       `json:"handler,omitempty"`
 }
+
+type AppServicesManifestAttributes interface{}
