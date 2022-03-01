@@ -398,7 +398,7 @@ func (s *session) GetAppServicesManifests(
 		&getAppServicesManifestInput.ControlPlaneInput,
 		&getAppServicesManifestOutput.ControlPlaneOutput,
 		&getAppServicesManifestOutput.AppServicesManifests); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "Failed to list app services manifests resource")
 	}
 
 	return &getAppServicesManifestOutput, nil
@@ -419,7 +419,7 @@ func (s *session) UpdateAppServicesManifest(
 		&updateAppServicesManifestInput.AppServicesManifest,
 		&getJobOutput.ControlPlaneOutput,
 		&getJobOutput.JobAttributes); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "Failed to update app services manifests resource")
 	}
 
 	return &getJobOutput, nil
