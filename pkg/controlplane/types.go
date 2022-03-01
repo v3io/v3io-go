@@ -230,7 +230,7 @@ type GetAppServicesManifestsInput struct {
 // GetAppServicesManifestsOutput holds the response from get app services manifests
 type GetAppServicesManifestsOutput struct {
 	ControlPlaneOutput
-	AppServicesManifests interface{}
+	AppServicesManifests []AppServicesManifest
 }
 
 // UpdateAppServicesManifestInput specifies how to get a app services manifests

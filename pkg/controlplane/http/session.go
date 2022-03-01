@@ -416,7 +416,7 @@ func (s *session) UpdateAppServicesManifest(
 		"app_services_manifests",
 		"app_services_manifest",
 		&updateAppServicesManifestInput.ControlPlaneInput,
-		&updateAppServicesManifestInput.AppServicesManifest,
+		&updateAppServicesManifestInput.AppServicesManifestAttributes,
 		&getJobOutput.ControlPlaneOutput,
 		&getJobOutput.JobAttributes); err != nil {
 		return nil, errors.Wrap(err, "Failed to update app services manifests resource")

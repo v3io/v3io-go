@@ -208,4 +208,18 @@ type JobAttributes struct {
 	Handler                string       `json:"handler,omitempty"`
 }
 
-type AppServicesManifestAttributes interface{}
+type AppServicesManifest struct {
+	Type       string                        `json:"type,omitempty"`
+	ID         int                           `json:"id,omitempty"`
+	Attributes AppServicesManifestAttributes `json:"attributes,omitempty"`
+}
+
+type AppServicesManifestAttributes struct {
+	AppServices            interface{} `json:"app_services,omitempty"`
+	ClusterName            string      `json:"cluster_name,omitempty"`
+	LastModificationJob    string      `json:"last_modification_job,omitempty"`
+	RunningModificationJob string      `json:"running_modification_job,omitempty"`
+	State                  string      `json:"state,omitempty"`
+	TenantID               string      `json:"tenant_id,omitempty"`
+	TenantName             string      `json:"tenant_name,omitempty"`
+}
