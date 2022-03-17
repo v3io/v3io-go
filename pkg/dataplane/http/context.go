@@ -20,15 +20,15 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/v3io/v3io-go/pkg/dataplane"
-	"github.com/v3io/v3io-go/pkg/dataplane/schemas/node/common"
-	"github.com/v3io/v3io-go/pkg/errors"
+	v3io "github.com/v3io/v3io-go/pkg/dataplane"
+	node_common_capnp "github.com/v3io/v3io-go/pkg/dataplane/schemas/node/common"
+	v3ioerrors "github.com/v3io/v3io-go/pkg/errors"
 
 	"github.com/nuclio/errors"
 	"github.com/nuclio/logger"
 	"github.com/valyala/fasthttp"
 	"golang.org/x/sync/semaphore"
-	"zombiezen.com/go/capnproto2"
+	capnp "zombiezen.com/go/capnproto2"
 )
 
 // TODO: Request should have a global pool
@@ -1719,11 +1719,14 @@ func (c *context) PutOOSObjectSync(putOOSObjectInput *v3io.PutOOSObjectInput) er
 		buffer.Write(ioVec)
 	}
 
-	headers := putOOSObjectHeaders
-	headers["slice"] = strconv.Itoa(putOOSObjectInput.SliceID)
-	headers["io-vec-num"] = strconv.Itoa(len(putOOSObjectInput.Data) + 1)
-	headers["io-vec-sizes"] = iovecSizes.String()
-
+	// headers for OOS put object
+	headers := map[string]string{
+		"Content-Type":    putOOSObjectHeaders["Content-Type"],
+		"X-v3io-function": putOOSObjectHeaders["X-v3io-function"],
+		"slice":           "0",
+		"io-vec-num":      strconv.Itoa(len(putOOSObjectInput.Data) + 1),
+		"io-vec-sizes":    iovecSizes.String(),
+	}
 	_, err := c.sendRequest(&putOOSObjectInput.DataPlaneInput,
 		http.MethodPut,
 		putOOSObjectInput.Path,
