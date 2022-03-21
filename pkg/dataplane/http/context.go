@@ -1723,7 +1723,6 @@ func (c *context) PutOOSObjectSync(putOOSObjectInput *v3io.PutOOSObjectInput) er
 	headers := map[string]string{
 		"Content-Type":    putOOSObjectHeaders["Content-Type"],
 		"X-v3io-function": putOOSObjectHeaders["X-v3io-function"],
-		"slice":           "0",
 		"io-vec-num":      strconv.Itoa(len(putOOSObjectInput.Data) + 1),
 		"io-vec-sizes":    iovecSizes.String(),
 	}
