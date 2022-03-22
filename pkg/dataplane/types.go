@@ -441,10 +441,9 @@ type GetRecordsOutput struct {
 
 type PutOOSObjectInput struct {
 	DataPlaneInput
-	Path    string
-	SliceID int
-	Header  []byte
-	Data    [][]byte
+	Path   string
+	Header []byte
+	Data   [][]byte
 }
 
 type ItemChunkMetadata struct {
