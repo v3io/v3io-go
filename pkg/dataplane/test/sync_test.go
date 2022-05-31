@@ -18,6 +18,10 @@ type syncTestSuite struct {
 	testSuite
 }
 
+const (
+	TestPath = "/dir1/#dir2/"
+)
+
 //
 // Container tests
 //
@@ -368,7 +372,7 @@ type syncObjectTestSuite struct {
 }
 
 func (suite *syncObjectTestSuite) TestObject() {
-	path := "/object.txt"
+	path := TestPath + "#object.txt"
 	contents := "vegans are better than everyone"
 
 	getObjectInput := &v3io.GetObjectInput{
@@ -795,7 +799,7 @@ func (suite *syncKVTestSuite) TestEMD() {
 	// create the items
 	for itemToCreateKey, itemToCreateAttributes := range itemsToCreate {
 		input := v3io.PutItemInput{
-			Path:       "/emd0/" + itemToCreateKey,
+			Path:       TestPath + "emd0/" + itemToCreateKey,
 			Attributes: itemToCreateAttributes,
 		}
 
@@ -815,7 +819,7 @@ func (suite *syncKVTestSuite) TestEMD() {
 
 	// update louise item
 	updateItemInput := v3io.UpdateItemInput{
-		Path: "/emd0/louise",
+		Path: TestPath + "/emd0/louise",
 		Attributes: map[string]interface{}{
 			"height": 130,
 			"quip":   "i can smell fear on you",
@@ -830,7 +834,7 @@ func (suite *syncKVTestSuite) TestEMD() {
 
 	// get louise
 	getItemInput := v3io.GetItemInput{
-		Path:           "/emd0/louise",
+		Path:           TestPath + "/emd0/louise",
 		AttributeNames: []string{"__size", "age", "quip", "height"},
 	}
 
@@ -853,7 +857,7 @@ func (suite *syncKVTestSuite) TestEMD() {
 
 	// get all items whose age is over 15
 	getItemsInput := v3io.GetItemsInput{
-		Path:           "/emd0/",
+		Path:           TestPath + "/emd0/",
 		AttributeNames: []string{"age", "feature"},
 		Filter:         "age > 15",
 	}
@@ -886,7 +890,7 @@ func (suite *syncKVTestSuite) TestEMD() {
 
 	// update louise's age
 	updateItemInput = v3io.UpdateItemInput{
-		Path:       "/emd0/louise",
+		Path:       TestPath + "/emd0/louise",
 		Expression: &incrementAgeExpression,
 	}
 
@@ -898,7 +902,7 @@ func (suite *syncKVTestSuite) TestEMD() {
 
 	// get tina
 	getItemInput = v3io.GetItemInput{
-		Path:           "/emd0/louise",
+		Path:           TestPath + "/emd0/louise",
 		AttributeNames: []string{"age"},
 	}
 
@@ -920,7 +924,7 @@ func (suite *syncKVTestSuite) TestEMD() {
 	// Delete everything
 	//
 
-	suite.deleteItems("/emd0", itemsToCreate)
+	suite.deleteItems(TestPath+"/emd0", itemsToCreate)
 }
 
 func (suite *syncKVTestSuite) TestPutItems() {
@@ -930,7 +934,7 @@ func (suite *syncKVTestSuite) TestPutItems() {
 	}
 
 	putItemsInput := &v3io.PutItemsInput{
-		Path:  "/emd0",
+		Path:  TestPath + "emd0",
 		Items: items,
 	}
 
@@ -1073,7 +1077,7 @@ func (suite *syncKVTestSuite) TestPutItemsWithError() {
 	}
 
 	putItemsInput := &v3io.PutItemsInput{
-		Path:  "/emd0",
+		Path:  TestPath + "/emd0",
 		Items: items,
 	}
 
@@ -1155,7 +1159,7 @@ func (suite *syncKVTestSuite) verifyItems(items map[string]map[string]interface{
 
 	// get all items
 	getItemsInput := v3io.GetItemsInput{
-		Path:           "/emd0/",
+		Path:           TestPath + "/emd0/",
 		AttributeNames: []string{"*"},
 	}
 
