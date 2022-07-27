@@ -297,6 +297,7 @@ type GetItemsInput struct {
 	ReturnData          string
 	DataMaxSize         int
 	RequestJSONResponse bool `json:"RequestJsonResponse"`
+	ChokeGetItemsMS     int
 }
 
 type GetItemsOutput struct {

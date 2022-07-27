@@ -1,5 +1,7 @@
 package v3io
 
+import "time"
+
 type ItemsCursor struct {
 	currentItem     Item
 	currentError    error
@@ -74,6 +76,10 @@ func (ic *ItemsCursor) NextItemSync() (Item, error) {
 
 	// get the previous request input and modify it with the marker
 	ic.getItemsInput.Marker = ic.nextMarker
+
+	if ic.getItemsInput.ChokeGetItemsMS != 0 {
+		time.Sleep(time.Duration(ic.getItemsInput.ChokeGetItemsMS) * time.Millisecond)
+	}
 
 	// invoke get items
 	newResponse, err := ic.container.GetItemsSync(ic.getItemsInput)
