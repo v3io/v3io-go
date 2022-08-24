@@ -122,8 +122,8 @@ func (vfm FileMode) String() string {
 }
 
 func mode(v3ioFileMode FileMode) (os.FileMode, error) {
-	const S_IFMT = 0xf000     // nolint: golint
-	const IP_OFFMASK = 0x1fff // nolint: golint
+	const S_IFMT = 0xf000     // nolint: revive
+	const IP_OFFMASK = 0x1fff // nolint: revive
 
 	// Note, File mode from different API's has different base.
 	// For example Scan API returns file mode as decimal number (base 10) while ListDir as Octal (base 8)

@@ -1,16 +1,13 @@
 linters:
   disable-all: true
   enable:
-    - deadcode
     - gofmt
-    - golint
+    - revive
     - gosimple
     - ineffassign
-    - interfacer
     - misspell
     - staticcheck
     - unconvert
-    - varcheck
     - vet
     - vetshadow
     - errcheck
