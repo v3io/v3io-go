@@ -15,7 +15,7 @@ require (
 	github.com/rs/xid v1.1.0
 	github.com/stretchr/testify v1.3.0
 	github.com/tinylib/msgp v1.1.1 // indirect
-	github.com/valyala/fasthttp v1.2.0
+	github.com/valyala/fasthttp v1.34.0
 	go.uber.org/atomic v1.3.2 // indirect
 	go.uber.org/multierr v1.1.0 // indirect
 	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a
