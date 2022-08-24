@@ -31,8 +31,7 @@ fi
 if [[ $FORCE_INSTALL = true || ! -f ${BIN_DIR}/golangci-lint ]] ; then
     echo "golangci-lint binary does not exist or force install requested. Fetching and installing..."
 
-    # upgrade from v1.24.0 when https://github.com/golangci/golangci-lint/issues/974 is resolved
-    curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ${BIN_DIR} v1.24.0
+    curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ${BIN_DIR} v1.49.0
     echo "golangci-lint installed in: ${BIN_DIR}/golangci-lint"
 fi
 
