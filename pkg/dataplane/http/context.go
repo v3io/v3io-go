@@ -346,9 +346,19 @@ func (c *context) GetItemsSync(getItemsInput *v3io.GetItemsInput) (*v3io.Respons
 		return nil, err
 	}
 
-	headers := getItemsHeadersCapnp
+	commonHeaders := getItemsHeadersCapnp
 	if getItemsInput.RequestJSONResponse {
-		headers = getItemsHeaders
+		commonHeaders = getItemsHeaders
+	}
+
+	headers := make(map[string]string)
+	for k, v := range commonHeaders {
+		headers[k] = v
+	}
+
+	if len(getItemsInput.DataPlaneInput.MtimeSec) > 0 {
+		headers["conditional-mtime-sec"] = getItemsInput.DataPlaneInput.MtimeSec
+		headers["conditional-mtime-nsec"] = getItemsInput.DataPlaneInput.MtimeNsec
 	}
 
 	response, err := c.sendRequest(&getItemsInput.DataPlaneInput,
