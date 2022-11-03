@@ -52,6 +52,7 @@ type DataPlaneInput struct {
 	AccessKey              string
 	Timeout                time.Duration
 	IncludeResponseInError bool
+	URLAlternativePorts    []string
 }
 
 type DataPlaneOutput struct {
@@ -183,6 +184,10 @@ type ContainerInfo struct {
 // Object
 //
 
+type FileHandle struct {
+	Fh      string
+	URLPort string
+}
 type GetObjectInput struct {
 	DataPlaneInput
 	Path      string
@@ -190,14 +195,17 @@ type GetObjectInput struct {
 	NumBytes  int
 	CtimeSec  int
 	CtimeNsec int
+	Handle    FileHandle
 }
 
 type PutObjectInput struct {
 	DataPlaneInput
 	Path   string
+	Handle FileHandle
 	Offset int
 	Body   []byte
 	Append bool
+	Mode   int
 }
 
 type DeleteObjectInput struct {
@@ -208,19 +216,20 @@ type DeleteObjectInput struct {
 type UpdateObjectInput struct {
 	DataPlaneInput
 	Path          string
+	Handle        FileHandle
 	DirAttributes *DirAttributes
 }
 
 type DirAttributes struct {
 	Mode      int `json:"mode,omitempty"`
-	UID       int `json:"uid"`
-	GID       int `json:"gid"`
+	UID       int `json:"uid,omitempty"`
+	GID       int `json:"gid,omitempty"`
 	AtimeSec  int `json:"atime.sec,omitempty"`
-	AtimeNSec int `json:"atime.nsec"`
+	AtimeNSec int `json:"atime.nsec,omitempty"`
 	CtimeSec  int `json:"ctime.sec,omitempty"`
-	CtimeNSec int `json:"ctime.nsec"`
+	CtimeNSec int `json:"ctime.nsec,omitempty"`
 	MtimeSec  int `json:"mtime.sec,omitempty"`
-	MtimeNSec int `json:"mtime.nsec"`
+	MtimeNSec int `json:"mtime.nsec,omitempty"`
 }
 
 //
@@ -339,6 +348,54 @@ type CreateStreamInput struct {
 type CheckPathExistsInput struct {
 	DataPlaneInput
 	Path string
+}
+
+type GetFileAttributesInput struct {
+	DataPlaneInput
+	Path   string
+	Handle FileHandle
+}
+
+type GetFileAttributesOutput struct {
+	Ino       uint64
+	Size      uint64
+	Atime     uint64
+	Mtime     uint64
+	Ctime     uint64
+	Atimensec uint64
+	Mtimensec uint64
+	Ctimensec uint64
+	Mode      uint64
+	OwnerUID  uint64
+	OwnerGID  uint64
+}
+
+type OpenFileInput struct {
+	DataPlaneInput
+	Path  string
+	Mode  uint32
+	Flags uint32
+}
+
+type CloseFileInput struct {
+	DataPlaneInput
+	Handle FileHandle
+}
+
+type TruncateFileInput struct {
+	DataPlaneInput
+	Handle FileHandle
+	Size   uint64
+}
+
+type SymlinkInput struct {
+	DataPlaneInput
+	Path       string
+	TargetPath string
+}
+
+type OpenFileOutput struct {
+	Handle FileHandle
 }
 
 type DescribeStreamInput struct {

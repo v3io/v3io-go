@@ -25,10 +25,11 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"syscall"
 	"time"
 
-	"github.com/v3io/v3io-go/pkg/controlplane"
-	"github.com/v3io/v3io-go/pkg/errors"
+	v3ioc "github.com/v3io/v3io-go/pkg/controlplane"
+	v3ioerrors "github.com/v3io/v3io-go/pkg/errors"
 
 	"github.com/nuclio/errors"
 	"github.com/nuclio/logger"
@@ -839,7 +840,7 @@ func (s *session) sendRequest(ctx context.Context, request *request, timeout tim
 			return nil, v3ioerrors.NewErrorWithStatusCode(
 				fmt.Errorf("Failed to execute HTTP request %s/%s.\nResponse code: %d",
 					s.endpoints[0], request.path, responseInstance.statusCode),
-				responseInstance.statusCode)
+				responseInstance.statusCode, int(syscall.EINVAL))
 		}
 	}
 

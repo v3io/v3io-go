@@ -33,6 +33,11 @@ const (
 	getClusterMDFunctionName   = "GetClusterMD"
 	putOOSObjectFunctionName   = "OosRun"
 	PutChunkFunctionName       = "PutChunk"
+	OpenFileFunctionName       = "OpenFile"
+	CloseFileFunctionName      = "CloseFile"
+	TruncateFileFunctionName   = "Truncate"
+	AllocateFileFunctionName   = "Allocate"
+	SymlinkFunctionName        = "CreateSymlink"
 )
 
 // headers for put item
@@ -120,4 +125,28 @@ var seekShardsInputTypeToString = [...]string{
 	"SEQUENCE",
 	"LATEST",
 	"EARLIEST",
+}
+
+// headers for OOS put object
+var OpenFileHeaders = map[string]string{
+	"Content-Type":    "application/json",
+	"X-v3io-function": OpenFileFunctionName,
+	"fs-open-mode":    "", // File open mode in decimal. 511 is octal 0777
+	"fs-open-flags":   "", // Bitmask of Read=1, write=2, truncate=4
+	"fs-creation":     "", // Validate the object on which the request has been received was already created=0, Validate the object on which the request has been received was not already created, Eqv to O_CREAT and O_EXCL=1, No need to validate the exsistance of the object, Eq to O_CREAT =2
+}
+
+var CloseFileHeaders = map[string]string{
+	"Content-Type":    "application/json",
+	"X-v3io-function": CloseFileFunctionName,
+}
+
+var TruncateFileHeaders = map[string]string{
+	"Content-Type":    "application/json",
+	"X-v3io-function": TruncateFileFunctionName,
+	"range":           "", // range=size , for example range=100 means truncate to 100 bytes
+}
+var SymlinkHeaders = map[string]string{
+	"Content-Type":    "application/json",
+	"X-v3io-function": SymlinkFunctionName,
 }

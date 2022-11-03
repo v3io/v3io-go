@@ -159,4 +159,11 @@ type Container interface {
 
 	// PutOOSObjectSync
 	PutOOSObjectSync(*PutOOSObjectInput) error
+
+	GetFileAttributesSync(*GetFileAttributesInput, *GetFileAttributesOutput) error
+	OpenFileSync(*OpenFileInput, *OpenFileOutput) error
+	CloseFileSync(*CloseFileInput) error
+	TruncateFileSync(*TruncateFileInput) error
+	SymlinkSync(*SymlinkInput) error
+	GetWorkerDedicatedPortsSync(*DataPlaneInput) ([]string, error)
 }
