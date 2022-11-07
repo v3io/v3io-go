@@ -351,7 +351,7 @@ func (c *context) GetItemsSync(getItemsInput *v3io.GetItemsInput) (*v3io.Respons
 		commonHeaders = getItemsHeaders
 	}
 
-	headers := make(map[string]string)
+	headers := make(map[string]string, len(commonHeaders))
 	for k, v := range commonHeaders {
 		headers[k] = v
 	}
