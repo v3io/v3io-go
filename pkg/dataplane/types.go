@@ -50,6 +50,8 @@ type DataPlaneInput struct {
 	ContainerName          string
 	AuthenticationToken    string
 	AccessKey              string
+	MtimeSec               string
+	MtimeNsec              string
 	Timeout                time.Duration
 	IncludeResponseInError bool
 }
@@ -295,6 +297,7 @@ type GetItemsInput struct {
 	SortKeyRangeEnd     string
 	AllowObjectScatter  string
 	ReturnData          string
+	ReturnAllInodes     bool
 	DataMaxSize         int
 	RequestJSONResponse bool `json:"RequestJsonResponse"`
 	ChokeGetItemsMS     int
