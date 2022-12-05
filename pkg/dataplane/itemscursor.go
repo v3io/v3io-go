@@ -19,7 +19,15 @@ such restriction.
 */
 package v3io
 
-import "time"
+import (
+	"context"
+	"reflect"
+	"runtime"
+	"time"
+
+	"github.com/nuclio/errors"
+	"github.com/nuclio/logger"
+)
 
 type ItemsCursor struct {
 	currentItem     Item
@@ -32,6 +40,119 @@ type ItemsCursor struct {
 	getItemsInput   *GetItemsInput
 	container       Container
 	scattered       bool
+
+	logger        logger.Logger
+	retryAttempts int
+	retryInterval time.Duration
+}
+
+func getFunctionName(fn interface{}) string {
+	return runtime.FuncForPC(reflect.ValueOf(fn).Pointer()).Name()
+}
+
+func retryFuncWithResult(ctx context.Context,
+	loggerInstance logger.Logger,
+	attempts int,
+	retryInterval time.Duration,
+	fn func(attempt int) (interface{}, bool, error)) (interface{}, error) {
+
+	// If retries are not defined, execute the function once
+	if attempts <= 0 {
+		attempts = 1
+	}
+
+	var err error
+	var retry bool
+	var result interface{}
+
+	for attempt := 1; attempt <= attempts; attempt++ {
+		result, retry, err = fn(attempt)
+
+		// if there's no need to retry - we're done
+		if !retry {
+			return result, err
+		}
+
+		// are we out of time?
+		if ctx.Err() != nil {
+			loggerInstance.WarnWithCtx(ctx,
+				"Context error detected during retries",
+				"ctxErr", ctx.Err(),
+				"previousErr", err,
+				"function", getFunctionName(fn),
+				"attempt", attempt)
+
+			// return the error if one was provided
+			if err != nil {
+				return result, err
+			}
+
+			return result, ctx.Err()
+		}
+
+		// not final attempt
+		if attempt < attempts {
+
+			// don't over log, no output
+			loggerInstance.DebugWithCtx(ctx,
+				"Failed an attempt to invoke function",
+				"function", getFunctionName(fn),
+				"err", errors.GetErrorStackString(err, 10),
+				"attempt", attempt)
+		}
+
+		time.Sleep(retryInterval)
+	}
+
+	// attempts exhausted and we're unsuccessful
+	// Return the original error for later checking
+	loggerInstance.WarnWithCtx(ctx,
+		"Failed final attempt to invoke function",
+		"function", getFunctionName(fn),
+		"err", errors.GetErrorStackString(err, 10),
+		"attempts", attempts)
+
+	// this shouldn't happen
+	if err == nil {
+		loggerInstance.ErrorWithCtx(ctx,
+			"Failed final attempt to invoke function, but error is nil. This shouldn't happen",
+			"function", getFunctionName(fn),
+			"err", errors.GetErrorStackString(err, 10),
+			"attempts", attempts)
+		return result, errors.New("Failed final attempt to invoke function without proper error supplied")
+	}
+	return result, err
+}
+
+func executeV3ioRequestWithRetriesAndResult(ctx context.Context,
+	logger logger.Logger,
+	retries int,
+	interval time.Duration,
+	fn func() (interface{}, error)) (interface{}, error) {
+
+	result, err := retryFuncWithResult(ctx,
+		logger,
+		retries,
+		interval,
+		func(attempt int) (interface{}, bool, error) {
+			result, err := fn()
+			return result, err != nil, err
+		})
+	return result, err
+}
+func (ic *ItemsCursor) getItemsSync(container Container, getItemsInput *GetItemsInput) (*Response, error) {
+	if getItemsInput.RetryAttempts < 2 {
+		return container.GetItemsSync(getItemsInput)
+	}
+	responseInterface, err := executeV3ioRequestWithRetriesAndResult(context.TODO(),
+		getItemsInput.Logger,
+		getItemsInput.RetryAttempts,
+		getItemsInput.RetryInterval,
+		func() (interface{}, error) {
+			response, err := container.GetItemsSync(getItemsInput)
+			return response, err
+		})
+	return responseInterface.(*Response), err
 }
 
 func NewItemsCursor(container Container, getItemsInput *GetItemsInput) (*ItemsCursor, error) {
@@ -39,8 +160,7 @@ func NewItemsCursor(container Container, getItemsInput *GetItemsInput) (*ItemsCu
 		container:     container,
 		getItemsInput: getItemsInput,
 	}
-
-	response, err := container.GetItemsSync(getItemsInput)
+	response, err := newItemsCursor.getItemsSync(container, getItemsInput)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +221,7 @@ func (ic *ItemsCursor) NextItemSync() (Item, error) {
 	}
 
 	// invoke get items
-	newResponse, err := ic.container.GetItemsSync(ic.getItemsInput)
+	newResponse, err := ic.getItemsSync(ic.container, ic.getItemsInput)
 	if err != nil {
 		ic.currentError = err
 		return nil, err
