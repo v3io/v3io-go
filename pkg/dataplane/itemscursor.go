@@ -54,7 +54,7 @@ func retryFuncWithResult(ctx context.Context,
 	loggerInstance logger.Logger,
 	attempts int,
 	retryInterval time.Duration,
-	fn func(attempt int) (interface{}, bool, error)) (interface{}, error) {
+	fn func() (interface{}, bool, error)) (interface{}, error) {
 
 	// If retries are not defined, execute the function once
 	if attempts <= 0 {
@@ -66,14 +66,13 @@ func retryFuncWithResult(ctx context.Context,
 	var result interface{}
 
 	for attempt := 1; attempt <= attempts; attempt++ {
-		result, retry, err = fn(attempt)
+		result, retry, err = fn()
 
 		// if there's no need to retry - we're done
 		if !retry {
 			return result, err
 		}
 
-		// are we out of time?
 		if ctx.Err() != nil {
 			loggerInstance.WarnWithCtx(ctx,
 				"Context error detected during retries",
@@ -134,7 +133,7 @@ func executeV3ioRequestWithRetriesAndResult(ctx context.Context,
 		logger,
 		retries,
 		interval,
-		func(attempt int) (interface{}, bool, error) {
+		func() (interface{}, bool, error) {
 			result, err := fn()
 			return result, err != nil, err
 		})
