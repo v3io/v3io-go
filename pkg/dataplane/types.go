@@ -23,6 +23,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/nuclio/logger"
 )
 
 //
@@ -301,6 +303,10 @@ type GetItemsInput struct {
 	DataMaxSize         int
 	RequestJSONResponse bool `json:"RequestJsonResponse"`
 	ChokeGetItemsMS     int
+
+	Logger        logger.Logger
+	RetryAttempts int
+	RetryInterval time.Duration
 }
 
 type GetItemsOutput struct {
