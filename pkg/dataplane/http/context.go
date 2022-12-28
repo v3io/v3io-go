@@ -198,7 +198,9 @@ func (c *context) GetContainerContentsSync(getContainerContentsInput *v3io.GetCo
 	var queryBuilder strings.Builder
 	if getContainerContentsInput.Path != "" {
 		queryBuilder.WriteString("prefix=")
-		queryBuilder.WriteString(url.QueryEscape(getContainerContentsInput.Path))
+		encodedPrefix := url.QueryEscape(getContainerContentsInput.Path)
+		encodedPrefix = strings.Replace(encodedPrefix, "+", "%20", -1)
+		queryBuilder.WriteString(encodedPrefix)
 	}
 
 	if getContainerContentsInput.DirectoriesOnly {
