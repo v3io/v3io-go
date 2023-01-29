@@ -17,6 +17,7 @@ illegal under applicable law, and the grant of the foregoing license
 under the Apache 2.0 license is conditioned upon your compliance with
 such restriction.
 */
+
 package streamconsumergroup
 
 import (
@@ -28,7 +29,7 @@ import (
 	"strconv"
 
 	"github.com/v3io/v3io-go/pkg/common"
-	"github.com/v3io/v3io-go/pkg/dataplane"
+	v3io "github.com/v3io/v3io-go/pkg/dataplane"
 	v3ioerrors "github.com/v3io/v3io-go/pkg/errors"
 
 	"github.com/nuclio/errors"

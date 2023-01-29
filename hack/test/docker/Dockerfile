@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-FROM gcr.io/iguazio/golang:1.14
+FROM gcr.io/iguazio/golang:1.19
 
 ENV GOPATH=/go
 WORKDIR /v3io-go
@@ -25,6 +25,8 @@ RUN apt-get update --allow-releaseinfo-change \
 # copy `go.mod` for definitions and `go.sum` to invalidate the next layer
 # in case of a change in the dependencies
 COPY go.mod go.sum ./
+
+RUN go mod download
 
 # copy everything
 COPY . .

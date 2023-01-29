@@ -17,10 +17,11 @@ illegal under applicable law, and the grant of the foregoing license
 under the Apache 2.0 license is conditioned upon your compliance with
 such restriction.
 */
+
 package v3iohttp
 
 import (
-	"github.com/v3io/v3io-go/pkg/dataplane"
+	v3io "github.com/v3io/v3io-go/pkg/dataplane"
 
 	"github.com/nuclio/logger"
 )
