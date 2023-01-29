@@ -17,6 +17,7 @@ illegal under applicable law, and the grant of the foregoing license
 under the Apache 2.0 license is conditioned upon your compliance with
 such restriction.
 */
+
 package v3iohttp
 
 import (
@@ -40,7 +41,7 @@ import (
 	"time"
 
 	v3io "github.com/v3io/v3io-go/pkg/dataplane"
-	node_common_capnp "github.com/v3io/v3io-go/pkg/dataplane/schemas/node/common"
+	nodecommoncapnp "github.com/v3io/v3io-go/pkg/dataplane/schemas/node/common"
 	v3ioerrors "github.com/v3io/v3io-go/pkg/errors"
 
 	"github.com/nuclio/errors"
@@ -239,7 +240,7 @@ func (c *context) GetItem(getItemInput *v3io.GetItemInput,
 
 type attributeValuesSection struct {
 	accumulatedPreviousSectionsLength int
-	data                              node_common_capnp.VnObjectAttributeValuePtr_List
+	data                              nodecommoncapnp.VnObjectAttributeValuePtr_List
 }
 
 // GetItemSync
@@ -1446,7 +1447,7 @@ func getSectionAndIndex(values []attributeValuesSection, idx int) (section int, 
 	return 0, idx
 }
 
-func decodeCapnpAttributes(keyValues node_common_capnp.VnObjectItemsGetMappedKeyValuePair_List, values []attributeValuesSection, attributeNames []string) (map[string]interface{}, error) {
+func decodeCapnpAttributes(keyValues nodecommoncapnp.VnObjectItemsGetMappedKeyValuePair_List, values []attributeValuesSection, attributeNames []string) (map[string]interface{}, error) {
 	attributes := map[string]interface{}{}
 	for j := 0; j < keyValues.Len(); j++ {
 		attrPtr := keyValues.At(j)
@@ -1460,31 +1461,31 @@ func decodeCapnpAttributes(keyValues node_common_capnp.VnObjectItemsGetMappedKey
 			return attributes, errors.Wrapf(err, "values[%d].data.At(%d).Value", sectIdx, valIdx)
 		}
 		switch value.Which() {
-		case node_common_capnp.ExtAttrValue_Which_qword:
+		case nodecommoncapnp.ExtAttrValue_Which_qword:
 			attributes[attributeName] = int(value.Qword())
-		case node_common_capnp.ExtAttrValue_Which_uqword:
+		case nodecommoncapnp.ExtAttrValue_Which_uqword:
 			attributes[attributeName] = int(value.Uqword())
-		case node_common_capnp.ExtAttrValue_Which_blob:
+		case nodecommoncapnp.ExtAttrValue_Which_blob:
 			attributes[attributeName], err = value.Blob()
 			if err != nil {
 				return attributes, errors.Wrapf(err, "unable to get value of BLOB attribute '%s'", attributeName)
 			}
-		case node_common_capnp.ExtAttrValue_Which_str:
+		case nodecommoncapnp.ExtAttrValue_Which_str:
 			attributes[attributeName], err = value.Str()
 			if err != nil {
 				return attributes, errors.Wrapf(err, "unable to get value of String attribute '%s'", attributeName)
 			}
-		case node_common_capnp.ExtAttrValue_Which_dfloat:
+		case nodecommoncapnp.ExtAttrValue_Which_dfloat:
 			attributes[attributeName] = value.Dfloat()
-		case node_common_capnp.ExtAttrValue_Which_boolean:
+		case nodecommoncapnp.ExtAttrValue_Which_boolean:
 			attributes[attributeName] = value.Boolean()
-		case node_common_capnp.ExtAttrValue_Which_time:
+		case nodecommoncapnp.ExtAttrValue_Which_time:
 			t, err := value.Time()
 			if err != nil {
 				return nil, err
 			}
 			attributes[attributeName] = time.Unix(t.TvSec(), t.TvNsec())
-		case node_common_capnp.ExtAttrValue_Which_notExists:
+		case nodecommoncapnp.ExtAttrValue_Which_notExists:
 			continue // skip
 		default:
 			return attributes, errors.Errorf("getItemsCapnp: %s type for %s attribute is not expected", value.Which().String(), attributeName)
@@ -1555,7 +1556,7 @@ func (c *context) getItemsParseCAPNPResponse(response *v3io.Response, withWildca
 		return nil, errors.Errorf("getItemsCapnp: Got only %v capnp sections. Expecting at least 2", len(capnpSections))
 	}
 
-	metadataPayload, err := node_common_capnp.ReadRootVnObjectItemsGetResponseMetadataPayload(capnpSections[len(capnpSections)-1])
+	metadataPayload, err := nodecommoncapnp.ReadRootVnObjectItemsGetResponseMetadataPayload(capnpSections[len(capnpSections)-1])
 	if err != nil {
 		return nil, errors.Wrap(err, "ReadRootVnObjectItemsGetResponseMetadataPayload")
 	}
@@ -1592,9 +1593,9 @@ func (c *context) getItemsParseCAPNPResponse(response *v3io.Response, withWildca
 	accLength := 0
 	//Additional data sections "in between"
 	for capnpSectionIndex := 1; capnpSectionIndex < len(capnpSections)-1; capnpSectionIndex++ {
-		data, err := node_common_capnp.ReadRootVnObjectItemsGetResponseDataPayload(capnpSections[capnpSectionIndex])
+		data, err := nodecommoncapnp.ReadRootVnObjectItemsGetResponseDataPayload(capnpSections[capnpSectionIndex])
 		if err != nil {
-			return nil, errors.Wrap(err, "node_common_capnp.ReadRootVnObjectAttributeValueMap")
+			return nil, errors.Wrap(err, "nodecommoncapnp.ReadRootVnObjectAttributeValueMap")
 		}
 		dvmap, err := data.ValueMap()
 		if err != nil {

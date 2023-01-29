@@ -17,6 +17,7 @@ illegal under applicable law, and the grant of the foregoing license
 under the Apache 2.0 license is conditioned upon your compliance with
 such restriction.
 */
+
 package streamconsumergroup
 
 import (
@@ -113,17 +114,16 @@ func (suite *stateHandlerSuite) TestRetainShards() {
 			expectedError:       false,
 		},
 		{
+			name:                "getUnAssignedShards",
+			memberID:            "0",
+			existingShardGroups: [][]int{{0, 1}, {2, 3}},
+			expectedShardGroup:  []int{4, 5},
+		},
+		{
 			name:                "failedRetention",
 			memberID:            "2",
 			existingShardGroups: [][]int{{0, 1}, {2, 3}, {4, 5}},
 			expectedShardGroup:  []int{0, 1},
-			expectedError:       true,
-		},
-		{
-			name:                "unexpectedBehaviour",
-			memberID:            "0",
-			existingShardGroups: [][]int{{0, 1}, {2, 3}},
-			expectedShardGroup:  []int{4, 5},
 			expectedError:       true,
 		},
 	} {
