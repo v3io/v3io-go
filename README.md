@@ -36,7 +36,7 @@
     ```
 
 ## Mocking
-We used `mockery` to generate mocks for the interfaces in the `v3io` package.
+We used [mockery](https://vektra.github.io/mockery/) to generate mocks for the interfaces in the `v3io` package.
 To generate mock for interface in specific path you can run:
 ```bash
 mockery --dir <path_to_dir_contains_interface> --name <interface_name>
