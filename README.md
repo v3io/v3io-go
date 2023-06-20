@@ -34,3 +34,15 @@
     V3IO_CONTROLPLANE_IGZ_ADMIN_PASSWORD=<igz_admin-password> \
     make test
     ```
+
+## Mocking
+We used [mockery](https://vektra.github.io/mockery/) to generate mocks for the interfaces in the `v3io` package.
+To generate mock for interface in specific path you can run:
+```bash
+mockery --dir <path_to_dir_contains_interface> --name <interface_name>
+```
+
+For example, to generate mock for `Session` interface in `controlplane` you can run:
+```bash
+mockery --dir pkg/controlplane --name Session
+```
