@@ -115,7 +115,7 @@ func (scg *streamConsumerGroup) setState(modifier stateModifier,
 
 	err := common.RetryFunc(context.TODO(), scg.logger, attempts, nil, &backoff, func(attempt int) (bool, error) {
 		state, stateMtimeNanoSeconds, stateMtimeSeconds, err := scg.getStateFromPersistency()
-		if err != nil && err != v3ioerrors.ErrNotFound {
+		if err != nil && errors.Is(err, v3ioerrors.ErrNotFound) {
 			return true, errors.Wrap(err, "Failed getting current state from persistency")
 		}
 
@@ -264,7 +264,6 @@ func (scg *streamConsumerGroup) getStateFilePath() string {
 
 func (scg *streamConsumerGroup) getShardLocationFromPersistency(shardID int,
 	initialLocation v3io.SeekShardInputType) (string, error) {
-	scg.logger.DebugWith("Getting shard sequenceNumber from persistency", "shardID", shardID)
 
 	seekShardInput := v3io.SeekShardInput{}
 
@@ -274,7 +273,7 @@ func (scg *streamConsumerGroup) getShardLocationFromPersistency(shardID int,
 
 		// if the error is that the attribute wasn't found, but the shard was found - seek the shard
 		// according to the configuration
-		if err != ErrShardSequenceNumberAttributeNotFound {
+		if errors.Is(err, ErrShardSequenceNumberAttributeNotFound) {
 			return "", errors.Wrap(err, "Failed to get shard sequenceNumber from item attributes")
 		}
 
@@ -316,9 +315,6 @@ func (scg *streamConsumerGroup) getShardSequenceNumberFromPersistency(shardID in
 			return 0, errors.Wrap(err, "Failed getting shard item")
 		}
 
-		// TODO: remove after errors.Is support added
-		scg.logger.DebugWith("Could not find shard, probably doesn't exist yet", "path", shardPath)
-
 		return 0, ErrShardNotFound
 	}
 
@@ -328,7 +324,7 @@ func (scg *streamConsumerGroup) getShardSequenceNumberFromPersistency(shardID in
 
 	// return the attribute name
 	sequenceNumber, err := getItemOutput.Item.GetFieldUint64(scg.getShardCommittedSequenceNumberAttributeName())
-	if err != nil && err == v3ioerrors.ErrNotFound {
+	if err != nil && errors.Is(err, v3ioerrors.ErrNotFound) {
 		return 0, ErrShardSequenceNumberAttributeNotFound
 	}
 
