@@ -217,11 +217,13 @@ func (c *claim) fetchRecordBatch(location string) (string, error) {
 
 	for receivedRecordIndex, receivedRecord := range getRecordsOutput.Records {
 		record := v3io.StreamRecord{
-			ShardID:        &c.shardID,
-			Data:           receivedRecord.Data,
-			ClientInfo:     receivedRecord.ClientInfo,
-			PartitionKey:   receivedRecord.PartitionKey,
-			SequenceNumber: receivedRecord.SequenceNumber,
+			ShardID:         &c.shardID,
+			Data:            receivedRecord.Data,
+			ClientInfo:      receivedRecord.ClientInfo,
+			PartitionKey:    receivedRecord.PartitionKey,
+			SequenceNumber:  receivedRecord.SequenceNumber,
+			ArrivalTimeSec:  receivedRecord.ArrivalTimeSec,
+			ArrivalTimeNSec: receivedRecord.ArrivalTimeNSec,
 		}
 
 		records[receivedRecordIndex] = record
