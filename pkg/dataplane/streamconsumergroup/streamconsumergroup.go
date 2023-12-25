@@ -115,7 +115,7 @@ func (scg *streamConsumerGroup) setState(modifier stateModifier,
 
 	err := common.RetryFunc(context.TODO(), scg.logger, attempts, nil, &backoff, func(attempt int) (bool, error) {
 		state, stateMtimeNanoSeconds, stateMtimeSeconds, err := scg.getStateFromPersistency()
-		if err != nil && errors.Is(err, v3ioerrors.ErrNotFound) {
+		if err != nil && !errors.Is(err, v3ioerrors.ErrNotFound) {
 			return true, errors.Wrap(err, "Failed getting current state from persistency")
 		}
 
@@ -131,7 +131,7 @@ func (scg *streamConsumerGroup) setState(modifier stateModifier,
 
 		modifiedState, err = modifier(state)
 		if err != nil {
-			if errors.RootCause(err) == errShardRetention {
+			if errors.Is(errors.RootCause(err), errShardRetention) {
 
 				// if shard retention failed the member needs to be aborted, so we can stop retrying
 				return false, errors.Wrap(err, "Failed modifying state")
@@ -273,7 +273,7 @@ func (scg *streamConsumerGroup) getShardLocationFromPersistency(shardID int,
 
 		// if the error is that the attribute wasn't found, but the shard was found - seek the shard
 		// according to the configuration
-		if errors.Is(err, ErrShardSequenceNumberAttributeNotFound) {
+		if !errors.Is(err, ErrShardSequenceNumberAttributeNotFound) {
 			return "", errors.Wrap(err, "Failed to get shard sequenceNumber from item attributes")
 		}
 
