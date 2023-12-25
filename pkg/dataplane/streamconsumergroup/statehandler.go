@@ -58,7 +58,7 @@ func (sh *stateHandler) start() error {
 	// stops on stop()
 	go func() {
 		if err := sh.refreshStatePeriodically(); err != nil {
-			if errors.RootCause(err) == errShardRetention {
+			if errors.Is(errors.RootCause(err), errShardRetention) {
 
 				// signal that the Handler needs to be restarted
 				sh.logger.ErrorWith("Aborting member", "memberID", sh.member.id)
@@ -127,7 +127,7 @@ func (sh *stateHandler) refreshStatePeriodically() error {
 				if err != nil {
 
 					// in case of shard retention error we want to signal the member to restart
-					if errors.RootCause(err) == errShardRetention {
+					if errors.Is(errors.RootCause(err), errShardRetention) {
 						sh.logger.WarnWith("Failed getting state on shard retention (requested by member)",
 							"err", errors.GetErrorStackString(err, 10))
 						return errors.Wrap(err, "Failed refreshing state by demand")
@@ -145,7 +145,7 @@ func (sh *stateHandler) refreshStatePeriodically() error {
 			if err != nil {
 
 				// in case of shard retention error we want to signal the member to restart
-				if errors.RootCause(err) == errShardRetention {
+				if errors.Is(errors.RootCause(err), errShardRetention) {
 					sh.logger.WarnWith("Failed getting state on shard retention (periodic refresh)",
 						"err", errors.GetErrorStackString(err, 10))
 					return errors.Wrap(err, "Failed refreshing state periodically")
