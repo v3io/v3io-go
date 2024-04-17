@@ -70,7 +70,7 @@ func (c *claim) start() error {
 			c.member.streamConsumerGroup.config.Claim.RecordBatchFetch.Interval)
 
 		if err != nil {
-			c.logger.WarnWith("Failed to fetch record batches", "err", errors.GetErrorStackString(err, 10))
+			c.logger.ErrorWith("Failed to fetch record batches", "err", errors.GetErrorStackString(err, 10))
 		}
 	}()
 
@@ -79,11 +79,11 @@ func (c *claim) start() error {
 		// tell the consumer group handler to consume the claim
 		c.logger.DebugWith("Calling ConsumeClaim on handler")
 		if err := c.member.handler.ConsumeClaim(c.member.session, c); err != nil {
-			c.logger.WarnWith("ConsumeClaim returned with error", "err", errors.GetErrorStackString(err, 10))
+			c.logger.ErrorWith("ConsumeClaim returned with error", "err", errors.GetErrorStackString(err, 10))
 		}
 
 		if err := c.stop(); err != nil {
-			c.logger.WarnWith("Failed to stop claim after consumption", "err", errors.GetErrorStackString(err, 10))
+			c.logger.ErrorWith("Failed to stop claim after consumption", "err", errors.GetErrorStackString(err, 10))
 		}
 	}()
 
