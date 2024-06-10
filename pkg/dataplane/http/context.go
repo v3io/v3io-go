@@ -1218,7 +1218,7 @@ func (c *context) encodeTypedAttributes(attributes map[string]interface{}) (map[
 		typedAttributes[attributeName] = make(map[string]interface{})
 		switch value := attributeValue.(type) {
 		default:
-			return nil, fmt.Errorf("unexpected attribute type for %s: %T", attributeName, reflect.TypeOf(attributeValue))
+			return nil, fmt.Errorf("unexpected attribute type for %s: %T. Underlying type %v", attributeName, reflect.TypeOf(attributeValue), value)
 		case int:
 			typedAttributes[attributeName]["N"] = strconv.Itoa(value)
 		case uint64:
