@@ -22,6 +22,7 @@ package v3ioerrors
 
 import (
 	"errors"
+	"syscall"
 )
 
 var ErrInvalidTypeConversion = errors.New("Invalid type conversion")
@@ -32,6 +33,7 @@ var ErrTimeout = errors.New("Timed out")
 type ErrorWithStatusCode struct {
 	error
 	statusCode int
+	errnoCode  int
 }
 
 type ErrorWithStatusCodeAndResponse struct {
@@ -39,10 +41,11 @@ type ErrorWithStatusCodeAndResponse struct {
 	response interface{}
 }
 
-func NewErrorWithStatusCode(err error, statusCode int) ErrorWithStatusCode {
+func NewErrorWithStatusCode(err error, statusCode int, errnoCode int) ErrorWithStatusCode {
 	return ErrorWithStatusCode{
 		error:      err,
 		statusCode: statusCode,
+		errnoCode:  errnoCode,
 	}
 }
 
@@ -50,16 +53,20 @@ func (e ErrorWithStatusCode) StatusCode() int {
 	return e.statusCode
 }
 
+func (e ErrorWithStatusCode) Errno() syscall.Errno {
+	return syscall.Errno(e.errnoCode)
+}
+
 func (e ErrorWithStatusCode) Error() string {
 	return e.error.Error()
 }
 
 func NewErrorWithStatusCodeAndResponse(err error,
-	statusCode int,
+	statusCode int, errnoCode int,
 	response interface{}) ErrorWithStatusCodeAndResponse {
 
 	return ErrorWithStatusCodeAndResponse{
-		ErrorWithStatusCode: NewErrorWithStatusCode(err, statusCode),
+		ErrorWithStatusCode: NewErrorWithStatusCode(err, statusCode, errnoCode),
 		response:            response,
 	}
 }
