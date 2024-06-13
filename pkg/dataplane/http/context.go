@@ -1240,7 +1240,7 @@ func (c *context) encodeTypedAttributes(attributes map[string]interface{}) (map[
 		case int64:
 			typedAttributes[attributeName]["N"] = strconv.FormatInt(value, 10)
 		case float32:
-			typedAttributes[attributeName]["N"] = strconv.FormatFloat(float64(value), 'E', -1, 64)
+			typedAttributes[attributeName]["N"] = strconv.FormatFloat(float64(value), 'E', -1, 32)
 			// this is a tmp bypass to the fact Go maps Json numbers to float64
 		case float64:
 			typedAttributes[attributeName]["N"] = strconv.FormatFloat(value, 'E', -1, 64)
