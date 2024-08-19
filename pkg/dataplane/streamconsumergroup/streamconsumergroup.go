@@ -367,6 +367,7 @@ func (scg *streamConsumerGroup) setShardSequenceNumberInPersistency(shardID int,
 		Attributes: map[string]interface{}{
 			scg.getShardCommittedSequenceNumberAttributeName(): sequenceNumber,
 		},
+		Condition: "__obj_type == 3",
 	})
 	return err
 }
