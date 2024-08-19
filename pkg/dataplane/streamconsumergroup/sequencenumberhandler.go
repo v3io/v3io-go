@@ -72,6 +72,10 @@ func (snh *sequenceNumberHandler) stop() error {
 }
 
 func (snh *sequenceNumberHandler) markShardSequenceNumber(shardID int, sequenceNumber uint64) error {
+	err := snh.member.streamConsumerGroup.checkShardExists(shardID, sequenceNumber)
+	if err != nil {
+		return errors.Wrapf(err, "Failed checking shard exists. Current sequenceNumber %v", snh.markedShardSequenceNumbers[shardID])
+	}
 	snh.markedShardSequenceNumbers[shardID] = sequenceNumber
 
 	return nil
