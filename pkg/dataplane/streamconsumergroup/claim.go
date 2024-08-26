@@ -129,7 +129,9 @@ func (c *claim) fetchRecordBatches(stopChannel chan struct{}, fetchInterval time
 		&c.getShardLocationBackoff, func(attempt int) (bool, error) {
 			c.currentShardLocation, err = c.getCurrentShardLocation(c.shardID)
 			if err != nil {
-
+				if common.EngineErrorIsNonFatal(err) {
+					return true, errors.Wrap(err, "Failed to get shard location due to a network error")
+				}
 				// requested for an immediate stop
 				if err == v3ioerrors.ErrStopped {
 					return false, nil
