@@ -118,6 +118,9 @@ func (scg *streamConsumerGroup) setState(modifier stateModifier,
 		if err != nil && !errors.Is(err, v3ioerrors.ErrNotFound) {
 			return true, errors.Wrap(err, "Failed getting current state from persistency")
 		}
+		if common.EngineErrorIsNonFatal(err) {
+			return true, errors.Wrap(err, "Failed getting current state from persistency due to a network error")
+		}
 
 		if state == nil {
 			state, err = newState()
@@ -367,6 +370,7 @@ func (scg *streamConsumerGroup) setShardSequenceNumberInPersistency(shardID int,
 		Attributes: map[string]interface{}{
 			scg.getShardCommittedSequenceNumberAttributeName(): sequenceNumber,
 		},
+		Condition: "__obj_type == 3",
 	})
 	return err
 }

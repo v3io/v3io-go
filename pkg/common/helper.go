@@ -24,6 +24,7 @@ import (
 	"context"
 	"reflect"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/nuclio/errors"
@@ -168,5 +169,22 @@ func StringSlicesEqual(slice1 []string, slice2 []string) bool {
 		}
 	}
 
+	return true
+}
+
+func EngineErrorIsNonFatal(err error) bool {
+	var nonFatalEngineErrorsPartialMatch = []string{
+		"dialing to the given TCP address timed out",
+		"timeout",
+		"refused",
+	}
+	if err != nil && len(err.Error()) > 0 {
+		for _, nonFatalError := range nonFatalEngineErrorsPartialMatch {
+			if strings.Contains(err.Error(), nonFatalError) || strings.Contains(errors.Cause(err).Error(), nonFatalError) {
+				return true
+			}
+		}
+		return false
+	}
 	return true
 }
