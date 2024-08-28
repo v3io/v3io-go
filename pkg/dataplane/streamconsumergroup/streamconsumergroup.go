@@ -367,34 +367,8 @@ func (scg *streamConsumerGroup) setShardSequenceNumberInPersistency(shardID int,
 		Attributes: map[string]interface{}{
 			scg.getShardCommittedSequenceNumberAttributeName(): sequenceNumber,
 		},
-		Condition: "__obj_type == 3",
 	})
 	return err
-}
-
-func (scg *streamConsumerGroup) checkShardExists(shardID int, sequenceNumber uint64) error {
-	shardPath, err := scg.getShardPath(shardID)
-	if err != nil {
-		return errors.Wrapf(err, "Failed getting shard path: %v", shardID)
-	}
-
-	response, err := scg.container.GetItemSync(&v3io.GetItemInput{
-		Path: shardPath,
-		AttributeNames: []string{
-			"__obj_type",
-		},
-	})
-	defer response.Release()
-	if err != nil {
-		return errors.Wrapf(err, "Updating shard counter %v to %v failed.Failed to fetch shard object type", shardPath, sequenceNumber)
-	}
-	getItemOutput := response.Output.(*v3io.GetItemOutput)
-
-	objType, err2 := getItemOutput.Item.GetFieldInt("__obj_type")
-	if err2 != nil || objType != 3 {
-		return errors.Wrapf(err2, "Updating shard counter %v to %v failed. Shard is a regular file (%v)", shardPath, sequenceNumber, objType)
-	}
-	return nil
 }
 
 // returns true if the states are equal, ignoring heartbeat times
