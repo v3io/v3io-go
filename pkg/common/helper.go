@@ -184,7 +184,6 @@ func EngineErrorIsNonFatal(err error) bool {
 				return true
 			}
 		}
-		return false
 	}
-	return true
+	return false
 }
