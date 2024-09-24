@@ -315,3 +315,32 @@ func (c *container) PutOOSObjectSync(putOOSObjectInput *v3io.PutOOSObjectInput) 
 	c.populateInputFields(&putOOSObjectInput.DataPlaneInput)
 	return c.session.context.PutOOSObjectSync(putOOSObjectInput)
 }
+
+func (c *container) GetFileAttributesSync(input *v3io.GetFileAttributesInput, out *v3io.GetFileAttributesOutput) error {
+	c.populateInputFields(&input.DataPlaneInput)
+	return c.session.context.GetFileAttributesSync(input, out)
+}
+
+func (c *container) OpenFileSync(input *v3io.OpenFileInput, out *v3io.OpenFileOutput) error {
+	c.populateInputFields(&input.DataPlaneInput)
+	return c.session.context.OpenFileSync(input, out)
+}
+
+func (c *container) CloseFileSync(input *v3io.CloseFileInput) error {
+	c.populateInputFields(&input.DataPlaneInput)
+	return c.session.context.CloseFileSync(input)
+}
+
+func (c *container) TruncateFileSync(input *v3io.TruncateFileInput) error {
+	c.populateInputFields(&input.DataPlaneInput)
+	return c.session.context.TruncateFileSync(input)
+}
+
+func (c *container) SymlinkSync(input *v3io.SymlinkInput) error {
+	c.populateInputFields(&input.DataPlaneInput)
+	return c.session.context.SymlinkSync(input)
+}
+
+func (c *container) GetWorkerDedicatedPortsSync(in *v3io.DataPlaneInput) ([]string, error) {
+	return c.session.context.GetWorkerDedicatedPortsSync(in)
+}
