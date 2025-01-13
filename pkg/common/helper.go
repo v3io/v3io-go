@@ -50,10 +50,10 @@ func RetryFunc(ctx context.Context,
 	var attempt = 0
 	for attempt <= attempts {
 
-		attempt += 1
+		attempt++
 		// some errors might require more attempts than expected, so allow incrementing attempts from outside
 		retry, err, addAttempts = fn(attempt)
-		attempt += addAttempts
+		attempts += addAttempts
 
 		// if there's no need to retry - we're done
 		if !retry {
