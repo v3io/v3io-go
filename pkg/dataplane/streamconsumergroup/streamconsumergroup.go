@@ -113,19 +113,19 @@ func (scg *streamConsumerGroup) setState(modifier stateModifier,
 	backoff := scg.config.State.ModifyRetry.Backoff
 	attempts := scg.config.State.ModifyRetry.Attempts
 
-	err := common.RetryFunc(context.TODO(), scg.logger, attempts, nil, &backoff, func(attempt int) (bool, error) {
+	err := common.RetryFunc(context.TODO(), scg.logger, attempts, nil, &backoff, func(attempt int) (bool, error, int) {
 		state, stateMtimeNanoSeconds, stateMtimeSeconds, err := scg.getStateFromPersistency()
 		if err != nil && !errors.Is(err, v3ioerrors.ErrNotFound) {
-			return true, errors.Wrap(err, "Failed getting current state from persistency")
+			return true, errors.Wrap(err, "Failed getting current state from persistency"), 0
 		}
 		if common.EngineErrorIsNonFatal(err) {
-			return true, errors.Wrap(err, "Failed getting current state from persistency due to a network error")
+			return true, errors.Wrap(err, "Failed getting current state from persistency due to a network error"), 0
 		}
 
 		if state == nil {
 			state, err = newState()
 			if err != nil {
-				return true, errors.Wrap(err, "Failed to create state")
+				return true, errors.Wrap(err, "Failed to create state"), 0
 			}
 		}
 
@@ -137,9 +137,9 @@ func (scg *streamConsumerGroup) setState(modifier stateModifier,
 			if errors.Is(errors.RootCause(err), errShardRetention) {
 
 				// if shard retention failed the member needs to be aborted, so we can stop retrying
-				return false, errors.Wrap(err, "Failed modifying state")
+				return false, errors.Wrap(err, "Failed modifying state"), 0
 			}
-			return true, errors.Wrap(err, "Failed modifying state")
+			return true, errors.Wrap(err, "Failed modifying state"), 0
 		}
 
 		// log only on change
@@ -157,14 +157,14 @@ func (scg *streamConsumerGroup) setState(modifier stateModifier,
 					"attempt", attempt,
 					"err", errors.RootCause(err).Error())
 			}
-			return true, errors.Wrap(err, "Failed setting state in persistency state")
+			return true, errors.Wrap(err, "Failed setting state in persistency state"), 0
 		}
 
 		if err := handlePostSetStateInPersistency(); err != nil {
-			return false, errors.Wrap(err, "Failed handling post set state in persistency")
+			return false, errors.Wrap(err, "Failed handling post set state in persistency"), 0
 		}
 
-		return false, nil
+		return false, nil, 0
 	})
 
 	if err != nil {

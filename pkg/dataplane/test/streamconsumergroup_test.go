@@ -214,20 +214,20 @@ func (suite *streamConsumerGroupTestSuite) TestStateHandlerRetainShards() {
 				30,
 				&duration,
 				nil,
-				func(attempt int) (bool, error) {
+				func(attempt int) (bool, error, int) {
 					observedState, err := streamConsumerGroup.GetState()
 					suite.Require().NoError(err)
 					for _, sessionState := range observedState.SessionStates {
 						if sessionState.MemberID == member.streamConsumerGroupMember.GetID() {
 							suite.logger.DebugWith("Session state was not removed just yet")
-							return true, nil
+							return true, nil, 0
 						}
 					}
 
 					suite.logger.DebugWith("Session state was removed",
 						"observedState", observedState,
 						"memberID", member.id)
-					return false, nil
+					return false, nil, 0
 				})
 		})
 
@@ -270,7 +270,7 @@ func (suite *streamConsumerGroupTestSuite) TestStateHandlerRetainShards() {
 				30,
 				&duration,
 				nil,
-				func(attempt int) (bool, error) {
+				func(attempt int) (bool, error, int) {
 					observedState, err := streamConsumerGroup.GetState()
 					suite.Require().NoError(err)
 
@@ -279,14 +279,14 @@ func (suite *streamConsumerGroupTestSuite) TestStateHandlerRetainShards() {
 							suite.logger.DebugWith("retained shards",
 								"shards", sessionState.Shards,
 								"memberID", sessionState.MemberID)
-							return false, nil
+							return false, nil, 0
 						}
 					}
 
 					suite.logger.DebugWith("Session state shards were no retained just yet",
 						"sessionStates", observedState.SessionStates,
 						"memberID", member.streamConsumerGroupMember.GetID())
-					return true, nil
+					return true, nil, 0
 
 				})
 		})
@@ -368,14 +368,14 @@ func (suite *streamConsumerGroupTestSuite) TestStateHandlerAbort() {
 		10,
 		&duration,
 		nil,
-		func(attempt int) (bool, error) {
+		func(attempt int) (bool, error, int) {
 			state, err = suite.getStateFromPersistency(suite.streamPath, consumerGroupName)
 			if err != nil {
 				suite.logger.DebugWith("State was not retrieved from persistency",
 					"err", err)
-				return true, err
+				return true, err, 0
 			}
-			return false, nil
+			return false, nil, 0
 		})
 	suite.Require().NoError(err)
 
@@ -391,14 +391,14 @@ func (suite *streamConsumerGroupTestSuite) TestStateHandlerAbort() {
 		10,
 		&duration,
 		nil,
-		func(attempt int) (bool, error) {
+		func(attempt int) (bool, error, int) {
 			err = suite.setStateInPersistency(suite.streamPath, consumerGroupName, state)
 			if err != nil {
 				suite.logger.DebugWith("State was not set in persistency yet",
 					"err", err)
-				return true, err
+				return true, err, 0
 			}
-			return false, nil
+			return false, nil, 0
 		})
 	suite.Require().NoError(err)
 

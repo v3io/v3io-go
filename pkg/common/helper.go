@@ -41,13 +41,19 @@ func RetryFunc(ctx context.Context,
 	attempts int,
 	retryInterval *time.Duration,
 	backoff *Backoff,
-	fn func(int) (bool, error)) error {
+	fn func(int) (bool, error, int)) error {
 
 	var err error
 	var retry bool
+	var addAttempts int
 
-	for attempt := 1; attempt <= attempts; attempt++ {
-		retry, err = fn(attempt)
+	var attempt = 0
+	for attempt <= attempts {
+
+		attempt += 1
+		// some errors might require more attempts than expected, so allow incrementing attempts from outside
+		retry, err, addAttempts = fn(attempt)
+		attempt += addAttempts
 
 		// if there's no need to retry - we're done
 		if !retry {
@@ -178,9 +184,19 @@ func EngineErrorIsNonFatal(err error) bool {
 		"timeout",
 		"refused",
 	}
+	return errorMatches(err, nonFatalEngineErrorsPartialMatch)
+}
+
+func EngineErrorIsFatal(err error) bool {
+	var fatalEngineErrorsPartialMatch = []string{
+		"Failed to fetch record batches",
+	}
+	return errorMatches(err, fatalEngineErrorsPartialMatch)
+}
+func errorMatches(err error, substrings []string) bool {
 	if err != nil && len(err.Error()) > 0 {
-		for _, nonFatalError := range nonFatalEngineErrorsPartialMatch {
-			if strings.Contains(err.Error(), nonFatalError) || strings.Contains(errors.Cause(err).Error(), nonFatalError) {
+		for _, substring := range substrings {
+			if strings.Contains(err.Error(), substring) || strings.Contains(errors.Cause(err).Error(), substring) {
 				return true
 			}
 		}
