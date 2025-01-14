@@ -126,7 +126,8 @@ func (c *claim) fetchRecordBatches(stopChannel chan struct{}, fetchInterval time
 		c.logger,
 		c.getShardLocationAttempts,
 		nil,
-		&c.getShardLocationBackoff, func(attempt int) (bool, error, int) {
+		&c.getShardLocationBackoff,
+		func(attempt int) (bool, error, int) {
 			c.currentShardLocation, err = c.getCurrentShardLocation(c.shardID)
 			if err != nil {
 				if common.EngineErrorIsNonFatal(err) {
