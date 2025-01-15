@@ -137,8 +137,6 @@ func (c *claim) fetchRecordBatches(stopChannel chan struct{}, fetchInterval time
 				// if the error is fatal and requires external resolution,
 				// we don't want to fail; instead, we will inform the user via a log
 				if common.EngineErrorIsFatal(err) {
-					// although RetryFunc already logs the error, it logs it as a warning
-					// to emphasize the severity, we log it again as an error
 					c.logger.ErrorWith("A fatal error occurred. Will retry until successful",
 						"error", err,
 						"shard", c.shardID)
