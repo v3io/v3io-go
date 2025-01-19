@@ -126,31 +126,45 @@ func (c *claim) fetchRecordBatches(stopChannel chan struct{}, fetchInterval time
 		c.logger,
 		c.getShardLocationAttempts,
 		nil,
-		&c.getShardLocationBackoff, func(attempt int) (bool, error) {
+		&c.getShardLocationBackoff,
+		func(attempt int) (bool, error, int) {
 			c.currentShardLocation, err = c.getCurrentShardLocation(c.shardID)
 			if err != nil {
 				if common.EngineErrorIsNonFatal(err) {
-					return true, errors.Wrap(err, "Failed to get shard location due to a network error")
+					return true, errors.Wrap(err, "Failed to get shard location due to a network error"), 0
 				}
+
+				// if the error is fatal and requires external resolution,
+				// we don't want to fail; instead, we will inform the user via a log
+				if common.EngineErrorIsFatal(err) {
+					c.logger.ErrorWith("A fatal error occurred. Will retry until successful",
+						"error", err,
+						"shard", c.shardID)
+					// for this type of error, we always increment the attempt counter
+					// this ensures the smooth operation of other components in Nuclio
+					// we avoid panicking and simply wait for the issue to be resolved
+					return true, errors.Wrap(err, "Failed to get shard location"), 1
+				}
+
 				// requested for an immediate stop
 				if err == v3ioerrors.ErrStopped {
-					return false, nil
+					return false, nil, 0
 				}
 
 				switch errors.RootCause(err).(type) {
 
 				// in case of a network error, retry to avoid transient errors
 				case *net.OpError:
-					return true, errors.Wrap(err, "Failed to get shard location due to a network error")
+					return true, errors.Wrap(err, "Failed to get shard location due to a network error"), 0
 
 				// unknown error, fail now
 				default:
-					return false, errors.Wrap(err, "Failed to get shard location")
+					return false, errors.Wrap(err, "Failed to get shard location"), 0
 				}
 			}
 
 			// we have shard location
-			return false, nil
+			return false, nil, 0
 		}); err != nil {
 		return errors.Wrapf(err,
 			"Failed to get shard location state, attempts exhausted. shard id: %d",

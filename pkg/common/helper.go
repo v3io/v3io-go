@@ -35,19 +35,30 @@ func getFunctionName(fn interface{}) string {
 	return runtime.FuncForPC(reflect.ValueOf(fn).Pointer()).Name()
 }
 
-// give either retryInterval or backoff
+// RetryFunc give either retryInterval or backoff
+// gets fn func(int) (bool, error, int) as parameter
+// which returns:
+// bool - whether should be retried
+// error - whether error happened
+// int - increments retries (allows manage retries count from inside of this function)
 func RetryFunc(ctx context.Context,
 	loggerInstance logger.Logger,
 	attempts int,
 	retryInterval *time.Duration,
 	backoff *Backoff,
-	fn func(int) (bool, error)) error {
+	fn func(int) (bool, error, int)) error {
 
 	var err error
 	var retry bool
+	var addAttempts int
 
-	for attempt := 1; attempt <= attempts; attempt++ {
-		retry, err = fn(attempt)
+	var attempt = 0
+	for attempt <= attempts {
+
+		attempt++
+		// some errors might require more attempts than expected, so allow incrementing attempts from outside
+		retry, err, addAttempts = fn(attempt)
+		attempts += addAttempts
 
 		// if there's no need to retry - we're done
 		if !retry {
@@ -178,9 +189,20 @@ func EngineErrorIsNonFatal(err error) bool {
 		"timeout",
 		"refused",
 	}
+	return errorMatches(err, nonFatalEngineErrorsPartialMatch)
+}
+
+func EngineErrorIsFatal(err error) bool {
+	var fatalEngineErrorsPartialMatch = []string{
+		"lookup v3io-webapi: i/o timeout",
+	}
+	return errorMatches(err, fatalEngineErrorsPartialMatch)
+}
+
+func errorMatches(err error, substrings []string) bool {
 	if err != nil && len(err.Error()) > 0 {
-		for _, nonFatalError := range nonFatalEngineErrorsPartialMatch {
-			if strings.Contains(err.Error(), nonFatalError) || strings.Contains(errors.Cause(err).Error(), nonFatalError) {
+		for _, substring := range substrings {
+			if strings.Contains(err.Error(), substring) || strings.Contains(errors.Cause(err).Error(), substring) {
 				return true
 			}
 		}
