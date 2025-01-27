@@ -192,7 +192,7 @@ func EngineErrorIsNonFatal(err error) bool {
 	return errorMatches(err, nonFatalEngineErrorsPartialMatch)
 }
 
-func EngineErrorIsFatal(err error) bool {
+func EngineErrorNeedsIndefiniteRetry(err error) bool {
 	var fatalEngineErrorsPartialMatch = []string{
 		"lookup v3io-webapi: i/o timeout",
 	}
