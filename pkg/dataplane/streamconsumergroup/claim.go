@@ -133,6 +133,9 @@ func (c *claim) fetchRecordBatches(stopChannel chan struct{}, fetchInterval time
 				// if the error is not fatal (as network issue),
 				// we don't want to fail; instead, we will inform the user via a log
 				if common.EngineErrorIsNonFatal(err) {
+					c.logger.ErrorWith("Failed to get shard location. Will retry until successful",
+						"error", err,
+						"shard", c.shardID)
 					// for this type of error, we always increment the attempt counter
 					// this ensures the smooth operation of other components in Nuclio
 					// we avoid panicking and simply wait for the issue to be resolved
