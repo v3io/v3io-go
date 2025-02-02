@@ -22,12 +22,13 @@ package common
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"runtime"
 	"strings"
 	"time"
 
-	"github.com/nuclio/errors"
+	nuclioerrors "github.com/nuclio/errors"
 	"github.com/nuclio/logger"
 )
 
@@ -87,7 +88,7 @@ func RetryFunc(ctx context.Context,
 			time.Sleep(backoff.Duration())
 		} else {
 			if retryInterval == nil {
-				return errors.New("Either retry interval or backoff must be given")
+				return nuclioerrors.New("Either retry interval or backoff must be given")
 			}
 			time.Sleep(*retryInterval)
 		}
@@ -108,7 +109,7 @@ func RetryFunc(ctx context.Context,
 			"function", getFunctionName(fn),
 			"err", err,
 			"attempts", attempts)
-		return errors.New("Failed final attempt to invoke function without proper error supplied")
+		return nuclioerrors.New("Failed final attempt to invoke function without proper error supplied")
 	}
 	return err
 }
@@ -193,9 +194,11 @@ func EngineErrorIsNonFatal(err error) bool {
 }
 
 func errorMatches(err error, substrings []string) bool {
-	if err != nil && len(err.Error()) > 0 {
+	// Unwraps the entire error chain
+	for e := err; e != nil; e = errors.Unwrap(e) {
+		errMsg := e.Error()
 		for _, substring := range substrings {
-			if strings.Contains(err.Error(), substring) || strings.Contains(errors.Cause(err).Error(), substring) {
+			if strings.Contains(errMsg, substring) {
 				return true
 			}
 		}
