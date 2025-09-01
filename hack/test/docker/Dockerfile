@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-FROM gcr.io/iguazio/golang:1.19
+FROM gcr.io/iguazio/golang:1.23
 
 ENV GOPATH=/go
 WORKDIR /v3io-go

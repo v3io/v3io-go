@@ -503,7 +503,7 @@ func (s *session) GetJob(getJobsInput *v3ioc.GetJobInput) (*v3ioc.GetJobOutput, 
 	return &getJobsOutput, err
 }
 
-func (s *session) getResourceDetail(ctx context.Context,
+func (s *session) getResourceDetail(ctx context.Context, //nolint:unused
 	path string,
 	controlPlaneInput *v3ioc.ControlPlaneInput,
 	controlPlaneOutput *v3ioc.ControlPlaneOutput,
@@ -826,7 +826,7 @@ func (s *session) sendRequest(ctx context.Context, request *request, timeout tim
 	}
 
 	// check if we got any cookies to set
-	httpResponse.Header.VisitAllCookie(func(key []byte, value []byte) {
+	httpResponse.Header.VisitAllCookie(func(key []byte, value []byte) { //nolint:staticcheck // SA1019
 		responseInstance.cookies = map[string]string{}
 		responseInstance.cookies[string(key)] = string(value)
 	})
@@ -841,7 +841,7 @@ func (s *session) sendRequest(ctx context.Context, request *request, timeout tim
 	if !request.allowErrors {
 		if responseInstance.statusCode >= 300 {
 			return nil, v3ioerrors.NewErrorWithStatusCode(
-				fmt.Errorf("Failed to execute HTTP request %s/%s.\nResponse code: %d",
+				fmt.Errorf("Failed to execute HTTP request %s/%s.\nResponse code: %d", //nolint:staticcheck // ST1005
 					s.endpoints[0], request.path, responseInstance.statusCode),
 				responseInstance.statusCode)
 		}

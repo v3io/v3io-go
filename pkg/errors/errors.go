@@ -24,10 +24,10 @@ import (
 	"errors"
 )
 
-var ErrInvalidTypeConversion = errors.New("Invalid type conversion")
-var ErrNotFound = errors.New("Not found")
+var ErrInvalidTypeConversion = errors.New("Invalid type conversion") //nolint:staticcheck // ST1005
+var ErrNotFound = errors.New("Not found") //nolint:staticcheck // ST1005
 var ErrStopped = errors.New("Stopped")
-var ErrTimeout = errors.New("Timed out")
+var ErrTimeout = errors.New("Timed out") //nolint:staticcheck // ST1005
 
 type ErrorWithStatusCode struct {
 	error

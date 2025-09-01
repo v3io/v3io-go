@@ -1,6 +1,6 @@
 module github.com/v3io/v3io-go
 
-go 1.19
+go 1.23
 
 require (
 	github.com/nuclio/errors v0.0.4
