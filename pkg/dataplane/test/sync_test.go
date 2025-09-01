@@ -373,11 +373,11 @@ func (suite *syncContextContainerTestSuite) SetupSuite() {
 	suite.createContext()
 }
 
-type syncContainerContainerTestSuite struct {
+type syncContainerContainerTestSuite struct { //nolint:unused
 	syncContainerTestSuite
 }
 
-func (suite *syncContainerContainerTestSuite) SetupSuite() {
+func (suite *syncContainerContainerTestSuite) SetupSuite() { //nolint:unused
 	suite.syncContainerTestSuite.SetupSuite()
 
 	suite.createContainer()
@@ -402,7 +402,7 @@ func (suite *syncObjectTestSuite) TestObject() {
 	// when run against a context, will populate fields like container name
 	suite.populateDataPlaneInput(&getObjectInput.DataPlaneInput)
 
-	response, err := suite.container.GetObjectSync(getObjectInput)
+	response, err := suite.container.GetObjectSync(getObjectInput) //nolint:ineffassign,staticcheck // SA4006
 
 	// get the underlying root error
 	errWithStatusCode, errHasStatusCode := err.(v3ioerrors.ErrorWithStatusCode)
@@ -415,7 +415,7 @@ func (suite *syncObjectTestSuite) TestObject() {
 
 	putObjectInput := &v3io.PutObjectInput{
 		Path: path,
-		Body: []byte(contents),
+		Body: []byte(contents), //nolint:unconvert
 	}
 
 	// when run against a context, will populate fields like container name
@@ -532,7 +532,7 @@ func (suite *syncObjectTestSuite) TestAppend() {
 	// when run against a context, will populate fields like container name
 	suite.populateDataPlaneInput(&getObjectInput.DataPlaneInput)
 
-	response, err := suite.container.GetObjectSync(getObjectInput)
+	response, err := suite.container.GetObjectSync(getObjectInput) //nolint:ineffassign,staticcheck // SA4006
 
 	// get the underlying root error
 	errWithStatusCode, errHasStatusCode := err.(v3ioerrors.ErrorWithStatusCode)
@@ -545,7 +545,7 @@ func (suite *syncObjectTestSuite) TestAppend() {
 
 	putObjectInput := &v3io.PutObjectInput{
 		Path: path,
-		Body: []byte(contents),
+		Body: []byte(contents), //nolint:unconvert
 	}
 
 	// when run against a context, will populate fields like container name
@@ -654,7 +654,7 @@ func (suite *syncObjectTestSuite) TestReadRange() {
 	// when run against a context, will populate fields like container name
 	suite.populateDataPlaneInput(&getObjectInput.DataPlaneInput)
 
-	response, err := suite.container.GetObjectSync(getObjectInput)
+	response, err := suite.container.GetObjectSync(getObjectInput) //nolint:ineffassign,staticcheck // SA4006
 
 	// get the underlying root error
 	errWithStatusCode, errHasStatusCode := err.(v3ioerrors.ErrorWithStatusCode)
@@ -667,7 +667,7 @@ func (suite *syncObjectTestSuite) TestReadRange() {
 
 	putObjectInput := &v3io.PutObjectInput{
 		Path: path,
-		Body: []byte(contents),
+		Body: []byte(contents), //nolint:unconvert
 	}
 
 	// when run against a context, will populate fields like container name
@@ -801,7 +801,7 @@ func (suite *syncContainerObjectTestSuite) SetupSuite() {
 
 type syncKVTestSuite struct {
 	syncTestSuite
-	items map[string]map[string]interface{}
+	items map[string]map[string]interface{} //nolint:unused
 }
 
 func (suite *syncKVTestSuite) TestEMD() {
@@ -1208,7 +1208,7 @@ func (suite *syncKVTestSuite) verifyItems(items map[string]map[string]interface{
 
 func (suite *syncKVTestSuite) deleteItems(path string, items map[string]map[string]interface{}) {
 	if !strings.HasSuffix(path, "/") {
-		path = path + "/"
+		path = path + "/" //nolint:gocritic // assignOp
 	}
 
 	// delete the items
@@ -1226,7 +1226,7 @@ func (suite *syncKVTestSuite) deleteItems(path string, items map[string]map[stri
 	}
 
 	input := &v3io.DeleteObjectInput{
-		Path: fmt.Sprintf("%s", path),
+		Path: fmt.Sprintf("%s", path), //nolint:staticcheck // S1025
 	}
 
 	// when run against a context, will populate fields like container name
@@ -1264,12 +1264,12 @@ func (suite *syncContainerKVTestSuite) SetupSuite() {
 
 type syncStreamTestSuite struct {
 	syncTestSuite
-	streamTestSuite streamTestSuite
+	streamTestSuite streamTestSuite //nolint:govet // copylocks
 }
 
 func (suite *syncStreamTestSuite) SetupTest() {
 	suite.streamTestSuite = streamTestSuite{
-		testSuite: suite.syncTestSuite.testSuite,
+		testSuite: suite.syncTestSuite.testSuite, //nolint:govet,staticcheck // copylocks, QF1008
 	}
 	suite.streamTestSuite.SetupTest()
 }
@@ -1437,12 +1437,12 @@ func (suite *syncStreamTestSuite) TestStream() {
 
 type syncStreamBackupRestoreTestSuite struct {
 	syncTestSuite
-	streamTestSuite streamTestSuite
+	streamTestSuite streamTestSuite //nolint:govet // copylocks
 }
 
 func (suite *syncStreamBackupRestoreTestSuite) SetupTest() {
 	suite.streamTestSuite = streamTestSuite{
-		testSuite: suite.syncTestSuite.testSuite,
+		testSuite: suite.syncTestSuite.testSuite, //nolint:govet,staticcheck // copylocks, QF1008
 	}
 	suite.streamTestSuite.SetupTest()
 }
@@ -1521,10 +1521,10 @@ func (suite *syncStreamBackupRestoreTestSuite) TestStream() {
 			}
 
 			if chunkMap[chunkId].Metadata != nil {
-				(*streamBackup[shardName].Chunks[chunkId]).Metadata = chunkMap[chunkId].Metadata
+				(*streamBackup[shardName].Chunks[chunkId]).Metadata = chunkMap[chunkId].Metadata //nolint:gocritic // underef
 			}
 			if len(chunkMap[chunkId].Data) != 0 {
-				(*streamBackup[shardName].Chunks[chunkId]).Data = chunkMap[chunkId].Data
+				(*streamBackup[shardName].Chunks[chunkId]).Data = chunkMap[chunkId].Data //nolint:gocritic // underef
 			}
 		}
 

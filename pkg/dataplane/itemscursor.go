@@ -42,9 +42,9 @@ type ItemsCursor struct {
 	container       Container
 	scattered       bool
 
-	logger        logger.Logger
-	retryAttempts int
-	retryInterval time.Duration
+	logger        logger.Logger //nolint:unused
+	retryAttempts int //nolint:unused
+	retryInterval time.Duration //nolint:unused
 }
 
 func getFunctionName(fn interface{}) string {

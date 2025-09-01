@@ -63,7 +63,7 @@ type DataPlaneInput struct {
 }
 
 type DataPlaneOutput struct {
-	ctx context.Context
+	ctx context.Context //nolint:unused
 }
 
 //

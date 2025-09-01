@@ -200,7 +200,7 @@ func (c *context) GetContainerContentsSync(getContainerContentsInput *v3io.GetCo
 	if getContainerContentsInput.Path != "" {
 		queryBuilder.WriteString("prefix=")
 		encodedPrefix := url.QueryEscape(getContainerContentsInput.Path)
-		encodedPrefix = strings.Replace(encodedPrefix, "+", "%20", -1)
+		encodedPrefix = strings.Replace(encodedPrefix, "+", "%20", -1) //nolint:gocritic,staticcheck // wrapperFunc, QF1004
 		queryBuilder.WriteString(encodedPrefix)
 	}
 
@@ -359,9 +359,9 @@ func (c *context) GetItemsSync(getItemsInput *v3io.GetItemsInput) (*v3io.Respons
 		headers[k] = v
 	}
 
-	if len(getItemsInput.DataPlaneInput.MtimeSec) > 0 {
-		headers["conditional-mtime-sec"] = getItemsInput.DataPlaneInput.MtimeSec
-		headers["conditional-mtime-nsec"] = getItemsInput.DataPlaneInput.MtimeNsec
+	if len(getItemsInput.DataPlaneInput.MtimeSec) > 0 { //nolint:staticcheck // QF1008
+		headers["conditional-mtime-sec"] = getItemsInput.DataPlaneInput.MtimeSec //nolint:staticcheck // QF1008
+		headers["conditional-mtime-nsec"] = getItemsInput.DataPlaneInput.MtimeNsec //nolint:staticcheck // QF1008
 	}
 
 	response, err := c.sendRequest(&getItemsInput.DataPlaneInput,
@@ -773,7 +773,7 @@ func (c *context) SeekShardSync(seekShardInput *v3io.SeekShardInput) (*v3io.Resp
 	buffer.WriteString(seekShardsInputTypeToString[seekShardInput.Type])
 	buffer.WriteString(`"`)
 
-	if seekShardInput.Type == v3io.SeekShardInputTypeSequence {
+	if seekShardInput.Type == v3io.SeekShardInputTypeSequence { //nolint:staticcheck // QF1003
 		buffer.WriteString(`, "StartingSequenceNumber": `)
 		buffer.WriteString(strconv.FormatUint(seekShardInput.StartingSequenceNumber, 10))
 	} else if seekShardInput.Type == v3io.SeekShardInputTypeTime {
@@ -1155,7 +1155,7 @@ func (c *context) sendRequest(dataPlaneInput *v3io.DataPlaneInput,
 		var re = regexp.MustCompile(".*X-V3io-Session-Key:.*")
 
 		sanitizedRequest := re.ReplaceAllString(request.String(), "X-V3io-Session-Key: SANITIZED")
-		_err := fmt.Errorf("Expected a 2xx response status code: %s\nRequest details:\n%s",
+		_err := fmt.Errorf("Expected a 2xx response status code: %s\nRequest details:\n%s", //nolint:staticcheck // ST1005
 			response.HTTPResponse.String(), sanitizedRequest)
 
 		// Include response in error only if caller has requested it
@@ -1200,7 +1200,7 @@ func (c *context) buildRequestURI(urlString string, containerName string, query 
 	if strings.HasSuffix(pathStr, "/") {
 		uri.Path += "/" // retain trailing slash
 	}
-	uri.RawQuery = strings.Replace(query, " ", "%20", -1)
+	uri.RawQuery = strings.Replace(query, " ", "%20", -1) //nolint:gocritic,staticcheck // wrapperFunc, QF1004
 	return uri, nil
 }
 
@@ -1621,11 +1621,11 @@ func (c *context) getItemsParseCAPNPResponse(response *v3io.Response, withWildca
 		if err != nil {
 			return nil, errors.Wrap(err, "data.ValueMap.Values")
 		}
-		accLength = accLength + dv.Len()
+		accLength = accLength + dv.Len() //nolint:gocritic // assignOp
 		valuesSections[capnpSectionIndex-1].data = dv
 		valuesSections[capnpSectionIndex-1].accumulatedPreviousSectionsLength = accLength
 	}
-	accLength = accLength + values.Len()
+	accLength = accLength + values.Len() //nolint:gocritic // assignOp
 	valuesSections[len(capnpSections)-2].data = values
 	valuesSections[len(capnpSections)-2].accumulatedPreviousSectionsLength = accLength
 
@@ -1712,7 +1712,7 @@ func parseMtimeHeader(response *v3io.Response) (int, int, error) {
 	for _, expression := range strings.Split(mtimeHeader, "and") {
 		mtimeParts := strings.Split(expression, "==")
 		mtimeType := strings.TrimSpace(mtimeParts[0])
-		if mtimeType == "__mtime_secs" {
+		if mtimeType == "__mtime_secs" { //nolint:gocritic,staticcheck // ifElseChain, QF1003
 			mtimeSecs, err = trimAndParseInt(mtimeParts[1])
 			if err != nil {
 				return 0, 0, err

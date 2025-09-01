@@ -113,7 +113,7 @@ func (scg *streamConsumerGroup) setState(modifier stateModifier,
 	backoff := scg.config.State.ModifyRetry.Backoff
 	attempts := scg.config.State.ModifyRetry.Attempts
 
-	err := common.RetryFunc(context.TODO(), scg.logger, attempts, nil, &backoff, func(attempt int) (bool, error, int) {
+	err := common.RetryFunc(context.TODO(), scg.logger, attempts, nil, &backoff, func(attempt int) (bool, error, int) { //nolint:staticcheck // ST1008
 		state, stateMtimeNanoSeconds, stateMtimeSeconds, err := scg.getStateFromPersistency()
 		if err != nil && !errors.Is(err, v3ioerrors.ErrNotFound) {
 			return true, errors.Wrap(err, "Failed getting current state from persistency"), 0

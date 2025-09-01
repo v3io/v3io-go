@@ -214,7 +214,7 @@ func (suite *streamConsumerGroupTestSuite) TestStateHandlerRetainShards() {
 				30,
 				&duration,
 				nil,
-				func(attempt int) (bool, error, int) {
+				func(attempt int) (bool, error, int) { //nolint:staticcheck // ST1008 //nolint:staticcheck // ST1008
 					observedState, err := streamConsumerGroup.GetState()
 					suite.Require().NoError(err)
 					for _, sessionState := range observedState.SessionStates {
@@ -270,7 +270,7 @@ func (suite *streamConsumerGroupTestSuite) TestStateHandlerRetainShards() {
 				30,
 				&duration,
 				nil,
-				func(attempt int) (bool, error, int) {
+				func(attempt int) (bool, error, int) { //nolint:staticcheck // ST1008 //nolint:staticcheck // ST1008
 					observedState, err := streamConsumerGroup.GetState()
 					suite.Require().NoError(err)
 
@@ -368,7 +368,7 @@ func (suite *streamConsumerGroupTestSuite) TestStateHandlerAbort() {
 		10,
 		&duration,
 		nil,
-		func(attempt int) (bool, error, int) {
+		func(attempt int) (bool, error, int) { //nolint:staticcheck // ST1008
 			state, err = suite.getStateFromPersistency(suite.streamPath, consumerGroupName)
 			if err != nil {
 				suite.logger.DebugWith("State was not retrieved from persistency",
@@ -391,7 +391,7 @@ func (suite *streamConsumerGroupTestSuite) TestStateHandlerAbort() {
 		10,
 		&duration,
 		nil,
-		func(attempt int) (bool, error, int) {
+		func(attempt int) (bool, error, int) { //nolint:staticcheck // ST1008
 			err = suite.setStateInPersistency(suite.streamPath, consumerGroupName, state)
 			if err != nil {
 				suite.logger.DebugWith("State was not set in persistency yet",

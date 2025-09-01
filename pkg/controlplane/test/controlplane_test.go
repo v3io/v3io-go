@@ -112,7 +112,7 @@ func (suite *testSuite) TearDownSuite() {
 }
 
 func (suite *testSuite) SetupTest() {
-	suite.ctx = context.WithValue(context.TODO(), "RequestID", "test-0")
+	suite.ctx = context.WithValue(context.TODO(), "RequestID", "test-0") //nolint:staticcheck // SA1029
 }
 
 func (suite *testSuite) TestCreateContainer() {
