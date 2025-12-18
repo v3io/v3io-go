@@ -59,6 +59,144 @@ func (suite *helperTestSuite) TestEngineErrorIsNonFatalNestedErrorFromLog() {
 	suite.Require().True(result, "Expected EngineErrorIsNonFatal to return true (503 is in nonFatalStatusCodes)")
 }
 
+func (suite *helperTestSuite) TestMatchErrorString() {
+	for _, testCase := range []struct {
+		name     string
+		errMsg   string
+		expected bool
+	}{
+		{
+			name:     "timeout error",
+			errMsg:   "connection timeout occurred",
+			expected: true,
+		},
+		{
+			name:     "dial timeout error",
+			errMsg:   "dialing to the given TCP address timed out",
+			expected: true,
+		},
+		{
+			name:     "connection refused",
+			errMsg:   "connection refused",
+			expected: true,
+		},
+		{
+			name:     "generic error",
+			errMsg:   "something went wrong",
+			expected: false,
+		},
+		{
+			name:     "empty error",
+			errMsg:   "",
+			expected: false,
+		},
+	} {
+		suite.Run(testCase.name, func() {
+			err := fmt.Errorf(testCase.errMsg)
+			result := matchErrorString(err)
+			suite.Require().Equal(testCase.expected, result)
+		})
+	}
+}
+
+func (suite *helperTestSuite) TestMatchErrorStatusCode() {
+	baseErr := fmt.Errorf("test error")
+	for _, testCase := range []struct {
+		name       string
+		statusCode int
+		expected   bool
+	}{
+		{
+			name:       "non-fatal status code 503",
+			statusCode: 503,
+			expected:   true,
+		},
+		{
+			name:       "fatal status code 500",
+			statusCode: 500,
+			expected:   false,
+		},
+		{
+			name:       "fatal status code 404",
+			statusCode: 404,
+			expected:   false,
+		},
+		{
+			name:       "fatal status code 200",
+			statusCode: 200,
+			expected:   false,
+		},
+	} {
+		suite.Run(testCase.name, func() {
+			err := v3ioerrors.NewErrorWithStatusCode(baseErr, testCase.statusCode)
+			result := matchErrorStatusCode(err)
+			suite.Require().Equal(testCase.expected, result)
+		})
+	}
+}
+
+func (suite *helperTestSuite) TestMatchErrorStatusCodeNonV3ioError() {
+	err := fmt.Errorf("regular error")
+	result := matchErrorStatusCode(err)
+	suite.Require().False(result)
+}
+
+func (suite *helperTestSuite) TestEngineErrorIsNonFatalStringMatch() {
+	for _, testCase := range []struct {
+		name     string
+		errMsg   string
+		expected bool
+	}{
+		{
+			name:     "timeout error",
+			errMsg:   "operation timeout",
+			expected: true,
+		},
+		{
+			name:     "connection refused",
+			errMsg:   "connection refused by server",
+			expected: true,
+		},
+		{
+			name:     "generic error",
+			errMsg:   "something went wrong",
+			expected: false,
+		},
+	} {
+		suite.Run(testCase.name, func() {
+			err := fmt.Errorf(testCase.errMsg)
+			result := EngineErrorIsNonFatal(err)
+			suite.Require().Equal(testCase.expected, result)
+		})
+	}
+}
+
+func (suite *helperTestSuite) TestEngineErrorIsNonFatalStatusCodeMatch() {
+	baseErr := fmt.Errorf("test error")
+	for _, testCase := range []struct {
+		name       string
+		statusCode int
+		expected   bool
+	}{
+		{
+			name:       "Service Temporarily Unavailable error",
+			statusCode: 503,
+			expected:   true,
+		}, {
+			name:       "no error",
+			statusCode: 200,
+			expected:   false,
+		},
+	} {
+		suite.Run(testCase.name, func() {
+			err := v3ioerrors.NewErrorWithStatusCode(baseErr, testCase.statusCode)
+			result := EngineErrorIsNonFatal(err)
+			suite.Require().Equal(testCase.expected, result)
+		})
+	}
+
+}
+
 func TestHelperTestSuite(t *testing.T) {
 	suite.Run(t, new(helperTestSuite))
 }
