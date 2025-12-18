@@ -43,7 +43,7 @@ type ItemsCursor struct {
 	scattered       bool
 
 	logger        logger.Logger //nolint:unused
-	retryAttempts int //nolint:unused
+	retryAttempts int           //nolint:unused
 	retryInterval time.Duration //nolint:unused
 }
 

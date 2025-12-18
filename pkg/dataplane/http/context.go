@@ -360,7 +360,7 @@ func (c *context) GetItemsSync(getItemsInput *v3io.GetItemsInput) (*v3io.Respons
 	}
 
 	if len(getItemsInput.DataPlaneInput.MtimeSec) > 0 { //nolint:staticcheck // QF1008
-		headers["conditional-mtime-sec"] = getItemsInput.DataPlaneInput.MtimeSec //nolint:staticcheck // QF1008
+		headers["conditional-mtime-sec"] = getItemsInput.DataPlaneInput.MtimeSec   //nolint:staticcheck // QF1008
 		headers["conditional-mtime-nsec"] = getItemsInput.DataPlaneInput.MtimeNsec //nolint:staticcheck // QF1008
 	}
 
