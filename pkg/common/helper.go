@@ -23,6 +23,7 @@ package common
 import (
 	"context"
 	"errors"
+	"net/http"
 	"reflect"
 	"runtime"
 	"strings"
@@ -30,6 +31,7 @@ import (
 
 	nuclioerrors "github.com/nuclio/errors"
 	"github.com/nuclio/logger"
+	v3ioerrors "github.com/v3io/v3io-go/pkg/errors"
 )
 
 func getFunctionName(fn interface{}) string {
@@ -185,23 +187,49 @@ func StringSlicesEqual(slice1 []string, slice2 []string) bool {
 }
 
 func EngineErrorIsNonFatal(err error) bool {
-	var nonFatalEngineErrorsPartialMatch = []string{
-		"dialing to the given TCP address timed out",
-		"timeout",
-		"refused",
+	checkFunctions := []func(error) bool{
+		matchErrorString,
+		matchErrorStatusCode,
 	}
-	return errorMatches(err, nonFatalEngineErrorsPartialMatch)
+	return errorMatches(err, checkFunctions)
 }
 
-func errorMatches(err error, substrings []string) bool {
+func errorMatches(err error, checkFunctions []func(error) bool) bool {
 	// Unwraps the entire error chain
 	for e := err; e != nil; e = errors.Unwrap(e) {
-		errMsg := e.Error()
-		for _, substring := range substrings {
-			if strings.Contains(errMsg, substring) {
+		// Execute each check function on the current error
+		for _, checkFunc := range checkFunctions {
+			if checkFunc(e) {
 				return true
 			}
 		}
 	}
 	return false
+}
+
+func matchErrorString(e error) bool {
+	var nonFatalEngineErrorsPartialMatch = []string{
+		"dialing to the given TCP address timed out",
+		"timeout",
+		"refused",
+	}
+	errMsg := e.Error()
+	for _, substring := range nonFatalEngineErrorsPartialMatch {
+		if strings.Contains(errMsg, substring) {
+			return true
+		}
+	}
+	return false
+}
+
+func matchErrorStatusCode(e error) bool {
+	var nonFatalStatusCodes = []int{
+		http.StatusServiceUnavailable,
+	}
+	errWithStatusCode, ok := e.(v3ioerrors.ErrorWithStatusCode)
+	if !ok {
+		return false
+	}
+	statusCode := errWithStatusCode.StatusCode()
+	return IntSliceContainsInt(nonFatalStatusCodes, statusCode)
 }
