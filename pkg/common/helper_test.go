@@ -93,7 +93,7 @@ func (suite *helperTestSuite) TestMatchErrorString() {
 	} {
 		suite.Run(testCase.name, func() {
 			err := fmt.Errorf(testCase.errMsg)
-			result := matchErrorString(err)
+			result := isNonFatalErrorString(err)
 			suite.Require().Equal(testCase.expected, result)
 		})
 	}
@@ -129,7 +129,7 @@ func (suite *helperTestSuite) TestMatchErrorStatusCode() {
 	} {
 		suite.Run(testCase.name, func() {
 			err := v3ioerrors.NewErrorWithStatusCode(baseErr, testCase.statusCode)
-			result := matchErrorStatusCode(err)
+			result := isNonFatalStatusCode(err)
 			suite.Require().Equal(testCase.expected, result)
 		})
 	}
@@ -137,7 +137,7 @@ func (suite *helperTestSuite) TestMatchErrorStatusCode() {
 
 func (suite *helperTestSuite) TestMatchErrorStatusCodeNonV3ioError() {
 	err := fmt.Errorf("regular error")
-	result := matchErrorStatusCode(err)
+	result := isNonFatalStatusCode(err)
 	suite.Require().False(result)
 }
 
