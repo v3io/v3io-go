@@ -189,11 +189,11 @@ func StringSlicesEqual(slice1 []string, slice2 []string) bool {
 // EngineErrorIsNonFatal checks whether the error should be considered non-fatal
 // It unwraps the error chain and checks each error against predefined non-fatal patterns
 func EngineErrorIsNonFatal(err error) bool {
-	nonFatalErrorChecks := []func(error) bool{
+	nonFatalErrorCheckFunctions := []func(error) bool{
 		isNonFatalErrorString,
 		isNonFatalStatusCode,
 	}
-	return errorMatches(err, nonFatalErrorChecks)
+	return errorMatches(err, nonFatalErrorCheckFunctions)
 }
 
 // errorMatches unwraps the error chain and applies each check function to every error in the chain
@@ -212,13 +212,13 @@ func errorMatches(err error, checkFunctions []func(error) bool) bool {
 }
 
 // isNonFatalErrorString checks whether the error message contains any of the predefined non-fatal substrings
-func isNonFatalErrorString(e error) bool {
+func isNonFatalErrorString(err error) bool {
 	var nonFatalEngineErrorsPartialMatch = []string{
 		"dialing to the given TCP address timed out",
 		"timeout",
 		"refused",
 	}
-	errMsg := e.Error()
+	errMsg := err.Error()
 	for _, substring := range nonFatalEngineErrorsPartialMatch {
 		if strings.Contains(errMsg, substring) {
 			return true
@@ -228,11 +228,11 @@ func isNonFatalErrorString(e error) bool {
 }
 
 // isNonFatalStatusCode checks whether the error contains any of the predefined non-fatal HTTP status codes
-func isNonFatalStatusCode(e error) bool {
+func isNonFatalStatusCode(err error) bool {
 	var nonFatalStatusCodes = []int{
 		http.StatusServiceUnavailable,
 	}
-	errWithStatusCode, ok := e.(v3ioerrors.ErrorWithStatusCode)
+	errWithStatusCode, ok := err.(v3ioerrors.ErrorWithStatusCode)
 	if !ok {
 		return false
 	}
