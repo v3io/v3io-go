@@ -23,6 +23,7 @@ package common
 import (
 	"context"
 	"errors"
+	"net/http"
 	"reflect"
 	"runtime"
 	"strings"
@@ -30,6 +31,7 @@ import (
 
 	nuclioerrors "github.com/nuclio/errors"
 	"github.com/nuclio/logger"
+	v3ioerrors "github.com/v3io/v3io-go/pkg/errors"
 )
 
 func getFunctionName(fn interface{}) string {
@@ -184,24 +186,56 @@ func StringSlicesEqual(slice1 []string, slice2 []string) bool {
 	return true
 }
 
+// EngineErrorIsNonFatal checks whether the error should be considered non-fatal
+// It unwraps the error chain and checks each error against predefined non-fatal patterns
 func EngineErrorIsNonFatal(err error) bool {
-	var nonFatalEngineErrorsPartialMatch = []string{
-		"dialing to the given TCP address timed out",
-		"timeout",
-		"refused",
+	nonFatalErrorCheckFunctions := []func(error) bool{
+		isNonFatalErrorString,
+		isNonFatalStatusCode,
 	}
-	return errorMatches(err, nonFatalEngineErrorsPartialMatch)
+	return errorMatches(err, nonFatalErrorCheckFunctions)
 }
 
-func errorMatches(err error, substrings []string) bool {
+// errorMatches unwraps the error chain and applies each check function to every error in the chain
+// Returns true if any check function returns true for any error in the chain
+func errorMatches(err error, checkFunctions []func(error) bool) bool {
 	// Unwraps the entire error chain
 	for e := err; e != nil; e = errors.Unwrap(e) {
-		errMsg := e.Error()
-		for _, substring := range substrings {
-			if strings.Contains(errMsg, substring) {
+		// Execute each check function on the current error
+		for _, checkFunc := range checkFunctions {
+			if checkFunc(e) {
 				return true
 			}
 		}
 	}
 	return false
+}
+
+// isNonFatalErrorString checks whether the error message contains any of the predefined non-fatal substrings
+func isNonFatalErrorString(err error) bool {
+	var nonFatalEngineErrorsPartialMatch = []string{
+		"dialing to the given TCP address timed out",
+		"timeout",
+		"refused",
+	}
+	errMsg := err.Error()
+	for _, substring := range nonFatalEngineErrorsPartialMatch {
+		if strings.Contains(errMsg, substring) {
+			return true
+		}
+	}
+	return false
+}
+
+// isNonFatalStatusCode checks whether the error contains any of the predefined non-fatal HTTP status codes
+func isNonFatalStatusCode(err error) bool {
+	var nonFatalStatusCodes = []int{
+		http.StatusServiceUnavailable,
+	}
+	errWithStatusCode, ok := err.(v3ioerrors.ErrorWithStatusCode)
+	if !ok {
+		return false
+	}
+	statusCode := errWithStatusCode.StatusCode()
+	return IntSliceContainsInt(nonFatalStatusCodes, statusCode)
 }
